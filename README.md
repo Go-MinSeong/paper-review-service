@@ -23,9 +23,10 @@ arXiv/PDF ──► ingest ──► review (with Claude) ──► publish ─�
 Requires Python ≥ 3.10 and [`uv`](https://github.com/astral-sh/uv). macOS for the menubar app.
 
 ```bash
-git clone https://github.com/Go-MinSeong/paper-review.git ~/.paper-reviews
+git clone https://github.com/Go-MinSeong/paper-review-service.git ~/.paper-reviews
 cd ~/.paper-reviews
 uv venv && uv pip install -e .
+bash install-skills.sh        # symlink the 3 skills into ~/.claude/skills/
 ```
 
 Also requires the [Claude Code](https://claude.com/claude-code) CLI on your PATH (used for analysis and chat).
@@ -75,5 +76,14 @@ See [`DESIGN.md`](./DESIGN.md) for the full design rationale and locked decision
 
 ## Skills
 
-Three Claude Code skills live separately in `~/.claude/skills/`
-(`paper-ingest`, `paper-review`, `paper-publish`) and are not part of this repo.
+Three Claude Code skills live in [`skills/`](./skills/):
+
+| Skill | Role |
+|---|---|
+| `paper-ingest` | arXiv/PDF → workbench skeleton + figures + viewer |
+| `paper-review` | section-by-section interactive review (`/next-section`, `/explain`, `/finalize`) |
+| `paper-publish` | workbench → Velog draft (kimjy99 structure + your voice) |
+
+`bash install-skills.sh` symlinks them into `~/.claude/skills/` so the repo stays
+the source of truth (edits are live). Pass `--copy` to copy instead of symlink.
+Restart your Claude Code session after installing.
