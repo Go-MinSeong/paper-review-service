@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Reader</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-elev: #161b22;
+  --bg-card: #1c2128;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --fg-strong: #f0f6fc;
+  --accent: #58a6ff;
+  --accent-soft: rgba(88, 166, 255, 0.12);
+  --border: #30363d;
+  --border-soft: #21262d;
+  --notes-bg: rgba(56, 139, 253, 0.07);
+  --notes-border: #388bfd;
+  --notes-title: #79c0ff;
+  --keyword-bg: rgba(187, 128, 9, 0.18);
+  --keyword-border: #d29922;
+  --keyword-text: #f2cc60;
+  --code-bg: #161b22;
+  --shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-elev: #f6f8fa;
+  --bg-card: #ffffff;
+  --fg: #1f2328;
+  --fg-muted: #656d76;
+  --fg-strong: #1f2328;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.08);
+  --border: #d0d7de;
+  --border-soft: #eaeef2;
+  --notes-bg: rgba(9, 105, 218, 0.04);
+  --notes-border: #0969da;
+  --notes-title: #0969da;
+  --keyword-bg: rgba(154, 103, 0, 0.10);
+  --keyword-border: #9a6700;
+  --keyword-text: #7d4e00;
+  --code-bg: #f6f8fa;
+  --shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard",
+               "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--code-bg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.92em;
+  border: 1px solid var(--border-soft);
+}
+pre {
+  background: var(--code-bg);
+  padding: 1rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  font-size: 0.88em;
+  line-height: 1.6;
+}
+pre code { background: transparent; padding: 0; border: 0; }
+
+/* === Layout === */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+@media (max-width: 960px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: static !important;
+    height: auto !important;
+    max-height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* === Sidebar === */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 1.5rem 1.1rem;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 0.92rem;
+}
+.sidebar h3 {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  margin: 1.4rem 0 0.5rem;
+  font-weight: 600;
+}
+.sidebar h3:first-child { margin-top: 0; }
+.sidebar nav ul { list-style: none; padding: 0; margin: 0; }
+.sidebar nav li { margin: 0.15rem 0; }
+.sidebar nav a {
+  display: block;
+  color: var(--fg-muted);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  transition: all 0.12s;
+  line-height: 1.45;
+}
+.sidebar nav a:hover {
+  color: var(--fg);
+  background: var(--accent-soft);
+  text-decoration: none;
+}
+.sidebar nav a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.sidebar nav .sub { padding-left: 1rem; font-size: 0.9em; }
+
+/* === Main === */
+.main {
+  padding: 2.5rem 3.5rem 6rem;
+  max-width: 880px;
+  width: 100%;
+}
+@media (max-width: 960px) {
+  .main { padding: 1.5rem 1.2rem 4rem; }
+}
+
+/* === Header === */
+.paper-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.paper-header h1 {
+  font-size: 1.75rem;
+  line-height: 1.35;
+  margin: 0 0 0.4rem;
+  color: var(--fg-strong);
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.paper-header .title-en {
+  display: block;
+  font-size: 1rem;
+  color: var(--fg-muted);
+  font-weight: 400;
+  margin-top: 0.4rem;
+  font-style: italic;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.paper-meta {
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+  margin: 0.6rem 0;
+}
+.paper-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+.paper-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--fg);
+  background: var(--bg-elev);
+  transition: all 0.12s;
+}
+.paper-links a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* === Controls === */
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 1.5rem 0 2rem;
+  padding: 0.6rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: sticky;
+  top: 0.5rem;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+}
+.btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.4rem 0.95rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.12s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.controls .spacer { flex: 1; }
+.controls .label {
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  margin-right: 0.3rem;
+}
+
+/* === Sections === */
+section.paper-section {
+  margin: 3rem 0;
+  scroll-margin-top: 1rem;
+}
+.paper-section > h2 {
+  font-size: 1.45rem;
+  margin: 0 0 1.1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-strong);
+  letter-spacing: -0.01em;
+}
+.paper-section > h2 .lang-en {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  font-weight: 400;
+  margin-left: 0.6rem;
+  font-style: italic;
+}
+.paper-section > h3 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.8rem;
+  color: var(--fg-strong);
+}
+
+/* === Bilingual paragraphs === */
+.para {
+  margin: 1rem 0;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+}
+.lang { display: block; }
+
+body.view-ko .lang-en,
+body.view-en .lang-ko { display: none; }
+
+body.view-both .para {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.4rem;
+}
+body.view-both .lang-en,
+body.view-both .lang-ko {
+  display: block;
+  padding: 0.5rem 0.85rem;
+  border-left: 2px solid var(--border-soft);
+}
+body.view-both .lang-en { color: var(--fg-muted); }
+@media (max-width: 760px) {
+  body.view-both .para { grid-template-columns: 1fr; gap: 0.5rem; }
+}
+
+/* Click-to-expand: in single-language modes, clicking a paragraph reveals the
+   other language inline. Hover gives a subtle highlight only. */
+body.view-ko .para,
+body.view-en .para {
+  cursor: pointer;
+  padding: 0.15rem 0.5rem 0.15rem 0.85rem;
+  margin-left: -0.85rem;
+  border-left: 2px solid transparent;
+}
+body.view-ko .para:hover,
+body.view-en .para:hover {
+  background: var(--accent-soft);
+  border-left-color: var(--border);
+}
+body.view-ko .para.expanded .lang-en,
+body.view-en .para.expanded .lang-ko {
+  display: block;
+  margin-top: 0.55rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-elev);
+  border-left: 2px solid var(--accent);
+  color: var(--fg-muted);
+  font-size: 0.95em;
+  border-radius: 0 6px 6px 0;
+}
+body.view-ko .para.expanded,
+body.view-en .para.expanded {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+
+/* In 'both' and 'summary' modes, click-to-expand is disabled */
+body.view-both .para,
+body.view-summary .para { cursor: default; }
+body.view-both .para:hover,
+body.view-summary .para:hover { background: transparent; }
+
+/* === Summary mode === */
+/* Summary mode: hide raw paragraphs, show only summary_ko (+ Reader's Notes,
+   figures, code clarifications stay visible). */
+body.view-summary .para { display: none; }
+/* Abstract is the paper's own summary — keep it visible in 요약 mode, KO only */
+body.view-summary #abstract-body .para { display: block; }
+body.view-summary #abstract-body .lang-en { display: none; }
+body.view-summary #abstract-body .lang-ko { display: block; }
+body.view-summary .section-summary {
+  display: block;
+}
+.section-summary { display: none; }
+.section-summary {
+  margin: 1rem 0 1.2rem;
+  padding: 1rem 1.2rem;
+  background: var(--bg-elev);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.96rem;
+  line-height: 1.7;
+}
+/* Empty-summary fallback: only show in summary mode, and keep it small/quiet */
+.section-summary-empty { display: none; }
+body.view-summary .section-summary-empty {
+  display: block;
+  color: var(--fg-muted);
+  font-style: italic;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.8rem;
+  background: transparent;
+  border-left: 2px dashed var(--border-soft);
+  opacity: 0.7;
+}
+.section-summary-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+/* === Reader's Notes === */
+.readers-notes {
+  margin: 1.8rem 0 1rem;
+  padding: 1rem 1.3rem;
+  background: var(--notes-bg);
+  border-left: 3px solid var(--notes-border);
+  border-radius: 0 8px 8px 0;
+}
+.readers-notes-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--notes-title);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.readers-notes p { margin: 0.55rem 0; line-height: 1.7; }
+.readers-notes p:first-child { margin-top: 0; }
+.readers-notes p:last-child { margin-bottom: 0; }
+.readers-notes ul, .readers-notes ol {
+  margin: 0.5rem 0;
+  padding-left: 1.4rem;
+}
+.readers-notes li { margin: 0.25rem 0; }
+.readers-notes h4, .readers-notes h5 {
+  margin: 0.7rem 0 0.3rem;
+  font-size: 0.98rem;
+  color: var(--fg-strong);
+}
+
+/* === Code clarifications (paper vs code findings) === */
+.code-clars {
+  margin: 1.3rem 0 1rem;
+  padding: 1rem 1.3rem;
+  background: rgba(63, 185, 80, 0.07);
+  border-left: 3px solid #3fb950;
+  border-radius: 0 8px 8px 0;
+}
+:root[data-theme="light"] .code-clars {
+  background: rgba(31, 136, 61, 0.06);
+  border-left-color: #1f883d;
+}
+.code-clars-title {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #3fb950;
+  font-weight: 700;
+  margin-bottom: 0.6rem;
+}
+:root[data-theme="light"] .code-clars-title { color: #1f883d; }
+.clar-item {
+  margin: 0.7rem 0;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px dashed var(--border-soft);
+}
+.clar-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.clar-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--fg-strong);
+  margin-bottom: 0.25rem;
+}
+.clar-finding {
+  font-size: 0.93rem;
+  line-height: 1.65;
+  margin-bottom: 0.45rem;
+}
+.clar-file {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.82rem;
+  color: var(--fg-muted);
+  margin-bottom: 0.35rem;
+}
+.clar-snippet {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0.3rem 0 0;
+  padding: 0.6rem 0.8rem;
+}
+
+/* === Figures === */
+.figure-block {
+  margin: 1.6rem 0 1.2rem;
+  padding: 0.9rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.figure-block img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 0.7rem;
+  border-radius: 4px;
+}
+
+/* Tables embedded inside a figure-block (kind="table") */
+.figure-block .figure-table {
+  overflow-x: auto;
+  margin: 0 auto 0.7rem;
+  background: #fff;          /* enforce white bg so ar5iv styling is consistent */
+  color: #111;
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+:root[data-theme="dark"] .figure-block .figure-table {
+  /* In dark mode, give a slight tint border so it doesn't feel like a bright pop-out */
+  background: #f4f4f4;
+}
+.figure-block .figure-table table {
+  border-collapse: collapse;
+  margin: 0 auto;
+  min-width: 100%;
+}
+.figure-block .figure-table th,
+.figure-block .figure-table td {
+  border: 1px solid #d0d7de;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+.figure-block .figure-table th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
+/* ar5iv-specific class hints */
+.figure-block .figure-table .ltx_th { font-weight: 600; background: #f6f8fa; }
+.figure-block .figure-table .ltx_align_right { text-align: right; }
+.figure-block .figure-table .ltx_align_center { text-align: center; }
+.figure-block .figure-table .ltx_border_t { border-top: 2px solid #57606a; }
+.figure-block .figure-table .ltx_border_b { border-bottom: 2px solid #57606a; }
+.figure-block .figure-table .ltx_border_tt { border-top: 2px solid #24292f; }
+.figure-block .figure-table .ltx_border_bb { border-bottom: 2px solid #24292f; }
+
+/* === Notices === */
+#notices-box {
+  margin: 0 0 1.5rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #f7d774;
+  background: #fff8d8;
+  color: #5e4500;
+  border-radius: 6px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+:root[data-theme="dark"] #notices-box {
+  background: rgba(255, 200, 0, 0.07);
+  border-color: rgba(255, 200, 0, 0.3);
+  color: #e0c97a;
+}
+#notices-box ul { margin: 0.3rem 0 0 1rem; padding: 0; }
+#notices-box li { margin: 0.15rem 0; }
+.notices-title {
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.figure-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.figure-caption {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--fg);
+}
+.figure-caption .caption-en { color: var(--fg-muted); font-style: italic; margin-top: 0.4rem; }
+.figure-caption-collapse {
+  font-size: 0.85rem;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 0.4rem;
+  user-select: none;
+}
+.figure-caption-truncated {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Figure gallery (unmatched figures rendered together at end) */
+.figures-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+.figures-gallery .figure-block {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .figures-gallery { grid-template-columns: 1fr; }
+}
+
+/* === Cards (keywords + further reading) === */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+.card {
+  padding: 0.95rem 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.12s;
+}
+.card:hover { border-color: var(--accent); }
+.card, .card-term, .card-body, .card-meta {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.card-term {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+  color: var(--accent);
+}
+.card-body {
+  font-size: 0.93rem;
+  color: var(--fg);
+  line-height: 1.65;
+}
+.card-meta {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* === Inline keyword highlight + tooltip === */
+.kw {
+  background: var(--keyword-bg);
+  border-bottom: 1px dashed var(--keyword-border);
+  padding: 0 0.18em;
+  border-radius: 2px;
+  cursor: help;
+  position: relative;
+  color: var(--keyword-text);
+}
+.kw:hover {
+  background: var(--keyword-border);
+  color: var(--bg);
+}
+.kw:hover::after {
+  content: attr(data-def);
+  position: absolute;
+  bottom: calc(100% + 0.55rem);
+  left: 0;
+  background: var(--bg-card);
+  color: var(--fg);
+  padding: 0.95rem 1.15rem;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  font-size: 0.86rem;
+  font-weight: normal;
+  white-space: pre-wrap;
+  width: max-content;
+  max-width: 420px;
+  z-index: 1000;
+  box-shadow: 0 16px 44px rgba(0,0,0,0.6), 0 0 0 6px var(--bg);
+  pointer-events: none;
+  line-height: 1.7;
+  font-style: normal;
+  user-select: none;
+  -webkit-user-select: none;
+}
+:root[data-theme="light"] .kw:hover::after {
+  box-shadow: 0 16px 44px rgba(0,0,0,0.18), 0 0 0 6px var(--bg);
+}
+
+/* === GitHub === */
+.github-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem 1.3rem;
+}
+.github-card .repo-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+.github-card .repo-meta {
+  color: var(--fg-muted);
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+.tree-block {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.55;
+  margin: 0;
+}
+.gh-highlights { margin-top: 0.9rem; font-size: 0.94rem; }
+.gh-highlights p:first-child { margin-top: 0; }
+.gh-highlights p:last-child { margin-bottom: 0; }
+
+/* === Further reading === */
+.fr-group { margin: 1.2rem 0 1.8rem; }
+.fr-group h3 {
+  font-size: 1rem;
+  color: var(--fg-strong);
+  margin: 0 0 0.7rem;
+  font-weight: 600;
+}
+.fr-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.fr-item {
+  padding: 0.85rem 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.12s;
+}
+.fr-item:hover { border-color: var(--accent); }
+.fr-item-title { font-weight: 600; margin-bottom: 0.25rem; line-height: 1.4; }
+.fr-item-meta { font-size: 0.85rem; color: var(--fg-muted); margin-bottom: 0.45rem; }
+.fr-item-why { font-size: 0.93rem; line-height: 1.6; }
+
+/* === Misc === */
+.hidden { display: none !important; }
+.empty {
+  color: var(--fg-muted);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--fg-muted); }
+
+/* KaTeX dark mode tweak */
+:root[data-theme="light"] .katex { color: var(--fg); }
+.katex { font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.3rem 0; }
+</style>
+</head>
+<body class="view-ko">
+
+<div class="app">
+  <aside class="sidebar">
+    <nav id="nav"></nav>
+  </aside>
+
+  <main class="main">
+    <div class="paper-header">
+      <h1 id="title-ko"></h1>
+      <span class="title-en" id="title-en"></span>
+      <div class="paper-meta" id="meta"></div>
+      <div class="paper-links" id="links"></div>
+    </div>
+
+    <div class="controls">
+      <span class="label">언어</span>
+      <button class="btn" data-view="ko">한국어</button>
+      <button class="btn" data-view="en">English</button>
+      <button class="btn" data-view="both">한·영</button>
+      <button class="btn" data-view="summary">요약</button>
+      <span class="spacer"></span>
+      <button class="btn" id="theme-toggle" title="테마 전환">🌓</button>
+    </div>
+
+    <div id="notices-box" style="display:none"></div>
+
+    <section class="paper-section" id="abstract">
+      <h2>초록 <span class="lang-en">Abstract</span></h2>
+      <div id="abstract-body"></div>
+    </section>
+
+    <section class="paper-section" id="prerequisites">
+      <h2>읽기 전 알아두면 좋은 것</h2>
+      <p style="color: var(--fg-muted); margin-top: 0; font-size: 0.93rem;">
+        본문이 사용하지만 별도로 정의하지 않는 외부 개념들. 이걸 모르면 어디선가 막힌다.
+      </p>
+      <div class="cards-grid" id="prerequisites-grid"></div>
+    </section>
+
+    <section class="paper-section" id="key-terms">
+      <h2>이 논문의 핵심 용어</h2>
+      <p style="color: var(--fg-muted); margin-top: 0; font-size: 0.93rem;">
+        본문에 나오면 노란색으로 표시되고, 마우스를 올리면 정의가 뜬다.
+      </p>
+      <div class="cards-grid" id="key-terms-grid"></div>
+    </section>
+
+    <div id="paper-body"></div>
+
+    <section class="paper-section" id="figures" style="display:none">
+      <h2>그림 모음 <span class="lang-en">Figures</span></h2>
+      <p style="color: var(--fg-muted); margin-top: 0; font-size: 0.93rem;">
+        본문 흐름에 인라인으로 표시되지 않은 figure들을 모아둔다.
+      </p>
+      <div class="figures-gallery" id="figures-gallery"></div>
+    </section>
+
+    <section class="paper-section" id="github" style="display:none">
+      <h2>GitHub Repository</h2>
+      <div class="github-card" id="github-card"></div>
+    </section>
+
+    <section class="paper-section" id="further-reading">
+      <h2>이어서 읽으면 좋은 논문</h2>
+      <div id="further-reading-body"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* PAPER_DATA_BEGIN */
+const PAPER_DATA = "__PAPER_DATA__";
+/* PAPER_DATA_END */
+
+(function() {
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ----- Keyword highlighting ----- */
+  const keywords = [];
+  function collectKeywords() {
+    (PAPER_DATA.prerequisites || []).forEach(k => {
+      if (!k.term) return;
+      keywords.push({ term: k.term, def: k.explanation_ko || '' });
+    });
+    (PAPER_DATA.key_terms || []).forEach(k => {
+      if (!k.term) return;
+      const def = (k.definition_ko || '') +
+        (k.context_ko ? '\n\n' + k.context_ko : '');
+      keywords.push({ term: k.term, def });
+    });
+    // longer terms first to avoid matching prefixes
+    keywords.sort((a, b) => b.term.length - a.term.length);
+  }
+
+  function stripMarkdownInline(text) {
+    if (!text) return '';
+    return text
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '$1')
+      .replace(/(?<!_)_([^_\n]+)_(?!_)/g, '$1')
+      .replace(/`([^`]+)`/g, '$1');
+  }
+
+  function highlightKeywords(escapedHtml) {
+    if (!keywords.length) return escapedHtml;
+    // Single-pass replacement: build one regex that matches any keyword.
+    // Doing this in one .replace() (instead of looping) is critical — otherwise
+    // a later keyword can match text inside an earlier keyword's data-def attribute,
+    // which destroys the HTML.
+    const defLookup = {};
+    const parts = [];
+    keywords.forEach(k => {
+      if (!k.term) return;
+      // tooltip is plain-text via CSS attr(), so strip markdown syntax
+      defLookup[k.term] = stripMarkdownInline(k.def);
+      parts.push(k.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    });
+    if (!parts.length) return escapedHtml;
+    // keywords are pre-sorted longer-first so the alternation prefers longer matches
+    const re = new RegExp(`(^|[^A-Za-z0-9_])(${parts.join('|')})(?![A-Za-z0-9_])`, 'g');
+    return escapedHtml.replace(re, (m, pre, t) => {
+      const def = defLookup[t] || '';
+      return `${pre}<span class="kw" data-def="${escapeHtml(def)}">${t}</span>`;
+    });
+  }
+
+  /* ----- Paragraph rendering: preserve LaTeX, highlight keywords ----- */
+  function renderPara(text) {
+    if (!text) return '';
+    // Split by math regions ($$...$$ and $...$), keep them as-is for KaTeX
+    const segments = [];
+    let i = 0, n = text.length;
+    while (i < n) {
+      if (text.startsWith('$$', i)) {
+        const end = text.indexOf('$$', i + 2);
+        if (end !== -1) {
+          segments.push({ math: true, text: text.slice(i, end + 2) });
+          i = end + 2;
+          continue;
+        }
+      }
+      if (text[i] === '$') {
+        const end = text.indexOf('$', i + 1);
+        if (end !== -1 && end - i < 250) {
+          segments.push({ math: true, text: text.slice(i, end + 1) });
+          i = end + 1;
+          continue;
+        }
+      }
+      let j = i;
+      while (j < n && text[j] !== '$') j++;
+      if (j === i) j = i + 1;
+      segments.push({ math: false, text: text.slice(i, j) });
+      i = j;
+    }
+    // For non-math segments: parse inline markdown (**bold**, *italic*, `code`),
+    // then highlight keywords inside the resulting text nodes only.
+    return segments.map(s => {
+      if (s.math) return s.text;  // KaTeX renders later
+      if (typeof marked === 'undefined') {
+        return highlightKeywords(escapeHtml(s.text));
+      }
+      const inlineHtml = marked.parseInline(s.text);
+      const tmp = document.createElement('span');
+      tmp.innerHTML = inlineHtml;
+      walkAndHighlight(tmp);
+      return tmp.innerHTML;
+    }).join('');
+  }
+
+  /* ----- Markdown rendering with keyword highlighting on text nodes ----- */
+  function renderMarkdownWithKeywords(md) {
+    if (!md) return '';
+    if (typeof marked === 'undefined') return escapeHtml(md);
+    const html = marked.parse(md);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    walkAndHighlight(tmp);
+    return tmp.innerHTML;
+  }
+
+  /* Inline-only markdown (no <p>/<h>/<ul>) — for card bodies, captions, why_ko */
+  function renderInline(text) {
+    if (!text) return '';
+    if (typeof marked === 'undefined') return escapeHtml(text);
+    const html = marked.parseInline(text);
+    const tmp = document.createElement('span');
+    tmp.innerHTML = html;
+    walkAndHighlight(tmp);
+    return tmp.innerHTML;
+  }
+
+  function walkAndHighlight(node) {
+    if (node.nodeType === 3) { // TEXT_NODE
+      const t = node.textContent;
+      const replaced = highlightKeywords(escapeHtml(t));
+      if (replaced !== escapeHtml(t)) {
+        const span = document.createElement('span');
+        span.innerHTML = replaced;
+        node.replaceWith(...span.childNodes);
+      }
+      return;
+    }
+    if (node.nodeType !== 1) return; // ELEMENT_NODE
+    if (['CODE', 'PRE', 'SCRIPT', 'STYLE', 'A', 'SPAN'].includes(node.tagName)) {
+      // skip <span> in case we already wrapped some
+      if (node.tagName === 'SPAN' && node.classList.contains('kw')) return;
+      if (node.tagName !== 'SPAN') return;
+    }
+    Array.from(node.childNodes).forEach(walkAndHighlight);
+  }
+
+  /* ----- Theme persistence (safe) ----- */
+  function getTheme() {
+    try { return localStorage.getItem('paper-reader-theme'); } catch(e) { return null; }
+  }
+  function setTheme(v) {
+    try {
+      if (v) localStorage.setItem('paper-reader-theme', v);
+      else localStorage.removeItem('paper-reader-theme');
+    } catch(e) {}
+  }
+
+  /* ----- Build everything ----- */
+  function build() {
+    const m = PAPER_DATA.metadata || {};
+    document.title = m.title_ko || m.title || 'Paper Reader';
+    $('#title-ko').textContent = m.title_ko || m.title || '';
+    $('#title-en').textContent = (m.title_ko && m.title) ? m.title : '';
+
+    const metaParts = [];
+    if (m.authors && m.authors.length) {
+      const authStr = m.authors.length > 6
+        ? m.authors.slice(0, 5).join(', ') + ` et al. (${m.authors.length}명)`
+        : m.authors.join(', ');
+      metaParts.push(authStr);
+    }
+    if (m.venue) metaParts.push(m.venue);
+    else if (m.year) metaParts.push(String(m.year));
+    $('#meta').textContent = metaParts.join(' · ');
+
+    const links = $('#links');
+    if (m.url) links.insertAdjacentHTML('beforeend',
+      `<a href="${escapeHtml(m.url)}" target="_blank" rel="noopener">📄 Paper</a>`);
+    if (m.arxiv_id) links.insertAdjacentHTML('beforeend',
+      `<a href="https://arxiv.org/pdf/${escapeHtml(m.arxiv_id)}.pdf" target="_blank" rel="noopener">📥 PDF</a>`);
+    if (m.github_url) links.insertAdjacentHTML('beforeend',
+      `<a href="${escapeHtml(m.github_url)}" target="_blank" rel="noopener">🐙 GitHub</a>`);
+
+    collectKeywords();
+
+    // Notices (warnings shown at the top)
+    const notices = (m.notices || []).filter(n => (n || '').trim());
+    if (notices.length) {
+      const box = $('#notices-box');
+      box.style.display = '';
+      box.innerHTML = `
+        <div class="notices-title">⚠️ 주의</div>
+        <ul>${notices.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>
+      `;
+    }
+
+    // Abstract
+    const ab = $('#abstract-body');
+    if (m.abstract_en || m.abstract_ko) {
+      ab.innerHTML = `
+        <div class="para">
+          <span class="lang lang-en">${renderPara(m.abstract_en || '')}</span>
+          <span class="lang lang-ko">${renderPara(m.abstract_ko || '')}</span>
+        </div>
+      `;
+    } else {
+      $('#abstract').style.display = 'none';
+    }
+
+    // Prerequisites
+    const prereqs = PAPER_DATA.prerequisites || [];
+    const preGrid = $('#prerequisites-grid');
+    if (prereqs.length === 0) {
+      $('#prerequisites').style.display = 'none';
+    } else {
+      prereqs.forEach(k => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          <div class="card-term">${escapeHtml(k.term)}</div>
+          <div class="card-body">${renderInline(k.explanation_ko || '')}</div>
+        `;
+        preGrid.appendChild(el);
+      });
+    }
+
+    // Key terms
+    const kts = PAPER_DATA.key_terms || [];
+    const ktGrid = $('#key-terms-grid');
+    if (kts.length === 0) {
+      $('#key-terms').style.display = 'none';
+    } else {
+      kts.forEach(k => {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          <div class="card-term">${escapeHtml(k.term)}</div>
+          <div class="card-body">${renderInline(k.definition_ko || '')}</div>
+          ${k.context_ko ? `<div class="card-meta">${renderInline(k.context_ko)}</div>` : ''}
+        `;
+        ktGrid.appendChild(el);
+      });
+    }
+
+    // Sections
+    const body = $('#paper-body');
+    // Group code_clarifications by section_id for inline rendering
+    const clarsBySection = {};
+    const clarsUnmatched = [];
+    (PAPER_DATA.code_clarifications || []).forEach(c => {
+      const sid = (c.section_id || '').trim();
+      if (sid) {
+        (clarsBySection[sid] = clarsBySection[sid] || []).push(c);
+      } else {
+        clarsUnmatched.push(c);
+      }
+    });
+
+    // Group figures by ref_in_section
+    const figsBySection = {};
+    const figsUnmatched = [];
+    (PAPER_DATA.figures || []).forEach(f => {
+      const sid = (f.ref_in_section || '').trim();
+      if (sid) {
+        (figsBySection[sid] = figsBySection[sid] || []).push(f);
+      } else {
+        figsUnmatched.push(f);
+      }
+    });
+
+    function renderFigure(f) {
+      if (!f) return '';
+      const kind = f.kind || 'image';
+      let body = '';
+      if (kind === 'table' && f.html) {
+        // ar5iv HTML preserved — render inside scrollable wrapper
+        body = `<div class="figure-table">${f.html}</div>`;
+      } else if (f.data_uri) {
+        body = `<img src="${f.data_uri}" alt="${escapeHtml(f.label || '')}" loading="lazy">`;
+      }
+      const ko = (f.caption_ko || '').trim();
+      const en = (f.caption_en || '').trim();
+      const enClean = en.replace(/^(Figure|Fig\.?|Table|Tab\.?)\s+\d+[a-z]?\s*[:.]\s*/i, '');
+      let captionHtml = '';
+      if (ko) {
+        captionHtml = `
+          <div class="figure-caption">
+            <div class="caption-ko">${renderInline(ko)}</div>
+            ${enClean ? `<div class="caption-en">${renderInline(enClean)}</div>` : ''}
+          </div>`;
+      } else if (enClean) {
+        captionHtml = `
+          <div class="figure-caption">
+            <div class="caption-en">${renderInline(enClean)}</div>
+          </div>`;
+      }
+      return `
+        <figure class="figure-block">
+          ${body}
+          ${f.label ? `<div class="figure-label">${escapeHtml(f.label)}</div>` : ''}
+          ${captionHtml}
+        </figure>`;
+    }
+
+    function renderFigureList(list) {
+      if (!list || !list.length) return '';
+      return list.map(renderFigure).join('');
+    }
+
+    function renderClarifications(items) {
+      if (!items || !items.length) return '';
+      const cards = items.map(c => {
+        const ev = c.evidence || {};
+        const fileLine = ev.file
+          ? `<div class="clar-file">${escapeHtml(ev.file)}${ev.lines ? ':' + escapeHtml(String(ev.lines)) : ''}</div>`
+          : '';
+        const snip = ev.snippet
+          ? `<pre class="clar-snippet">${escapeHtml(ev.snippet)}</pre>`
+          : '';
+        return `
+          <div class="clar-item">
+            <div class="clar-title">${escapeHtml(c.title_ko || '')}</div>
+            <div class="clar-finding">${renderInline(c.finding_ko || '')}</div>
+            ${fileLine}
+            ${snip}
+          </div>`;
+      }).join('');
+      return `
+        <aside class="code-clars">
+          <div class="code-clars-title">📐 코드에서 확인된 디테일</div>
+          ${cards}
+        </aside>`;
+    }
+
+    (PAPER_DATA.sections || []).forEach(sec => {
+      const el = document.createElement('section');
+      el.className = 'paper-section';
+      const slug = (sec.id || sec.title_en || sec.title_ko || '')
+        .toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-|-$/g, '');
+      el.id = 'sec-' + slug;
+      const headingTag = sec.level === 2 ? 'h3' : 'h2';
+      const paraHtml = (sec.paragraphs || []).map(p => `
+        <div class="para">
+          <span class="lang lang-en">${renderPara(p.en || '')}</span>
+          <span class="lang lang-ko">${renderPara(p.ko || '')}</span>
+        </div>
+      `).join('');
+      const summaryKo = (sec.summary_ko || '').trim();
+      const summaryHtml = summaryKo
+        ? `<div class="section-summary">
+             <div class="section-summary-title">📋 요약</div>
+             <div>${renderMarkdownWithKeywords(summaryKo)}</div>
+           </div>`
+        : `<div class="section-summary section-summary-empty">
+             (이 섹션의 요약은 아직 작성되지 않았다.)
+           </div>`;
+      const figsHtml = renderFigureList(figsBySection[sec.id]);
+      const notesHtml = sec.readers_notes_md ? `
+        <aside class="readers-notes">
+          <div class="readers-notes-title">📝 Reader's Notes</div>
+          <div>${renderMarkdownWithKeywords(sec.readers_notes_md)}</div>
+        </aside>
+      ` : '';
+      const clarsHtml = renderClarifications(clarsBySection[sec.id]);
+      const titleKo = sec.title_ko || sec.title_en || '';
+      const titleEn = (sec.title_ko && sec.title_en) ? sec.title_en : '';
+      el.innerHTML = `
+        <${headingTag}>
+          <span class="lang-ko">${escapeHtml(titleKo)}</span>
+          ${titleEn ? `<span class="lang-en">${escapeHtml(titleEn)}</span>` : ''}
+        </${headingTag}>
+        ${summaryHtml}
+        ${paraHtml}
+        ${figsHtml}
+        ${notesHtml}
+        ${clarsHtml}
+      `;
+      body.appendChild(el);
+    });
+
+    // Figures gallery for unmatched
+    if (figsUnmatched.length) {
+      $('#figures').style.display = '';
+      $('#figures-gallery').innerHTML = renderFigureList(figsUnmatched);
+    }
+
+    // GitHub (also show if there are unmatched code clarifications)
+    const hasGithub = PAPER_DATA.github && PAPER_DATA.github.repo;
+    const hasUnmatchedClars = clarsUnmatched.length > 0;
+    if (hasGithub || hasUnmatchedClars) {
+      const gh = PAPER_DATA.github || {};
+      $('#github').style.display = '';
+      const meta = [
+        gh.language ? escapeHtml(gh.language) : '',
+        gh.stars != null ? '★ ' + gh.stars.toLocaleString() : ''
+      ].filter(Boolean).join(' · ');
+      const repoHtml = hasGithub ? `
+        <div class="repo-line">🐙 <a href="${escapeHtml(gh.url || '#')}" target="_blank" rel="noopener">${escapeHtml(gh.repo)}</a></div>
+        <div class="repo-meta">${escapeHtml(gh.description || '')}${meta ? ' · ' + meta : ''}</div>
+        ${gh.tree_text ? `<pre class="tree-block">${escapeHtml(gh.tree_text)}</pre>` : ''}
+        ${gh.highlights_ko ? `<div class="gh-highlights">${renderMarkdownWithKeywords(gh.highlights_ko)}</div>` : ''}
+      ` : '';
+      const unmatchedHtml = hasUnmatchedClars
+        ? `<div class="gh-unmatched-clars">${renderClarifications(clarsUnmatched)}</div>`
+        : '';
+      $('#github-card').innerHTML = repoHtml + unmatchedHtml;
+    }
+
+    // Further reading
+    const fr = PAPER_DATA.further_reading || {};
+    const frBody = $('#further-reading-body');
+    function renderFRGroup(items, title) {
+      if (!items || items.length === 0) return;
+      const grp = document.createElement('div');
+      grp.className = 'fr-group';
+      grp.innerHTML = `<h3>${title}</h3><div class="fr-list"></div>`;
+      const list = grp.querySelector('.fr-list');
+      items.forEach(it => {
+        const el = document.createElement('div');
+        el.className = 'fr-item';
+        const titleHtml = it.url
+          ? `<a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>`
+          : escapeHtml(it.title);
+        const yearStr = it.year ? ` · ${it.year}` : '';
+        el.innerHTML = `
+          <div class="fr-item-title">${titleHtml}</div>
+          <div class="fr-item-meta">${escapeHtml(it.authors || '')}${yearStr}</div>
+          <div class="fr-item-why">${renderInline(it.why_ko || '')}</div>
+        `;
+        list.appendChild(el);
+      });
+      frBody.appendChild(grp);
+    }
+    renderFRGroup(fr.from_references, '📚 본 논문의 핵심 references');
+    renderFRGroup(fr.follow_up, '🚀 후속 / 관련 작업');
+    if ((!fr.from_references || fr.from_references.length === 0) &&
+        (!fr.follow_up || fr.follow_up.length === 0)) {
+      $('#further-reading').style.display = 'none';
+    }
+
+    // Sidebar nav
+    const navEl = $('#nav');
+    const navHtml = ['<h3>섹션</h3><ul>'];
+    navHtml.push('<li><a href="#abstract">초록</a></li>');
+    if (prereqs.length) navHtml.push('<li><a href="#prerequisites">사전 지식</a></li>');
+    if (kts.length) navHtml.push('<li><a href="#key-terms">핵심 용어</a></li>');
+    (PAPER_DATA.sections || []).forEach(sec => {
+      const slug = (sec.id || sec.title_en || sec.title_ko || '')
+        .toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-|-$/g, '');
+      const cls = sec.level === 2 ? 'sub' : '';
+      const t = sec.title_ko || sec.title_en || '';
+      navHtml.push(`<li class="${cls}"><a href="#sec-${slug}">${escapeHtml(t)}</a></li>`);
+    });
+    if (figsUnmatched.length) {
+      navHtml.push('<li><a href="#figures">그림 모음</a></li>');
+    }
+    if (PAPER_DATA.github && PAPER_DATA.github.repo) {
+      navHtml.push('<li><a href="#github">GitHub</a></li>');
+    }
+    if ((fr.from_references && fr.from_references.length) ||
+        (fr.follow_up && fr.follow_up.length)) {
+      navHtml.push('<li><a href="#further-reading">추천 논문</a></li>');
+    }
+    navHtml.push('</ul>');
+    navEl.innerHTML = navHtml.join('');
+
+    // Math rendering
+    function tryRenderMath() {
+      if (window.renderMathInElement) {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+          ],
+          throwOnError: false,
+          ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+        });
+        return true;
+      }
+      return false;
+    }
+    if (!tryRenderMath()) {
+      // Wait for KaTeX scripts
+      let tries = 0;
+      const iv = setInterval(() => {
+        if (tryRenderMath()) {
+          clearInterval(iv);
+        } else if (++tries > 40) {
+          clearInterval(iv);
+          // KaTeX never loaded (CDN blocked or offline). Surface a notice.
+          const box = $('#notices-box');
+          const msg = '수식 렌더러(KaTeX) 로드 실패 — 네트워크가 차단된 환경. $...$ 표기가 그대로 보일 수 있다.';
+          if (box.style.display === 'none' || !box.innerHTML) {
+            box.style.display = '';
+            box.innerHTML = `<div class="notices-title">⚠️ 주의</div><ul><li>${msg}</li></ul>`;
+          } else {
+            const ul = box.querySelector('ul');
+            if (ul) ul.innerHTML += `<li>${msg}</li>`;
+          }
+        }
+      }, 100);
+    }
+
+    // View toggles
+    $$('.btn[data-view]').forEach(b => {
+      b.addEventListener('click', () => {
+        document.body.className = 'view-' + b.dataset.view;
+        $$('.btn[data-view]').forEach(o => o.classList.toggle('active', o === b));
+        // Switching modes resets any per-paragraph expansion
+        $$('.para.expanded').forEach(p => p.classList.remove('expanded'));
+      });
+    });
+    $('.btn[data-view="ko"]').classList.add('active');
+
+    // Click-to-expand on paragraphs (single-language modes only).
+    // Multi-paragraph expansion allowed; click again to collapse.
+    document.addEventListener('click', e => {
+      const para = e.target.closest('.para');
+      if (!para) return;
+      // Don't toggle when in 'both' or 'summary' modes
+      const mode = (document.body.className.match(/view-(\w+)/) || [])[1];
+      if (mode !== 'ko' && mode !== 'en') return;
+      // Don't intercept clicks on links inside the paragraph
+      if (e.target.closest('a, .kw')) return;
+      para.classList.toggle('expanded');
+    });
+
+    // Theme
+    const saved = getTheme();
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    $('#theme-toggle').addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme');
+      if (cur === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+        setTheme(null);
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        setTheme('light');
+      }
+    });
+
+    // Active nav highlight
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          $$('.sidebar nav a').forEach(a => {
+            a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id);
+          });
+        }
+      });
+    }, { rootMargin: '-25% 0px -65% 0px' });
+    $$('.paper-section').forEach(s => observer.observe(s));
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else {
+    build();
+  }
+})();
+</script>
+
+</body>
+</html>

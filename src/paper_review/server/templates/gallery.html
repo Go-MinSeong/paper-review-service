@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>paper-review</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/gallery.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-mark">◫</span>
+        <span class="brand-text">paper-review</span>
+      </div>
+      <button class="btn-new" id="btn-new"><span class="plus">+</span> New paper</button>
+
+      <nav class="side-nav" id="side-nav">
+        <div class="nav-group">
+          <div class="nav-group-label">Library</div>
+          <button class="nav-item active" data-filter="all">
+            <span class="nav-ic">▦</span><span class="nav-name">All</span><span class="nav-n" data-count="all">0</span>
+          </button>
+          <button class="nav-item" data-filter="to_read">
+            <span class="nav-ic">◔</span><span class="nav-name">Reading list</span><span class="nav-n" data-count="to_read">0</span>
+          </button>
+          <button class="nav-item" data-filter="in_progress">
+            <span class="nav-ic">◑</span><span class="nav-name">In progress</span><span class="nav-n" data-count="in_progress">0</span>
+          </button>
+          <button class="nav-item" data-filter="review_done">
+            <span class="nav-ic">◕</span><span class="nav-name">Reviewed</span><span class="nav-n" data-count="review_done">0</span>
+          </button>
+          <button class="nav-item" data-filter="exported">
+            <span class="nav-ic">●</span><span class="nav-name">Exported</span><span class="nav-n" data-count="exported">0</span>
+          </button>
+        </div>
+        <div class="nav-group" id="nav-tags-group">
+          <div class="nav-group-label">Tags <span class="clear-tags" id="clear-tags" style="display:none">초기화</span></div>
+          <div id="nav-tags"></div>
+        </div>
+      </nav>
+
+      <div class="sidebar-foot">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme">☼</button>
+        <span class="foot-count"><span id="hero-count">__COUNT__</span> papers</span>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="content-head">
+        <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">☰</button>
+        <div class="search"><input id="search" type="text" placeholder="제목·카테고리·태그 검색…"></div>
+        <span class="result-count" id="result-count"></span>
+      </div>
+      <div id="grid" class="grid"></div>
+    </main>
+  </div>
+
+  <div class="modal" id="modal-new">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content">
+      <h2>새 paper 등록</h2>
+      <div class="modal-mode" id="modal-mode">
+        <label><input type="radio" name="mode" value="analyze" checked> 즉시 ingest (본문·figures 추출)</label>
+        <label><input type="radio" name="mode" value="save"> Reading list 저장만 (메타데이터)</label>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="arxiv">arXiv</button>
+        <button class="modal-tab" data-tab="pdf">PDF 업로드</button>
+      </div>
+      <div id="tab-arxiv">
+        <div class="field">
+          <label>arXiv URL 또는 ID</label>
+          <input type="text" id="arxiv-input" placeholder="2410.24164 or https://arxiv.org/abs/...">
+          <div class="hint">arxiv.org에서 직접 받고 본문·figures 추출</div>
+        </div>
+      </div>
+      <div id="tab-pdf" style="display:none">
+        <div class="field">
+          <label>로컬 PDF</label>
+          <div class="drop" id="drop"><span id="drop-label">PDF 파일을 끌어다 놓거나 클릭해서 선택</span></div>
+          <input type="file" id="pdf-input" accept="application/pdf" style="display:none">
+          <div class="hint">arxiv가 아닌 paper도 OK (figure 추출은 제한적). Reading list 저장은 arXiv만 지원.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>태그 (쉼표 또는 Enter로 구분)</label>
+        <input type="text" id="new-tags" placeholder="e.g. CV, diffusion, to-read">
+        <div class="hint" id="tags-hint"></div>
+      </div>
+      <div class="progress-box" id="prog-box" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" data-close>취소</button>
+        <button class="btn-primary" id="btn-submit">등록</button>
+      </div>
+    </div>
+  </div>
+
+<script id="papers-data" type="application/json">__PAPERS_JSON__</script>
+<script src="/static/gallery.js" defer></script>
+</body>
+</html>

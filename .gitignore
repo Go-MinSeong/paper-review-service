@@ -1,0 +1,28 @@
+# Per-paper runtime state — never committed
+/*/
+
+# But keep the package source
+!src/
+!src/**
+
+# Standard Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.uv/
+uv.lock
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Personal writing samples (used by paper-publish for voice matching).
+# Excluded from the public repo — drop your own samples here locally.
+src/paper_review/publish/voice_samples/*.md
+!src/paper_review/publish/voice_samples/.gitkeep

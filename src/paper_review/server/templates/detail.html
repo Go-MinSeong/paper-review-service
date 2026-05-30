@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>__TITLE__ · paper-review</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="/static/detail.css">
+</head>
+<body data-slug="__SLUG__" data-pdf-name="__PDF_NAME__" data-has-pdf="__HAS_PDF__" data-has-viewer="__HAS_VIEWER__" data-status="__STATUS__">
+  <div class="topbar">
+    <a href="/" class="back" title="Gallery">←</a>
+    <span class="title">__TITLE__</span>
+    <span class="status s-__STATUS__">__STATUS__</span>
+    <span class="spacer"></span>
+    <select id="model-picker" title="Model">
+      <option value="sonnet">Sonnet 4.6</option>
+      <option value="opus">Opus 4.7</option>
+      <option value="haiku">Haiku 4.5</option>
+    </select>
+    <div class="view-toggle" id="view-toggle" title="요약 / 상세 토글">
+      <button data-view="summary">요약</button>
+      <button data-view="detail" class="active">상세</button>
+    </div>
+    <button class="btn" id="btn-analyze" title="Auto-analyze unfinished sections">▶ Analyze</button>
+    <button class="btn" id="btn-tags" title="Edit tags">🏷 Tags <span class="count" id="tags-count">·</span></button>
+    <button class="btn" id="btn-edit" title="Edit raw markdown">✎ Edit</button>
+    <button class="btn" id="btn-publish" title="Export to Velog draft">↗ Publish</button>
+    <button class="btn" id="btn-nav" title="Sections (S)">☰</button>
+    <button class="btn" id="btn-figures" title="Figures (G)">Figures <span class="count" id="figs-count">·</span></button>
+    <button class="btn" id="btn-chat" title="Chat (C)">💬 Chat</button>
+    <button class="btn" id="theme-toggle" title="Toggle theme">☼</button>
+  </div>
+
+  <main class="layout" id="layout">
+    <aside class="nav" id="nav">
+      <div class="nav-header">Sections</div>
+      <ul class="nav-list" id="nav-list"></ul>
+    </aside>
+    <section class="pane pdf">
+      <iframe src="/paper/__SLUG__/pdf#toolbar=0" title="PDF"></iframe>
+    </section>
+    <div class="wb-stack">
+      <section class="pane wb" id="wb" tabindex="0"></section>
+      <aside class="chat" id="chat" data-collapsed="1">
+        <div class="chat-head" id="chat-head" title="click to collapse">
+          <span class="label">Chat</span>
+          <span class="meta" id="chat-meta">·</span>
+          <span class="spacer"></span>
+          <span class="caret">▾</span>
+        </div>
+        <div class="chat-body" id="chat-body">
+          <div class="chat-empty" id="chat-empty">
+            Claude와 대화로 리뷰 진행하기.<br><br>
+            <span class="kbd">Enter</span> 보내기 · <span class="kbd">Shift+Enter</span> 줄바꿈 · <span class="kbd">C</span> 채팅 토글
+          </div>
+        </div>
+        <div class="chat-input-wrap">
+          <div class="slash-row" id="slash-row">
+            <button class="slash-chip" data-prompt="/status">/status</button>
+            <button class="slash-chip" data-prompt="/next-section">/next-section</button>
+            <button class="slash-chip" data-prompt="/explain tldr">/explain tldr</button>
+            <button class="slash-chip" data-prompt="/explain contributions">/explain contributions</button>
+            <button class="slash-chip" data-prompt="/explain prereqs">/explain prereqs</button>
+            <button class="slash-chip" data-prompt="/finalize">/finalize</button>
+          </div>
+          <div class="chat-input-row">
+            <textarea class="chat-input" id="chat-input" rows="1"
+                      placeholder="메시지 또는 /명령. Enter 전송, Shift+Enter 줄바꿈."></textarea>
+            <button class="chat-send" id="chat-send">Send</button>
+          </div>
+          <div class="chat-cost" id="chat-cost"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="a-toast" id="a-toast" aria-hidden="true">
+    <div class="a-toast-head">
+      <span class="dot"></span>
+      <span class="label" id="a-toast-label">Analyzing</span>
+      <span class="frac" id="a-toast-frac">·</span>
+      <span class="spacer"></span>
+      <button id="a-toast-cancel" title="Cancel">✕</button>
+    </div>
+    <div class="a-toast-sub" id="a-toast-sub">—</div>
+    <div class="a-toast-log" id="a-toast-log"></div>
+    <div class="a-toast-preview" id="a-toast-preview" style="display:none"></div>
+  </div>
+
+  <div class="modal" id="modal-tags" aria-hidden="true">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content" style="width:520px">
+      <div class="modal-head">
+        <h2>태그 편집</h2>
+        <span class="spacer"></span>
+        <button class="modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <div style="padding:18px">
+        <div class="tag-chips" id="tag-chips-current"></div>
+        <input type="text" id="tag-input" placeholder="새 태그… (Enter)" style="width:100%;font:inherit;font-size:13px;padding:8px 12px;border-radius:7px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-primary);outline:none;margin-top:10px">
+        <div class="tag-suggest" id="tag-suggest"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button class="btn-secondary" data-close>닫기</button>
+          <button class="btn-primary" id="btn-tags-save">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-figs" aria-hidden="true">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content">
+      <div class="modal-head">
+        <h2>Figures</h2>
+        <span class="hint">click thumbnail · Esc to close</span>
+        <span class="spacer"></span>
+        <button class="modal-close" data-close aria-label="Close">×</button>
+      </div>
+      <div class="figs-grid" id="figs-grid"></div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <div class="lightbox-head">
+      <span id="lb-pos">—</span>
+      <span class="spacer"></span>
+      <button id="lb-prev" title="Previous (←)">←</button>
+      <button id="lb-next" title="Next (→)">→</button>
+      <button id="lb-close" title="Close (Esc)">×</button>
+    </div>
+    <div class="lightbox-img" id="lb-imgwrap"><img id="lb-img" alt=""></div>
+    <div class="lightbox-html" id="lb-html" style="display:none"></div>
+    <div class="lightbox-caption" id="lb-cap"></div>
+  </div>
+
+<script src="/static/detail.js" defer></script>
+</body>
+</html>
