@@ -258,6 +258,12 @@
     font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
     font-size: 13px; line-height: 1.6;
   }
+  /* Toast UI WYSIWYG host fills the remaining edit pane */
+  .tui-host { flex: 1; min-height: 0; }
+  .tui-host .toastui-editor-defaultUI { height: 100%; border: 0; }
+  .tui-host .toastui-editor-main .toastui-editor-ww-container,
+  .tui-host .toastui-editor-main .toastui-editor-md-container { font-family: var(--font-text); }
+  .tui-host .toastui-editor-contents { font-size: 15px; line-height: 1.75; }
   .save-warn {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(20px);

@@ -438,25 +438,31 @@
     }
   });
 
-  // ───────────────────────────────────────────────────────── Raw edit
+  // ───────────────────────────────────────────────────────── WYSIWYG edit
   const btnEdit = document.getElementById('btn-edit');
   const wbPane = document.getElementById('wb');
   let editing = false;
-  let editTextarea = null;
-  let editStartMtime = null;
+  let tuiEditor = null;
+  let savedFrontmatter = "";   // preserved verbatim across an edit
   let suppressSSEReload = false;
 
   btnEdit.addEventListener('click', toggleEdit);
+
+  function isDarkNow() {
+    const t = document.body.dataset.theme;
+    if (t === 'dark') return true;
+    if (t === 'light') return false;
+    return matchMedia('(prefers-color-scheme: dark)').matches;
+  }
 
   async function toggleEdit() {
     if (editing) return cancelEdit();
     const res = await fetch(`/paper/${slug}/workbench.md`);
     const md = await res.text();
-    const metaRes = await fetch(`/paper/${slug}/meta`);
-    const meta = await metaRes.json().catch(() => ({}));
-    // We don't have mtime in meta; do a HEAD-ish trick — but simplest: trust last SSE update or skip.
-    // For now: skip mtime — backend's optimistic concurrency will catch conflicts.
-    editStartMtime = null;
+    // Split frontmatter (preserved) from the editable body
+    const fm = md.match(/^(---\n[\s\S]*?\n---\n)([\s\S]*)$/);
+    savedFrontmatter = fm ? fm[1] : "";
+    const body = fm ? fm[2] : md;
     suppressSSEReload = true;
 
     wbPane.classList.add('editing');
@@ -465,49 +471,51 @@
     wrap.className = 'edit-wrap';
     wrap.innerHTML = `
       <div class="edit-toolbar">
-        <strong>Raw markdown 편집</strong>
-        <span class="hint">Cmd/Ctrl+S 저장 · Esc 취소</span>
+        <strong>편집 (WYSIWYG)</strong>
+        <span class="hint">우측 상단에서 마크다운/문서 모드 전환 · Cmd/Ctrl+S 저장 · Esc 취소</span>
         <button class="btn-secondary" id="edit-cancel" style="padding:6px 12px;font-size:12px">취소</button>
         <button class="btn-primary" id="edit-save" style="padding:6px 14px;font-size:12px">저장</button>
       </div>
-      <textarea class="edit-textarea" id="edit-textarea" spellcheck="false"></textarea>
+      <div class="tui-host" id="tui-host"></div>
     `;
     wbPane.appendChild(wrap);
-    editTextarea = document.getElementById('edit-textarea');
-    editTextarea.value = md;
     editing = true;
     btnEdit.textContent = '✎ Editing';
     btnEdit.style.background = 'var(--accent)';
     btnEdit.style.color = 'white';
-    setTimeout(() => editTextarea.focus(), 50);
+
+    tuiEditor = new toastui.Editor({
+      el: document.getElementById('tui-host'),
+      initialValue: body,
+      initialEditType: 'wysiwyg',
+      previewStyle: 'tab',
+      height: '100%',
+      usageStatistics: false,
+      theme: isDarkNow() ? 'dark' : 'default',
+      autofocus: true,
+      toolbarItems: [
+        ['heading', 'bold', 'italic', 'strike'],
+        ['hr', 'quote'],
+        ['ul', 'ol', 'task'],
+        ['table', 'link'],
+        ['code', 'codeblock'],
+      ],
+    });
 
     document.getElementById('edit-cancel').onclick = cancelEdit;
     document.getElementById('edit-save').onclick = saveEdit;
-    editTextarea.addEventListener('keydown', e => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); saveEdit(); }
-      if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
-    });
   }
 
   async function saveEdit() {
-    if (!editing) return;
+    if (!editing || !tuiEditor) return;
+    const newBody = tuiEditor.getMarkdown();
+    const fullText = savedFrontmatter + newBody;
     try {
       const res = await fetch(`/paper/${slug}/workbench.md`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: editTextarea.value, expected_mtime: editStartMtime }),
+        body: JSON.stringify({ text: fullText }),
       });
-      if (res.status === 409) {
-        showSaveWarn('외부에서 워크벤치가 수정되었습니다. 충돌 — 내 변경을 덮어쓰시겠어요?', async () => {
-          await fetch(`/paper/${slug}/workbench.md`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: editTextarea.value }),
-          });
-          exitEdit();
-        });
-        return;
-      }
       if (!res.ok) throw new Error('HTTP ' + res.status);
       exitEdit();
     } catch (e) {
@@ -518,6 +526,7 @@
   function cancelEdit() { if (editing) exitEdit(); }
 
   function exitEdit() {
+    if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
     editing = false;
     suppressSSEReload = false;
     btnEdit.textContent = '✎ Edit';
@@ -529,6 +538,16 @@
     prevSectionContent = new Map();
     loadWorkbench();
   }
+
+  // Global Cmd/Ctrl+S + Esc while editing
+  document.addEventListener('keydown', (e) => {
+    if (!editing) return;
+    if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) {
+      e.preventDefault(); saveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); cancelEdit();
+    }
+  });
 
   function showSaveWarn(msg, onOverride) {
     let warn = document.querySelector('.save-warn');
