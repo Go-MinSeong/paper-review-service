@@ -632,6 +632,18 @@
   .wb[data-view="summary"] .wb-block-translation,
   .wb[data-view="summary"] .wb-label-translation { display: none; }
 
+  /* Authorship tint — my own writing gets a soft accent background;
+     Claude-generated blocks stay on the plain canvas. */
+  .wb-label-user, .wb-block-user {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    padding-left: 12px; margin-left: -14px;
+    border-radius: 0 4px 4px 0;
+  }
+  .wb-label-user { padding-top: 6px; margin-top: 8px; }
+  .wb-label-user strong { color: var(--accent); }
+  .wb-block-user { padding-top: 2px; padding-bottom: 2px; }
+
   /* Topbar select (model picker) */
   .topbar select {
     font: inherit; font-size: 12px;
@@ -708,3 +720,7 @@
   }
   .wb .gen-q-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .wb .gen-q-btn:disabled { opacity: .55; cursor: default; }
+
+  /* Figures embedded in the workbench body */
+  .wb img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0;
+            border: 1px solid var(--border-subtle); }

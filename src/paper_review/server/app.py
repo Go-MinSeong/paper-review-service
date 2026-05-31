@@ -223,6 +223,29 @@ def paper_figure(slug: str, name: str) -> FileResponse:
         raise HTTPException(404)
     return FileResponse(p)
 
+@app.get("/paper/{slug}/fig/{fig_id}")
+def paper_fig_by_id(slug: str, fig_id: str):
+    """Serve a single figure by id, decoding its base64 data_uri to bytes.
+    Lets the workbench reference figures by a short path instead of inlining
+    ~120KB of base64 per image."""
+    import base64
+    import re as _re
+    from fastapi.responses import Response
+    d = _paper_dir(slug)
+    figs = list(d.glob("*_figures.json"))
+    if not figs:
+        raise HTTPException(404)
+    data = json.loads(figs[0].read_text())
+    items = data if isinstance(data, list) else data.get("figures", [])
+    fig = next((f for f in items if f.get("id") == fig_id), None)
+    if not fig or not fig.get("data_uri"):
+        raise HTTPException(404)
+    m = _re.match(r"data:(image/[\w.+-]+);base64,(.*)", fig["data_uri"], _re.DOTALL)
+    if not m:
+        raise HTTPException(415, "figure is not a base64 image")
+    return Response(base64.b64decode(m.group(2)), media_type=m.group(1))
+
+
 @app.get("/paper/{slug}/figures.json")
 def paper_figures_json(slug: str) -> JSONResponse:
     """Serve the raw figures.json (list of {id, label, caption_en, caption_ko,

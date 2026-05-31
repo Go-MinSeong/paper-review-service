@@ -60,6 +60,9 @@
     "요약": "summary",
     "Claude 1차 번역": "translation",
     "Claude Reader's Notes": "notes",
+    "A (내 정리)": "user",
+    "내 정리": "user",
+    "내 메모": "user",
   };
 
   function annotateBlocksByLabel(container) {
@@ -409,7 +412,10 @@
         </div>`;
       }).join("");
       grid.querySelectorAll(".fig-card").forEach(c =>
-        c.addEventListener("click", () => openLightbox(+c.dataset.idx))
+        c.addEventListener("click", () => {
+          if (editing && tuiEditor) insertFigureIntoEditor(+c.dataset.idx);
+          else openLightbox(+c.dataset.idx);
+        })
       );
       grid.dataset.rendered = "1";
     }
@@ -524,6 +530,7 @@
       <div class="edit-toolbar">
         <strong>편집 (WYSIWYG)</strong>
         <span class="hint">우측 상단에서 마크다운/문서 모드 전환 · Cmd/Ctrl+S 저장 · Esc 취소</span>
+        <button class="btn-secondary" id="edit-figure" style="padding:6px 12px;font-size:12px">🖼 Figure 삽입</button>
         <button class="btn-secondary" id="edit-cancel" style="padding:6px 12px;font-size:12px">취소</button>
         <button class="btn-primary" id="edit-save" style="padding:6px 14px;font-size:12px">저장</button>
       </div>
@@ -555,6 +562,17 @@
 
     document.getElementById('edit-cancel').onclick = cancelEdit;
     document.getElementById('edit-save').onclick = saveEdit;
+    document.getElementById('edit-figure').onclick = () => openFigures();
+  }
+
+  function insertFigureIntoEditor(idx) {
+    const f = figures[idx];
+    if (!f || !tuiEditor) return;
+    if (!f.data_uri) { alert("이 항목은 이미지가 아니라 삽입할 수 없습니다 (표 등)."); return; }
+    const url = `/paper/${slug}/fig/${f.id}`;
+    const alt = (f.label || "figure").replace(/[\[\]]/g, "");
+    tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
+    closeFigures();
   }
 
   async function saveEdit() {
