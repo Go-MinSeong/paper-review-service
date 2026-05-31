@@ -322,29 +322,45 @@
     const tags = (tagsInput?.value || '').split(',').map(t => t.trim()).filter(Boolean);
 
     if (mode === 'save') {
-      if (activeTab !== 'arxiv') {
-        alert('Reading list 저장은 arXiv URL/ID만 지원합니다.');
-        return;
-      }
-      const v = arxivInput.value.trim();
-      if (!v) return;
       busy = true;
       btnSubmit.disabled = true;
       btnSubmit.textContent = '저장 중…';
       try {
-        const r = await fetch('/papers/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: v, tags })
-        });
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error(err.detail || 'HTTP ' + r.status);
+        let out;
+        if (activeTab === 'arxiv') {
+          const v = arxivInput.value.trim();
+          if (!v) { busy = false; btnSubmit.disabled = false; btnSubmit.textContent = '저장'; return; }
+          btnSubmit.textContent = '저장 + PDF 다운로드…';
+          const r = await fetch('/papers/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: v, tags })
+          });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + r.status);
+          }
+          out = await r.json();
+          if (out.pdf_ok === false) {
+            showProgress('⚠ 메타는 저장됐지만 PDF 다운로드 실패 (나중에 Analyze 시 재시도)', true);
+          }
+        } else {
+          const f = pdfInput.files?.[0];
+          if (!f) { busy = false; btnSubmit.disabled = false; btnSubmit.textContent = '저장'; return; }
+          btnSubmit.textContent = 'PDF 업로드…';
+          const fd = new FormData();
+          fd.append('file', f);
+          fd.append('tags', tags.join(','));
+          const r = await fetch('/papers/save-pdf', { method: 'POST', body: fd });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + r.status);
+          }
+          out = await r.json();
         }
-        const out = await r.json();
-        // Saved: hard reload to refresh gallery + jump to detail
+        progBox.style.display = 'block';
         showProgress('✓ 저장 완료. 페이지로 이동…');
-        setTimeout(() => { location.href = '/paper/' + out.slug; }, 600);
+        setTimeout(() => { location.href = '/paper/' + out.slug; }, 700);
       } catch (e) {
         progBox.style.display = 'block';
         showProgress('✗ ' + (e.message || e), true);

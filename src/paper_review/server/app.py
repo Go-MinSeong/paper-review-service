@@ -6,7 +6,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from .analyze import AnalyzeBody, cancel as cancel_analysis, get_status as get_analysis_status, start_analysis
 from .chat import ChatBody, chat_route
 from .ingest import StartIngestBody, get_job, start_arxiv_job, start_pdf_job
-from .save import SaveBody, save_paper
+from .save import SaveBody, save_paper, save_pdf_paper
 from .tags import TagsPatchBody, list_all_tags, patch_paper_tags
 
 app = FastAPI(title="paper-review")
@@ -248,8 +248,19 @@ async def papers_create_pdf(file: UploadFile):
 
 @app.post("/papers/save")
 async def papers_save(body: SaveBody):
-    """Add a paper to the reading list (metadata only, no body extraction)."""
+    """Add an arXiv paper to the reading list + archive its PDF (no body extraction)."""
     return await save_paper(body)
+
+
+@app.post("/papers/save-pdf")
+async def papers_save_pdf(
+    file: UploadFile,
+    tags: str = Form(""),
+    category: str = Form(""),
+):
+    """Save an uploaded PDF to the reading list (archive file, no ingest)."""
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    return await save_pdf_paper(file, tag_list, category or None)
 
 
 @app.post("/paper/{slug}/promote")
@@ -264,7 +275,6 @@ async def papers_promote(slug: str):
     fm = _read_frontmatter(wb)
     if fm.get("status") not in ("to_read", "unknown", "", None):
         raise HTTPException(400, "paper is already ingested (status != to_read)")
-    arxiv_id = fm.get("slug") or slug
     # Snapshot preserve fields
     from .tags import _parse_tags_value
     preserve = {}
@@ -272,7 +282,28 @@ async def papers_promote(slug: str):
         preserve["tags"] = _parse_tags_value(fm["tags"])
     if fm.get("category"):
         preserve["category"] = fm["category"]
-    # Start ingest job, then attach preserve info
+
+    # PDF-backed reading list paper → ingest from the archived original.pdf
+    is_pdf_paper = bool(fm.get("source_pdf")) or (
+        (d / "original.pdf").exists() and not (fm.get("paper_url") or "").strip()
+    )
+    if is_pdf_paper:
+        pdf = d / "original.pdf"
+        if not pdf.exists():
+            raise HTTPException(400, "no original.pdf to analyze")
+        import shutil
+        import uuid as _uuid
+        from .ingest import start_local_pdf_job, _TMP_UPLOADS
+        _TMP_UPLOADS.mkdir(parents=True, exist_ok=True)
+        tmp = _TMP_UPLOADS / f"{_uuid.uuid4().hex[:8]}_{slug}.pdf"
+        shutil.copy(pdf, tmp)
+        job_resp = await start_local_pdf_job(str(tmp), cleanup_dir=str(d))
+        job = _ingest_jobs[job_resp["job_id"]]
+        job.preserve_fields = preserve
+        return job_resp
+
+    # arXiv-backed → re-ingest by id (stable slug)
+    arxiv_id = fm.get("slug") or slug
     job_resp = await start_arxiv_job(StartIngestBody(source=arxiv_id))
     job = _ingest_jobs[job_resp["job_id"]]
     job.preserve_fields = preserve

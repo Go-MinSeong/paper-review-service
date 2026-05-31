@@ -63,7 +63,7 @@
       <h2>새 paper 등록</h2>
       <div class="modal-mode" id="modal-mode">
         <label><input type="radio" name="mode" value="analyze" checked> 즉시 ingest (본문·figures 추출)</label>
-        <label><input type="radio" name="mode" value="save"> Reading list 저장만 (메타데이터)</label>
+        <label><input type="radio" name="mode" value="save"> Reading list 저장만 (PDF 아카이빙)</label>
       </div>
       <div class="modal-tabs">
         <button class="modal-tab active" data-tab="arxiv">arXiv</button>
@@ -81,7 +81,7 @@
           <label>로컬 PDF</label>
           <div class="drop" id="drop"><span id="drop-label">PDF 파일을 끌어다 놓거나 클릭해서 선택</span></div>
           <input type="file" id="pdf-input" accept="application/pdf" style="display:none">
-          <div class="hint">arxiv가 아닌 paper도 OK (figure 추출은 제한적). Reading list 저장은 arXiv만 지원.</div>
+          <div class="hint">arxiv가 아닌 paper도 OK. Reading list 저장 시 원본 PDF가 아카이빙되어 바로 확인 가능합니다.</div>
         </div>
       </div>
       <div class="field">

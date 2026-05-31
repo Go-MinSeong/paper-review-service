@@ -39,6 +39,7 @@ class IngestJob:
     finished_at: Optional[float] = None
     error: Optional[str] = None
     preserve_fields: dict = field(default_factory=dict)  # tags / category to restore
+    cleanup_dir: Optional[str] = None  # old reading-list folder to remove on success
 
 
 _jobs: dict[str, IngestJob] = {}
@@ -67,6 +68,15 @@ async def start_pdf_job(file: UploadFile) -> dict:
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
     job = IngestJob(job_id=uuid.uuid4().hex[:12], source=str(dest), is_pdf=True)
+    _jobs[job.job_id] = job
+    asyncio.create_task(_run_ingest(job))
+    return {"job_id": job.job_id}
+
+
+async def start_local_pdf_job(pdf_path: str, cleanup_dir: str | None = None) -> dict:
+    """Ingest a PDF that already lives on disk (e.g. promoting a saved PDF)."""
+    job = IngestJob(job_id=uuid.uuid4().hex[:12], source=pdf_path, is_pdf=True)
+    job.cleanup_dir = cleanup_dir
     _jobs[job.job_id] = job
     asyncio.create_task(_run_ingest(job))
     return {"job_id": job.job_id}
@@ -112,6 +122,11 @@ async def _run_ingest(job: IngestJob) -> None:
                 _detect_slug_post_hoc(job)
             job.status = "done"
             _restore_preserved_fields(job)
+            # Remove the old reading-list folder if this promote produced a new slug
+            if job.cleanup_dir:
+                old = Path(job.cleanup_dir)
+                if old.exists() and job.slug and old.name != job.slug:
+                    shutil.rmtree(old, ignore_errors=True)
     except Exception as e:
         job.status = "error"
         job.error = str(e)
