@@ -119,6 +119,61 @@ def _slug_from_filename(name: str) -> str:
     return (slug or "paper")[:48]
 
 
+def _looks_like_title(t: str) -> bool:
+    if not t or len(t) < 5 or len(t) > 300:
+        return False
+    low = t.lower().strip()
+    if low.endswith((".pdf", ".docx", ".doc", ".tex", ".dvi")):
+        return False
+    if "microsoft word" in low or low.startswith("untitled"):
+        return False
+    if "\n" in t or "\r" in t:
+        return False
+    return True
+
+
+def _title_from_first_page(text: str) -> str | None:
+    lines = [ln.strip() for ln in re.split(r"[\r\n]+", text) if ln.strip()]
+    if not lines:
+        return None
+    title = lines[0]
+    # Skip a leading "arXiv:..." stamp
+    if title.lower().startswith("arxiv:") and len(lines) > 1:
+        title = lines[1]
+    # Very short first line → likely a wrapped title; join with the next line
+    if len(title) < 15 and len(lines) > 1:
+        title = (title + " " + lines[1]).strip()
+    title = re.sub(r"\s+", " ", title).strip()
+    return title[:300] if len(title) >= 5 else None
+
+
+def _extract_pdf_meta(pdf_path: Path) -> tuple[str | None, list[str]]:
+    """Best-effort (title, authors) from a PDF's metadata, else first page."""
+    title: str | None = None
+    authors: list[str] = []
+    try:
+        from pypdf import PdfReader
+        m = PdfReader(str(pdf_path)).metadata
+        if m:
+            t = (m.title or "").strip()
+            if _looks_like_title(t):
+                title = re.sub(r"\s+", " ", t)
+            a = (m.author or "").strip()
+            if a:
+                authors = [x.strip() for x in re.split(r"[;,]", a) if x.strip()]
+    except Exception:
+        pass
+    if not title:
+        try:
+            import pypdfium2 as pdfium
+            doc = pdfium.PdfDocument(str(pdf_path))
+            text = doc[0].get_textpage().get_text_range()
+            title = _title_from_first_page(text)
+        except Exception:
+            pass
+    return title, authors
+
+
 def _unique_slug(slug: str) -> str:
     if not (SERVICE_ROOT / slug).exists():
         return slug
@@ -172,11 +227,14 @@ def _render_to_read_workbench(meta: ArxivMeta, *, category: str, tags: list[str]
 
 
 def _render_pdf_to_read_workbench(
-    *, title: str, category: str, tags: list[str], filename: str
+    *, title: str, category: str, tags: list[str], filename: str,
+    authors: list[str] | None = None,
 ) -> str:
     today = date.today().isoformat()
     tags_str = ", ".join(tags) if tags else ""
     title_en = title.replace('"', '\\"')
+    authors = authors or []
+    authors_short = ", ".join(authors[:3]) + (" 외" if len(authors) > 3 else "")
     parts = [
         "---",
         f"slug: {_slug_from_filename(filename)}",
@@ -190,10 +248,11 @@ def _render_pdf_to_read_workbench(
         f'source_pdf: "{filename}"',
         "---",
         "",
-        f"# {title} — Reading list",
+        f"# {title}",
         "",
         "## 논문 정보",
         "",
+        f"- **저자**: {authors_short}" if authors_short else "",
         f"- **원본 파일**: {filename}",
         "- **링크**: _(로컬 PDF 업로드)_",
         f"- **분류**: {category or '_(미정)_'}",
@@ -204,7 +263,7 @@ def _render_pdf_to_read_workbench(
         "detail 페이지에서 **▶ Analyze** 를 누르면 본문·figures 추출과 분석이 시작됩니다._",
         "",
     ]
-    return "\n".join(parts)
+    return "\n".join(p for p in parts if p is not None)
 
 
 async def save_paper(body: SaveBody) -> dict:
@@ -251,11 +310,16 @@ async def save_pdf_paper(
     data = await file.read()
     if data[:4] != b"%PDF":
         raise HTTPException(400, "not a valid PDF")
-    (paper_dir / "original.pdf").write_bytes(data)
+    pdf_dest = paper_dir / "original.pdf"
+    pdf_dest.write_bytes(data)
 
-    title = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
+    # Pull the real title + authors from the PDF; fall back to the filename.
+    extracted_title, authors = _extract_pdf_meta(pdf_dest)
+    fallback = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
+    title = extracted_title or fallback or filename
     wb_text = _render_pdf_to_read_workbench(
-        title=title or filename, category=category or "", tags=tags, filename=filename,
+        title=title, category=category or "", tags=tags, filename=filename,
+        authors=authors,
     )
     # Override the slug line to the unique slug (render uses filename-derived)
     wb_text = re.sub(r"^slug: .*$", f"slug: {slug}", wb_text, count=1, flags=re.MULTILINE)
