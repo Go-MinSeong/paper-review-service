@@ -178,6 +178,7 @@
           <div class="card-thumb grad-${hue}">
             <span class="initial">${escapeHtml(initials(title))}</span>
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
+            <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${isActive ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total}</span>` : ''}
           </div>
@@ -195,6 +196,34 @@
         </a>`;
     }).join('');
   }
+  // Tag edit (event-delegated)
+  grid.addEventListener('click', async (e) => {
+    const tbtn = e.target.closest('.card-tagedit');
+    if (!tbtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const slug = tbtn.dataset.tagedit;
+    const paper = papers.find(p => p.slug === slug);
+    const cur = (paper?.tags || []).join(', ');
+    const next = prompt('태그 (쉼표 구분, 계층은 "CV/segmentation" 처럼):', cur);
+    if (next === null) return;
+    const tags = next.split(',').map(t => t.trim()).filter(Boolean);
+    try {
+      const r = await fetch(`/paper/${encodeURIComponent(slug)}/tags`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags }),
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      if (paper) paper.tags = tags;
+      renderTagTree();
+      renderCards();
+      updateClearTags();
+    } catch (err) {
+      alert('태그 저장 실패: ' + (err.message || err));
+    }
+  });
+
   // Delete (event-delegated so it survives re-renders)
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('.card-del');

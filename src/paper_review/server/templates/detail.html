@@ -27,19 +27,20 @@
       <button data-view="detail" class="active">상세</button>
     </div>
     <button class="btn" id="btn-analyze" title="Auto-analyze unfinished sections">▶ Analyze</button>
-    <button class="btn" id="btn-tags" title="Edit tags">🏷 Tags <span class="count" id="tags-count">·</span></button>
     <button class="btn" id="btn-edit" title="Edit raw markdown">✎ Edit</button>
     <button class="btn" id="btn-publish" title="Export to Velog draft">↗ Publish</button>
-    <button class="btn" id="btn-nav" title="Sections (S)">☰</button>
+    <span class="topbar-div"></span>
     <button class="btn" id="btn-figures" title="Figures (G)">Figures <span class="count" id="figs-count">·</span></button>
     <button class="btn" id="btn-chat" title="Chat (C)">💬 Chat</button>
-    <button class="btn" id="theme-toggle" title="Toggle theme">☼</button>
-    <button class="btn btn-danger" id="btn-delete" title="이 paper 삭제">🗑</button>
   </div>
 
   <main class="layout" id="layout">
+    <button class="nav-reopen" id="nav-reopen" title="Show sections (S)">☰</button>
     <aside class="nav" id="nav">
-      <div class="nav-header">Sections</div>
+      <div class="nav-header">
+        <span>Sections</span>
+        <button class="nav-collapse" id="nav-collapse" title="Collapse (S)">‹</button>
+      </div>
       <ul class="nav-list" id="nav-list"></ul>
     </aside>
     <section class="pane pdf">
@@ -93,25 +94,6 @@
     <div class="a-toast-preview" id="a-toast-preview" style="display:none"></div>
   </div>
 
-  <div class="modal" id="modal-tags" aria-hidden="true">
-    <div class="modal-bg" data-close></div>
-    <div class="modal-content" style="width:520px">
-      <div class="modal-head">
-        <h2>태그 편집</h2>
-        <span class="spacer"></span>
-        <button class="modal-close" data-close aria-label="Close">×</button>
-      </div>
-      <div style="padding:18px">
-        <div class="tag-chips" id="tag-chips-current"></div>
-        <input type="text" id="tag-input" placeholder="새 태그… (Enter)" style="width:100%;font:inherit;font-size:13px;padding:8px 12px;border-radius:7px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-primary);outline:none;margin-top:10px">
-        <div class="tag-suggest" id="tag-suggest"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-          <button class="btn-secondary" data-close>닫기</button>
-          <button class="btn-primary" id="btn-tags-save">저장</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <div class="modal" id="modal-figs" aria-hidden="true">
     <div class="modal-bg" data-close></div>

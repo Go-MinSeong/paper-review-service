@@ -247,10 +247,10 @@
   if (localStorage.getItem("pr-nav-closed") === "1") {
     layoutEl.dataset.nav = "closed";
   }
-  document.getElementById("btn-nav").addEventListener("click", () => {
+  function toggleNav() {
     const wide = window.innerWidth > 1280;
     if (wide) {
-      // Desktop: toggle grid column collapse
+      // Desktop: collapse the grid column
       if (layoutEl.dataset.nav === "closed") {
         delete layoutEl.dataset.nav;
         localStorage.removeItem("pr-nav-closed");
@@ -263,7 +263,9 @@
       if (navEl.dataset.open) delete navEl.dataset.open;
       else navEl.dataset.open = "1";
     }
-  });
+  }
+  document.getElementById("nav-collapse").addEventListener("click", toggleNav);
+  document.getElementById("nav-reopen").addEventListener("click", toggleNav);
   function closeNavOnMobile() {
     if (window.innerWidth <= 1280) delete navEl.dataset.open;
   }
@@ -388,7 +390,7 @@
       return;
     }
     if (e.key === "g" || e.key === "G") openFigures();
-    if (e.key === "s" || e.key === "S") document.getElementById("btn-nav").click();
+    if (e.key === "s" || e.key === "S") toggleNav();
     if (e.key === "c" || e.key === "C") chatHead.click();
     if (e.key === "/" && !chatBusy) {
       e.preventDefault();
@@ -923,153 +925,12 @@
     });
   }
 
-  // ───────────────────────────────────────────────────────── Delete
-  document.getElementById('btn-delete').addEventListener('click', async () => {
-    if (!confirm(`"${slug}" 를 삭제할까요?\n원본 PDF·워크벤치·분석 결과가 모두 사라집니다 (되돌릴 수 없음).`)) return;
-    try {
-      const r = await fetch(`/paper/${encodeURIComponent(slug)}`, { method: 'DELETE' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      location.href = '/';
-    } catch (e) {
-      alert('삭제 실패: ' + (e.message || e));
-    }
-  });
-
-  // ───────────────────────────────────────────────────────── Theme toggle
-  function applyTheme(t) {
+  // ───────────────────────────────────────────────────────── Theme (apply only)
+  // Theme is toggled from the gallery; here we just honor the saved choice.
+  (function applySavedTheme() {
+    const t = localStorage.getItem('pr-theme') || 'auto';
     if (t === 'dark' || t === 'light') document.body.dataset.theme = t;
     else delete document.body.dataset.theme;
-    const isDark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    const tb = document.getElementById('theme-toggle');
-    if (tb) tb.textContent = isDark ? '☾' : '☼';
-  }
-  applyTheme(localStorage.getItem('pr-theme') || 'auto');
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    const cur = localStorage.getItem('pr-theme') || 'auto';
-    const next = cur === 'auto' ? 'dark' : cur === 'dark' ? 'light' : 'auto';
-    localStorage.setItem('pr-theme', next);
-    applyTheme(next);
-  });
-
-  // ───────────────────────────────────────────────────────── Tags
-  const modalTags = document.getElementById('modal-tags');
-  const tagChipsEl = document.getElementById('tag-chips-current');
-  const tagInput = document.getElementById('tag-input');
-  const tagSuggest = document.getElementById('tag-suggest');
-  const btnTagsSave = document.getElementById('btn-tags-save');
-  let currentTags = [];
-
-  document.getElementById('btn-tags').addEventListener('click', openTagsModal);
-  modalTags.querySelectorAll('[data-close]').forEach(el =>
-    el.addEventListener('click', () => modalTags.removeAttribute('open'))
-  );
-
-  async function openTagsModal() {
-    // Load current tags from workbench frontmatter
-    try {
-      const md = await (await fetch(`/paper/${slug}/workbench.md`)).text();
-      const m = md.match(/^---\n([\s\S]*?)\n---\n/);
-      let tags = [];
-      if (m) {
-        const tline = m[1].split('\n').find(l => l.startsWith('tags:'));
-        if (tline) tags = parseTags(tline.slice(5));
-      }
-      currentTags = tags;
-    } catch { currentTags = []; }
-    renderTagChips();
-    // Load suggestions
-    try {
-      const r = await fetch('/tags');
-      const data = await r.json();
-      const suggest = (data.tags || []).filter(t => !currentTags.includes(t.name));
-      renderTagSuggest(suggest);
-    } catch { renderTagSuggest([]); }
-    modalTags.setAttribute('open', '');
-    setTimeout(() => tagInput.focus(), 100);
-  }
-
-  function parseTags(value) {
-    let s = value.trim();
-    if (s.startsWith('[') && s.endsWith(']')) s = s.slice(1, -1);
-    return s.split(',').map(t => t.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-  }
-
-  function renderTagChips() {
-    if (!currentTags.length) {
-      tagChipsEl.innerHTML = '<span class="empty">태그가 없습니다. 아래에 입력하세요.</span>';
-      return;
-    }
-    tagChipsEl.innerHTML = currentTags.map(t =>
-      `<span class="tag">${escapeHtml(t)}<span class="x" data-t="${escapeHtml(t)}">×</span></span>`
-    ).join('');
-    tagChipsEl.querySelectorAll('.x').forEach(x => {
-      x.addEventListener('click', () => {
-        currentTags = currentTags.filter(t => t !== x.dataset.t);
-        renderTagChips();
-      });
-    });
-  }
-
-  function renderTagSuggest(list) {
-    if (!list.length) { tagSuggest.innerHTML = ''; return; }
-    tagSuggest.innerHTML = '<span class="label">자주 쓴 태그:</span>' +
-      list.slice(0, 12).map(t => `<span class="s" data-t="${escapeHtml(t.name)}">${escapeHtml(t.name)} <span style="opacity:.5">${t.count}</span></span>`).join('');
-    tagSuggest.querySelectorAll('.s').forEach(s => {
-      s.addEventListener('click', () => addTag(s.dataset.t));
-    });
-  }
-
-  function addTag(t) {
-    t = t.trim();
-    if (!t || currentTags.includes(t)) return;
-    currentTags.push(t);
-    renderTagChips();
-  }
-
-  tagInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      const v = tagInput.value.trim().replace(/,$/, '');
-      if (v) {
-        addTag(v);
-        tagInput.value = '';
-      }
-    }
-  });
-
-  btnTagsSave.addEventListener('click', async () => {
-    // Also commit any pending text in input
-    const pending = tagInput.value.trim();
-    if (pending) { addTag(pending); tagInput.value = ''; }
-    btnTagsSave.disabled = true;
-    btnTagsSave.textContent = '저장 중…';
-    try {
-      const r = await fetch(`/paper/${slug}/tags`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags: currentTags }),
-      });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      document.getElementById('tags-count').textContent = currentTags.length || '·';
-      modalTags.removeAttribute('open');
-    } catch (e) {
-      alert('✗ ' + (e.message || e));
-    } finally {
-      btnTagsSave.disabled = false;
-      btnTagsSave.textContent = '저장';
-    }
-  });
-
-  // Show current tag count on topbar button at load time
-  (async () => {
-    try {
-      const md = await (await fetch(`/paper/${slug}/workbench.md`)).text();
-      const m = md.match(/^tags:\s*(.+)$/m);
-      if (m) {
-        const tags = parseTags(m[1]);
-        document.getElementById('tags-count').textContent = tags.length || '·';
-      }
-    } catch {}
   })();
 
   // ───────────────────────────────────────────────────────── Init
