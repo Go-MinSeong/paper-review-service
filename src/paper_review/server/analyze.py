@@ -94,8 +94,9 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
     try:
         wb_text = wb.read_text()
 
-        # Step 0: auto-fill prereqs + contributions if still empty
-        needs_prelude = _needs_prelude(wb_text)
+        # Step 0: auto-fill prereqs + contributions if still empty.
+        # Skip when the user asked for specific section(s) only (single-section run).
+        needs_prelude = _needs_prelude(wb_text) and not body.only_sections
         if needs_prelude and not job.cancel_event.is_set():
             job.log.append("━━ [pre] 사전지식 카드 + 핵심 contribution + TL;DR 생성")
             await _generate_prelude(paper_dir, body.model, body.timeout_per_section, job)

@@ -159,8 +159,46 @@
     }
     firstRender = false;
 
-    renderNav(extractSections(md));
+    const secs = extractSections(md);
+    renderNav(secs);
     injectGenQuestionsBtn(wb);
+    injectSectionAnalyzeButtons(wb, secs);
+  }
+
+  // Inject "✨ 이 섹션 분석" buttons on every not-yet-done section heading
+  function injectSectionAnalyzeButtons(wb, secs) {
+    const byId = new Map(secs.map(s => [s.slug, s]));
+    wb.querySelectorAll("h3").forEach(h => {
+      const id = (h.id || "").replace(/^sec-/, "");
+      const sec = byId.get(id);
+      if (!sec || sec.status !== "not_started") return;
+      if (h.querySelector(".gen-sec-btn")) return;
+      const btn = document.createElement("button");
+      btn.className = "gen-q-btn gen-sec-btn";
+      btn.textContent = "✨ 이 섹션 분석";
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (analyzePolling) { alert("이미 분석이 진행 중입니다."); return; }
+        analyzeSection(sec.heading, btn);
+      });
+      h.appendChild(btn);
+    });
+  }
+
+  async function analyzeSection(heading, btn) {
+    if (btn) { btn.textContent = "분석 중…"; btn.disabled = true; }
+    try {
+      const r = await fetch(`/paper/${slug}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelPicker.value, only_sections: [heading] }),
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      pollAnalyze();  // reuse the existing progress toast + polling
+    } catch (e) {
+      alert("섹션 분석 실패: " + (e.message || e));
+      if (btn) { btn.textContent = "✨ 이 섹션 분석"; btn.disabled = false; }
+    }
   }
 
   // Inject a "질문 생성" button into the ## Q&A heading
