@@ -211,20 +211,18 @@
     border-color: color-mix(in srgb, var(--accent) 50%, var(--border-default));
   }
   .card-thumb {
-    height: 96px; position: relative; overflow: hidden;
+    height: 132px; position: relative; overflow: hidden;
     background-size: cover; background-position: center;
   }
-  /* Character icon */
-  .card-thumb .card-char {
-    position: absolute; left: 50%; top: 50%;
-    width: 64px; height: 64px;
-    transform: translate(-50%, -50%);
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1);
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,.12));
+  /* Character illustration (watercolor reference art) */
+  .card-thumb .card-illust {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center 40%;
+    display: block;
+    transition: transform .35s cubic-bezier(.34,1.4,.64,1);
   }
-  .card:hover .card-thumb .card-char {
-    transform: translate(-50%, -52%) scale(1.12) rotate(-3deg);
-  }
+  .card:hover .card-thumb .card-illust { transform: scale(1.06); }
   /* Per-character soft gradient backgrounds */
   .card-thumb.char-bg-0 { background: linear-gradient(135deg, #f7e8d2, #efd3ad); }  /* fennec */
   .card-thumb.char-bg-1 { background: linear-gradient(135deg, #d6e6f0, #b9d4e6); }  /* penguin */

@@ -184,7 +184,7 @@
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
-            <img class="card-char" src="/static/characters/${charName}.svg" alt="" loading="lazy">
+            <img class="card-illust" src="/static/characters/${charName}.png" alt="" loading="lazy">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
