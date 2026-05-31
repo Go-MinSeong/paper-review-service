@@ -67,8 +67,12 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
             "/challenge, /finalize, /summarize-progress as defined in that SKILL.md. "
             "All other free-form messages are user replies to whatever section is "
             "currently being reviewed in workbench.md — apply the same skill rules. "
-            "workbench.md is the single source of truth; edit it with the Edit tool "
-            "as the skill specifies. Keep responses short and action-oriented — the "
+            "workbench.md is the single source of truth; edit it directly with the "
+            "Edit tool (do NOT dispatch a sub-agent — process inline). For "
+            "/next-section: read the section's line range from <slug>_source.txt, then "
+            "Edit the matching '### ' block in workbench.md in place, replacing its "
+            "'_(미진행 …)_' placeholder with 원문 발췌 / 요약 / Claude 1차 번역 / "
+            "Claude Reader's Notes. Keep chat responses short and action-oriented — the "
             "user sees them in a chat panel, not a full terminal."
         )
         cmd = [
@@ -77,6 +81,7 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
             "--output-format", "stream-json",
             "--include-partial-messages",
             "--verbose",
+            "--permission-mode", "acceptEdits",
             "--max-turns", str(body.max_turns),
         ]
         if body.model:

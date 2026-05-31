@@ -390,6 +390,18 @@ def paper_analyze_cancel(slug: str):
     _paper_dir(slug)
     return cancel_analysis(slug)
 
+
+class GenQBody(BaseModel):
+    model: str | None = None
+
+
+@app.post("/paper/{slug}/generate-questions")
+async def paper_generate_questions(slug: str, body: GenQBody):
+    """Generate probing Q&A questions for the analyzed sections (on demand)."""
+    from .analyze import generate_questions
+    d = _paper_dir(slug)
+    return await generate_questions(d, body.model)
+
 @app.post("/paper/{slug}/publish")
 def paper_publish(slug: str):
     import re as _re

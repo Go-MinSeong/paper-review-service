@@ -229,6 +229,73 @@ async def _analyze_one_section(
                 proc.kill()
 
 
+async def generate_questions(paper_dir: Path, model: Optional[str], timeout: int = 240) -> dict:
+    """On-demand: generate probing Q&A questions for the already-analyzed sections."""
+    slug = paper_dir.name
+    prompt = f"""Generate probing review questions for this paper's ## Q&A section.
+
+Steps:
+1. Read workbench.md. Look at the '## 섹션별 리뷰' sections that are already
+   filled (they have 요약 / Claude 1차 번역). Skip '_(미진행 …)_' sections.
+2. For each filled section, write 1-2 sharp probing questions a careful reviewer
+   would ask (challenge an assumption, a missing baseline, an alternative
+   explanation, a generalization limit). Korean.
+3. Edit the '## Q&A' section of workbench.md: replace the placeholder
+   '_(분석 중 Claude가 제기한 질문이 여기에 모입니다...)_' (or append if already
+   has content) with, per section:
+
+   ### Q from §{{heading}}
+   1. <question>
+   2. <question if relevant>
+
+   _답변:_
+
+4. Touch ONLY the ## Q&A section. Do not modify 섹션별 리뷰 / TL;DR / Wrap-up.
+5. Reply EXACTLY: '✓ questions done'."""
+
+    system_ctx = (
+        f"You are inside {paper_dir}, paper-review workspace. Generate Q&A questions "
+        "only. Use the Edit tool on workbench.md. Output minimal chat."
+    )
+    cmd = [
+        "claude", "-p", prompt, "--continue",
+        "--append-system-prompt", system_ctx,
+        "--output-format", "stream-json",
+        "--verbose",
+        "--max-turns", "15",
+        "--permission-mode", "acceptEdits",
+    ]
+    if model:
+        cmd += ["--model", model]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd, cwd=str(paper_dir),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    start = time.time()
+    try:
+        assert proc.stdout is not None
+        while True:
+            if time.time() - start > timeout:
+                proc.terminate()
+                return {"ok": False, "error": "timeout"}
+            try:
+                line = await asyncio.wait_for(proc.stdout.readline(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            if not line:
+                break
+        await proc.wait()
+        return {"ok": proc.returncode == 0, "code": proc.returncode}
+    finally:
+        if proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                proc.kill()
+
+
 def _build_section_prompt(heading: str, line_range: str, paper_dir: Path) -> str:
     slug = paper_dir.name
     range_hint = f"It corresponds to lines {line_range} of {slug}_source.txt." if line_range else ""
@@ -262,22 +329,12 @@ Steps:
    <1 short callout: intuition / historical context / implementation note /
     unstated assumption. 200-400자. Skip if no genuine insight.>
 
-3. Append 1-2 probing questions to workbench.md's ## Q&A section (NOT inside this
-   section block). Find the ## Q&A heading and add right under it:
+3. Preserve the <!-- section_id ... --> comment in the section header. Do not
+   touch the ## Q&A section or any other section.
 
-   ### Q from §{heading}
-   1. <question 1>
-   2. <question 2 if relevant>
+4. After the edit, reply with EXACTLY: '✓ done'. Nothing else.
 
-   _답변:_ <empty>
-
-   Replace the placeholder `_(분석 중 Claude가 제기한 질문이 여기에 모입니다...)_`
-   on first invocation; otherwise append after the last ### Q block.
-
-4. Preserve the <!-- section_id ... --> comment in the section header. Do not
-   touch other sections.
-
-5. After both edits, reply with EXACTLY: '✓ done'. Nothing else."""
+Do NOT generate questions — Q&A is created on demand by a separate button."""
 
 
 def _needs_prelude(workbench_md: str) -> bool:

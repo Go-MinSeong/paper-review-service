@@ -160,6 +160,44 @@
     firstRender = false;
 
     renderNav(extractSections(md));
+    injectGenQuestionsBtn(wb);
+  }
+
+  // Inject a "질문 생성" button into the ## Q&A heading
+  let genQBusy = false;
+  function injectGenQuestionsBtn(wb) {
+    const qaH = [...wb.querySelectorAll("h2")].find(h =>
+      h.textContent.trim().replace(/\\s+/g, "").startsWith("Q&A") ||
+      h.textContent.trim().startsWith("Q & A"));
+    if (!qaH || qaH.querySelector(".gen-q-btn")) return;
+    const btn = document.createElement("button");
+    btn.className = "gen-q-btn";
+    btn.textContent = genQBusy ? "생성 중…" : "✨ 질문 생성";
+    btn.disabled = genQBusy;
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      if (genQBusy) return;
+      genQBusy = true;
+      btn.textContent = "생성 중…";
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/paper/${slug}/generate-questions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: modelPicker.value }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || ("HTTP " + r.status));
+        // workbench updates via SSE; reload to be safe
+        firstRender = true; prevSectionContent = new Map();
+        await loadWorkbench();
+      } catch (err) {
+        alert("질문 생성 실패: " + (err.message || err));
+      } finally {
+        genQBusy = false;
+      }
+    });
+    qaH.appendChild(btn);
   }
 
   // ───────────────────────────────────────────────────────── Nav
