@@ -517,10 +517,13 @@ def _parse_unfinished_sections(paper_dir: Path, workbench_md: str) -> list[tuple
     line_range is read from the <!-- section_id: ... | lines: A-B --> comment,
     falling back to "" if absent.
     """
-    m = re.search(r"##\s+섹션별 리뷰\s*\n([\s\S]*?)(?=\n##\s|$)", workbench_md)
-    if not m:
+    start_m = re.search(r"##\s+섹션별 리뷰\s*\n", workbench_md)
+    if not start_m:
         return []
-    body = m.group(1)
+    start = start_m.end()
+    tail = re.search(r"\n##\s+(?:Q ?& ?A|Wrap-up|메타|정리)\b", workbench_md[start:])
+    end = start + tail.start() if tail else len(workbench_md)
+    body = workbench_md[start:end]
     chunks = re.split(r"(?=\n### )", body)
     out: list[tuple[str, str]] = []
     for chunk in chunks:
@@ -530,7 +533,7 @@ def _parse_unfinished_sections(paper_dir: Path, workbench_md: str) -> list[tuple
         head_m = re.match(r"^###\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
         if not head_m:
             continue
-        if "_(미진행" not in chunk:
+        if "(미진행" not in chunk:
             continue
         heading = head_m.group(1)
         # Extract line range from comment

@@ -94,12 +94,25 @@ def _list_papers() -> list[dict]:
         })
     return rows
 
+def _sections_block(workbench_md: str) -> "str | None":
+    """The body between '## 섹션별 리뷰' and the next known H2 (Q&A/Wrap-up/메타/
+    정리). Bounding by an explicit H2 avoids breaking when a section's translated
+    body contains a line starting with '## '."""
+    import re
+    start_m = re.search(r"##\s+섹션별 리뷰\s*\n", workbench_md)
+    if not start_m:
+        return None
+    start = start_m.end()
+    tail = re.search(r"\n##\s+(?:Q ?& ?A|Wrap-up|메타|정리)\b", workbench_md[start:])
+    end = start + tail.start() if tail else len(workbench_md)
+    return workbench_md[start:end]
+
+
 def _section_progress(workbench_md: str) -> tuple[int, int]:
     import re
-    m = re.search(r"##\s+섹션별 리뷰\s*\n([\s\S]*?)(?=\n##\s|$)", workbench_md)
-    if not m:
+    body = _sections_block(workbench_md)
+    if body is None:
         return 0, 0
-    body = m.group(1)
     chunks = re.split(r"(?=\n### )", body)
     total = 0
     done = 0
@@ -107,7 +120,7 @@ def _section_progress(workbench_md: str) -> tuple[int, int]:
         if not chunk.lstrip().startswith("### "):
             continue
         total += 1
-        if "_(미진행" not in chunk:
+        if "(미진행" not in chunk:
             done += 1
     return total, done
 

@@ -201,8 +201,8 @@ def _is_placeholder(text: str) -> bool:
     stripped = text.strip()
     return (
         not stripped
-        or stripped.startswith("_(")
-        or stripped == "_(미진행)_"
+        or stripped.startswith(("_(", "*("))   # italic marker, either delimiter
+        or "미진행" in stripped
         or "여기에 본인 답변" in stripped
         or stripped == "<empty>"
     )

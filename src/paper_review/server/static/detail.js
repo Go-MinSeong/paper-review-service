@@ -16,21 +16,26 @@
   }
 
   function statusFromBody(body) {
-    if (/_\(미진행/.test(body)) return "not_started";
-    const aMatch = body.match(/\*\*A \(내 정리\)\*\*[\s\S]*$/);
-    if (!aMatch) return "not_started";
-    const aBody = aMatch[0].replace(/\*\*A \(내 정리\)\*\*[:：]?\s*/, "").trim();
-    if (!aBody || /^_\(/.test(aBody) || /여기에 본인 답변/.test(aBody)) return "in_progress";
-    return "done";
+    // Italic marker may be _( … )_ or *( … )* depending on the markdown editor
+    if (/[*_]?\(미진행/.test(body)) return "not_started";
+    // A section is "done" once it has analyzed content (요약 or 번역),
+    // regardless of whether a user answer block exists.
+    if (/\*\*\s*(요약|Claude 1차 번역|원문 발췌)/.test(body)) return "done";
+    return "not_started";
   }
 
   // Parse workbench markdown to extract sections list with status
   function extractSections(md) {
     const stripped = stripFrontmatter(md);
-    // Find ## 섹션별 리뷰 block. Use \n## as the terminator (no /m flag so $ = end-of-string)
-    const m = stripped.match(/##\s+섹션별 리뷰\s*\n([\s\S]*?)(?=\n##\s|$)/);
-    if (!m) return [];
-    const body = m[1];
+    // Bound the 섹션별 리뷰 block explicitly between its own H2 and the next
+    // known H2 (Q&A / Wrap-up). A bare \n## terminator breaks when a section's
+    // translated body happens to contain a line starting with "## ".
+    const startM = stripped.match(/##\s+섹션별 리뷰\s*\n/);
+    if (!startM) return [];
+    const start = startM.index + startM[0].length;
+    const tailM = stripped.slice(start).match(/\n##\s+(?:Q ?& ?A|Wrap-up|메타|정리)\b/);
+    const end = tailM ? start + tailM.index : stripped.length;
+    const body = stripped.slice(start, end);
     const chunks = body.split(/(?=\n### )/);
     const sections = [];
     for (const chunk of chunks) {
