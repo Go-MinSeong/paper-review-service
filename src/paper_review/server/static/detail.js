@@ -172,6 +172,14 @@
 
   // Inject "✨ 이 섹션 분석" buttons on every not-yet-done section heading
   function injectSectionAnalyzeButtons(wb, secs) {
+    // Hide the "_(미진행 …)_" placeholder paragraphs — the button replaces them.
+    wb.querySelectorAll("p, em").forEach(el => {
+      const t = el.textContent.trim();
+      if (/^[*_]?\(미진행/.test(t) && t.length < 80) {
+        const p = el.closest("p") || el;
+        p.style.display = "none";
+      }
+    });
     const byId = new Map(secs.map(s => [s.slug, s]));
     wb.querySelectorAll("h3").forEach(h => {
       const id = (h.id || "").replace(/^sec-/, "");

@@ -91,6 +91,7 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
+            limit=16 * 1024 * 1024,
             cwd=str(paper_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

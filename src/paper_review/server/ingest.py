@@ -101,6 +101,7 @@ async def _run_ingest(job: IngestJob) -> None:
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
+            limit=16 * 1024 * 1024,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )

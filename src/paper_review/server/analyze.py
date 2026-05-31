@@ -178,6 +178,7 @@ async def _analyze_one_section(
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
+        limit=16 * 1024 * 1024,
         cwd=str(paper_dir),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -270,7 +271,8 @@ Steps:
         cmd += ["--model", model]
 
     proc = await asyncio.create_subprocess_exec(
-        *cmd, cwd=str(paper_dir),
+        *cmd,
+        limit=16 * 1024 * 1024, cwd=str(paper_dir),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
     start = time.time()
@@ -403,6 +405,7 @@ Steps:
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
+        limit=16 * 1024 * 1024,
         cwd=str(paper_dir),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
