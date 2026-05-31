@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- penguin -->
+  <ellipse cx="50" cy="52" rx="30" ry="33" fill="#2b2f38"/>
+  <ellipse cx="50" cy="58" rx="21" ry="25" fill="#f7f7f3"/>
+  <circle cx="42" cy="47" r="3.3" fill="#2b2f38"/>
+  <circle cx="58" cy="47" r="3.3" fill="#2b2f38"/>
+  <circle cx="43.1" cy="46" r="1.1" fill="#fff"/>
+  <circle cx="59.1" cy="46" r="1.1" fill="#fff"/>
+  <path d="M50 52 L43.5 59 L56.5 59 Z" fill="#f5a623"/>
+  <circle cx="35" cy="57" r="3.2" fill="#f7b8b0" opacity=".55"/>
+  <circle cx="65" cy="57" r="3.2" fill="#f7b8b0" opacity=".55"/>
+</svg>

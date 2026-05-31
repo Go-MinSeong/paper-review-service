@@ -211,20 +211,51 @@
     border-color: color-mix(in srgb, var(--accent) 50%, var(--border-default));
   }
   .card-thumb {
-    height: 90px; position: relative; overflow: hidden;
+    height: 96px; position: relative; overflow: hidden;
     background-size: cover; background-position: center;
   }
-  .card-thumb .initial {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    color: white; font-size: 32px; font-weight: 750; letter-spacing: -.03em;
-    text-shadow: 0 2px 8px rgba(0,0,0,.2);
+  /* Character icon */
+  .card-thumb .card-char {
+    position: absolute; left: 50%; top: 50%;
+    width: 64px; height: 64px;
+    transform: translate(-50%, -50%);
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.12));
   }
-  .card-thumb::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.25));
-    pointer-events: none;
+  .card:hover .card-thumb .card-char {
+    transform: translate(-50%, -52%) scale(1.12) rotate(-3deg);
   }
+  /* Per-character soft gradient backgrounds */
+  .card-thumb.char-bg-0 { background: linear-gradient(135deg, #f7e8d2, #efd3ad); }  /* fennec */
+  .card-thumb.char-bg-1 { background: linear-gradient(135deg, #d6e6f0, #b9d4e6); }  /* penguin */
+  .card-thumb.char-bg-2 { background: linear-gradient(135deg, #d6eef7, #aedaee); }  /* dolphin */
+  .card-thumb.char-bg-3 { background: linear-gradient(135deg, #e2e6e3, #cdd3ce); }  /* badger */
+  .card-thumb.char-bg-4 { background: linear-gradient(135deg, #f7e2d0, #f0c7a8); }  /* red panda */
+  .card-thumb.char-bg-5 { background: linear-gradient(135deg, #f8eed0, #f1dcab); }  /* corgi */
+  .card-thumb.char-bg-6 { background: linear-gradient(135deg, #fdeec6, #fcd98f); }  /* calcifer */
+  @media (prefers-color-scheme: dark) {
+    .card-thumb.char-bg-0 { background: linear-gradient(135deg, #4a3f30, #5c4d38); }
+    .card-thumb.char-bg-1 { background: linear-gradient(135deg, #2f3a44, #3a4754); }
+    .card-thumb.char-bg-2 { background: linear-gradient(135deg, #2c3e48, #36505d); }
+    .card-thumb.char-bg-3 { background: linear-gradient(135deg, #34383a, #41464a); }
+    .card-thumb.char-bg-4 { background: linear-gradient(135deg, #4a3a30, #5c4636); }
+    .card-thumb.char-bg-5 { background: linear-gradient(135deg, #4a4030, #5c4f38); }
+    .card-thumb.char-bg-6 { background: linear-gradient(135deg, #4d3f24, #604e2c); }
+  }
+  body[data-theme="dark"] .card-thumb.char-bg-0 { background: linear-gradient(135deg, #4a3f30, #5c4d38); }
+  body[data-theme="dark"] .card-thumb.char-bg-1 { background: linear-gradient(135deg, #2f3a44, #3a4754); }
+  body[data-theme="dark"] .card-thumb.char-bg-2 { background: linear-gradient(135deg, #2c3e48, #36505d); }
+  body[data-theme="dark"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #34383a, #41464a); }
+  body[data-theme="dark"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #4a3a30, #5c4636); }
+  body[data-theme="dark"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #4a4030, #5c4f38); }
+  body[data-theme="dark"] .card-thumb.char-bg-6 { background: linear-gradient(135deg, #4d3f24, #604e2c); }
+  body[data-theme="light"] .card-thumb.char-bg-0 { background: linear-gradient(135deg, #f7e8d2, #efd3ad); }
+  body[data-theme="light"] .card-thumb.char-bg-1 { background: linear-gradient(135deg, #d6e6f0, #b9d4e6); }
+  body[data-theme="light"] .card-thumb.char-bg-2 { background: linear-gradient(135deg, #d6eef7, #aedaee); }
+  body[data-theme="light"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #e2e6e3, #cdd3ce); }
+  body[data-theme="light"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #f7e2d0, #f0c7a8); }
+  body[data-theme="light"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #f8eed0, #f1dcab); }
+  body[data-theme="light"] .card-thumb.char-bg-6 { background: linear-gradient(135deg, #fdeec6, #fcd98f); }
   .card-thumb .badge {
     position: absolute; top: 10px; right: 10px; z-index: 2;
     font-size: 10px; font-weight: 600; padding: 3px 8px;

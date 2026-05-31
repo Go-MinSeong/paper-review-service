@@ -108,6 +108,13 @@
     for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 10;
     return h;
   }
+  const CHARACTERS = ["fennec", "penguin", "dolphin", "badger", "redpanda", "corgi", "calcifer"];
+  function hashChar(s) {
+    // djb2 — better spread than a per-step modulo (slugs are mostly digits)
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return Math.abs(h) % CHARACTERS.length;
+  }
   function initials(s) {
     const tokens = s.replace(/[:\-]/g, ' ').split(/\s+/).filter(Boolean);
     if (!tokens.length) return '?';
@@ -159,7 +166,8 @@
     grid.innerHTML = filtered.map(p => {
       const title = p.title_ko || p.title_en || p.slug;
       const subTitle = (p.title_ko && p.title_en) ? p.title_en : '';
-      const hue = hashHue(p.slug);
+      const ci = hashChar((p.title_en || p.title_ko || p.slug) + p.slug);
+      const charName = CHARACTERS[ci];
       const total = Math.max(p.sections_total || 0, 1);
       const done = p.sections_done || 0;
       const segs = Math.min(total, 14);
@@ -175,8 +183,8 @@
       const isToRead = p.status === 'to_read';
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
-          <div class="card-thumb grad-${hue}">
-            <span class="initial">${escapeHtml(initials(title))}</span>
+          <div class="card-thumb char-bg-${ci}">
+            <img class="card-char" src="/static/characters/${charName}.svg" alt="" loading="lazy">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
