@@ -77,8 +77,9 @@ def find_section_boundaries(text):
         if re.match(r"^(I{1,3}|IV|V|VI{1,3}|IX|X|XI{0,3})\.\s+[A-Z]", s):
             hits.append((i, s))
             continue
-        # Numbered (e.g. "1 Introduction", "3.2 Method") - common in NeurIPS/ICML
-        if re.match(r"^\d+(\.\d+)*\s+[A-Z][A-Za-z]", s) and len(s) < 80:
+        # Numbered (e.g. "1 Introduction", "3.2 Method", "1. Introduction",
+        # "3.2. Method") - optional trailing dot covers CVPR/ICCV style
+        if re.match(r"^\d+(\.\d+)*\.?\s+[A-Z][A-Za-z]", s) and len(s) < 80:
             hits.append((i, s))
             continue
         # All caps (e.g. "ABSTRACT", "ACKNOWLEDGEMENTS", "REFERENCES", "APPENDIX")
