@@ -235,6 +235,17 @@
   .card-thumb .badge.s-in_progress { background: rgba(245,158,11,.85); }
   .card-thumb .badge.s-review_done { background: rgba(16,185,129,.85); }
   .card-thumb .badge.s-exported    { background: rgba(99,102,241,.85); }
+  .card-del {
+    position: absolute; top: 8px; left: 8px; z-index: 3;
+    width: 26px; height: 26px; border-radius: 7px;
+    border: 0; cursor: pointer; font-size: 12px; line-height: 1;
+    background: rgba(0,0,0,.5); color: white;
+    backdrop-filter: blur(8px);
+    opacity: 0; transform: scale(.85); transition: opacity .12s, transform .12s, background .12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card:hover .card-del { opacity: 1; transform: scale(1); }
+  .card-del:hover { background: rgba(239,68,68,.9); }
   .card-body { padding: 14px 16px 16px; }
   .card-title {
     font-size: 14.5px; font-weight: 650; line-height: 1.4;

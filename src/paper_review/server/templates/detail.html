@@ -17,8 +17,9 @@
     <span class="status s-__STATUS__">__STATUS__</span>
     <span class="spacer"></span>
     <select id="model-picker" title="Model">
+      <option value="claude-opus-4-8">Opus 4.8</option>
+      <option value="claude-opus-4-7">Opus 4.7</option>
       <option value="sonnet">Sonnet 4.6</option>
-      <option value="opus">Opus 4.7</option>
       <option value="haiku">Haiku 4.5</option>
     </select>
     <div class="view-toggle" id="view-toggle" title="요약 / 상세 토글">
@@ -33,6 +34,7 @@
     <button class="btn" id="btn-figures" title="Figures (G)">Figures <span class="count" id="figs-count">·</span></button>
     <button class="btn" id="btn-chat" title="Chat (C)">💬 Chat</button>
     <button class="btn" id="theme-toggle" title="Toggle theme">☼</button>
+    <button class="btn btn-danger" id="btn-delete" title="이 paper 삭제">🗑</button>
   </div>
 
   <main class="layout" id="layout">

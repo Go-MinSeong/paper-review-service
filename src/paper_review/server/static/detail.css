@@ -96,6 +96,8 @@
     transition: background .12s, border-color .12s;
   }
   .topbar .btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+  .topbar .btn.btn-danger { color: var(--text-muted); }
+  .topbar .btn.btn-danger:hover { background: rgba(239,68,68,.12); border-color: #ef4444; color: #ef4444; }
   .topbar .btn .count { color: var(--text-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
 
   /* ─── 3-column layout ────────────────────────────────────────────── */

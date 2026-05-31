@@ -270,8 +270,15 @@
 
   // ───────────────────────────────────────────────────────── Model picker
   const modelPicker = document.getElementById("model-picker");
-  const savedModel = localStorage.getItem("pr-model") || "sonnet";
+  // Migrate legacy values to the new explicit IDs
+  const MODEL_MIGRATE = { "opus": "claude-opus-4-8" };
+  let savedModel = localStorage.getItem("pr-model") || "claude-opus-4-8";
+  savedModel = MODEL_MIGRATE[savedModel] || savedModel;
+  // Fall back to first option if the saved value is no longer offered
+  const known = Array.from(modelPicker.options).map(o => o.value);
+  if (!known.includes(savedModel)) savedModel = modelPicker.options[0].value;
   modelPicker.value = savedModel;
+  localStorage.setItem("pr-model", savedModel);
   modelPicker.addEventListener("change", () => {
     localStorage.setItem("pr-model", modelPicker.value);
   });
@@ -915,6 +922,18 @@
       setTimeout(connectSSE, 3000);
     });
   }
+
+  // ───────────────────────────────────────────────────────── Delete
+  document.getElementById('btn-delete').addEventListener('click', async () => {
+    if (!confirm(`"${slug}" 를 삭제할까요?\n원본 PDF·워크벤치·분석 결과가 모두 사라집니다 (되돌릴 수 없음).`)) return;
+    try {
+      const r = await fetch(`/paper/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      location.href = '/';
+    } catch (e) {
+      alert('삭제 실패: ' + (e.message || e));
+    }
+  });
 
   // ───────────────────────────────────────────────────────── Theme toggle
   function applyTheme(t) {

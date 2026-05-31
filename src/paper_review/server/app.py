@@ -263,6 +263,24 @@ async def papers_save_pdf(
     return await save_pdf_paper(file, tag_list, category or None)
 
 
+@app.delete("/paper/{slug}")
+def paper_delete(slug: str):
+    """Delete a paper's working directory (irreversible). Cancels any running
+    analyze job for it first."""
+    import shutil
+    d = _paper_dir(slug)  # validates existence
+    # Best-effort cancel of an in-flight analyze job
+    try:
+        from .analyze import _jobs as _analyze_jobs
+        job = _analyze_jobs.get(slug)
+        if job and job.status == "running":
+            job.cancel_event.set()
+    except Exception:
+        pass
+    shutil.rmtree(d, ignore_errors=True)
+    return {"ok": True, "slug": slug}
+
+
 @app.post("/paper/{slug}/promote")
 async def papers_promote(slug: str):
     """Promote a to_read paper to full ingest (body + figures + sections).

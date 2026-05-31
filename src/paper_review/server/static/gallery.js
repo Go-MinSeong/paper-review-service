@@ -69,8 +69,13 @@
       b.addEventListener('click', (e) => {
         if (e.target.closest('.tag-twisty') && !e.target.closest('.tag-twisty').classList.contains('leaf')) return;
         const t = b.dataset.tag;
-        if (activeTags.has(t)) activeTags.delete(t);
-        else activeTags.add(t);
+        // Single-select: clicking a tag selects only it; clicking it again clears.
+        if (activeTags.has(t)) {
+          activeTags.clear();
+        } else {
+          activeTags.clear();
+          activeTags.add(t);
+        }
         renderTagTree();
         renderCards();
         updateClearTags();
@@ -173,6 +178,7 @@
           <div class="card-thumb grad-${hue}">
             <span class="initial">${escapeHtml(initials(title))}</span>
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
+            <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${isActive ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total}</span>` : ''}
           </div>
           <div class="card-body">
@@ -189,6 +195,30 @@
         </a>`;
     }).join('');
   }
+  // Delete (event-delegated so it survives re-renders)
+  grid.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.card-del');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const slug = btn.dataset.del;
+    if (!confirm(`"${slug}" 를 삭제할까요?\n원본 PDF·워크벤치·분석 결과가 모두 사라집니다 (되돌릴 수 없음).`)) return;
+    btn.textContent = '…';
+    try {
+      const r = await fetch(`/paper/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const idx = papers.findIndex(p => p.slug === slug);
+      if (idx >= 0) papers.splice(idx, 1);
+      updateCounts();
+      renderTagTree();
+      renderCards();
+      updateClearTags();
+    } catch (err) {
+      alert('삭제 실패: ' + (err.message || err));
+      btn.textContent = '🗑';
+    }
+  });
+
   document.querySelectorAll('.side-nav .nav-item[data-filter]').forEach(b => {
     b.addEventListener('click', () => {
       document.querySelectorAll('.side-nav .nav-item[data-filter]').forEach(o =>
