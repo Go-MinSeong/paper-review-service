@@ -133,6 +133,17 @@
       `<span class="star${i <= r ? ' on' : ''}" data-v="${i}">★</span>`).join('');
     return `<span class="card-rating" data-slug="${escapeHtml(slug)}" data-rating="${r}" title="별점">${stars}</span>`;
   }
+  function relTime(sec) {
+    if (!sec) return '';
+    const diff = Date.now() / 1000 - sec;
+    if (diff < 90) return '방금';
+    if (diff < 3600) return Math.floor(diff / 60) + '분 전';
+    if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
+    if (diff < 86400 * 7) return Math.floor(diff / 86400) + '일 전';
+    if (diff < 86400 * 30) return Math.floor(diff / 86400 / 7) + '주 전';
+    if (diff < 86400 * 365) return Math.floor(diff / 86400 / 30) + '개월 전';
+    return Math.floor(diff / 86400 / 365) + '년 전';
+  }
   function renderCards() {
     const filtered = papers.filter(p => {
       if (activeFilter !== 'all' && p.status !== activeFilter) return false;
@@ -209,6 +220,7 @@
               ${isToRead ? '<span class="frac">reading list</span>' : `<span class="frac">${done}/${total} sections</span>`}
               ${p.category ? `<span class="sep">·</span><span class="cat">${escapeHtml(p.category)}</span>` : ''}
               ${p.figures_count > 0 ? `<span class="sep">·</span><span>${p.figures_count} figs</span>` : ''}
+              ${(p.updated_at || p.last_viewed) ? `<span class="sep">·</span><span class="act">${(p.last_viewed || 0) > (p.updated_at || 0) ? '조회' : '편집'} ${relTime(Math.max(p.last_viewed || 0, p.updated_at || 0))}</span>` : ''}
             </div>
             ${tagsHTML}
           </div>
@@ -359,11 +371,17 @@
   // ─── Dashboard (client-side aggregates over `papers`) ────────────
   const dashEl = document.getElementById('dashboard');
   const dashToggle = document.getElementById('dash-toggle');
-  function bars(rows, max, cls) {
+  function dashBars(rows, max, cls) {
     return rows.map(([label, n]) =>
       `<div class="dash-bar-row"><span class="lbl" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`
-      + `<span class="bar"><i class="${cls||''}" style="width:${Math.round(n / max * 100)}%"></i></span>`
+      + `<span class="bar"><i class="${cls || ''}" style="width:${Math.max(4, Math.round(n / max * 100))}%"></i></span>`
       + `<span class="val">${n}</span></div>`).join('');
+  }
+  function weekStartTs(ms) {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back to Monday
+    return d.getTime();
   }
   function renderDashboard() {
     if (!dashEl) return;
@@ -389,19 +407,40 @@
     papers.forEach(p => { const c = (p.category || '').trim(); if (c) catCount[c] = (catCount[c] || 0) + 1; });
     const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const maxCat = Math.max(1, ...topCats.map(c => c[1]));
-    const months = {};
-    papers.forEach(p => { const d = (p.review_started || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(d)) months[d] = (months[d] || 0) + 1; });
-    const monthKeys = Object.keys(months).sort().slice(-8);
-    const maxMonth = Math.max(1, ...monthKeys.map(m => months[m]));
+
+    // Weekly activity heatmap ("잔디") — one cell per week, last 52 weeks.
+    // An activity = a paper started or last-edited in that week.
+    const weekMap = {};
+    papers.forEach(p => {
+      const evs = [];
+      if (/^\d{4}-\d{2}-\d{2}/.test(p.review_started || '')) evs.push(new Date(p.review_started + 'T00:00:00').getTime());
+      if (p.updated_at) evs.push(p.updated_at * 1000);
+      evs.forEach(ms => { const w = weekStartTs(ms); weekMap[w] = (weekMap[w] || 0) + 1; });
+    });
+    const WK = 52, thisWeek = weekStartTs(Date.now());
+    const level = n => n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 3 : 4;
+    const cells = [];
+    for (let i = WK - 1; i >= 0; i--) {
+      const ws = thisWeek - i * 7 * 86400000;
+      const n = weekMap[ws] || 0;
+      const d = new Date(ws);
+      cells.push(`<span class="cell l${level(n)}" title="${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} 주 · ${n}건"></span>`);
+    }
+    const totalActs = Object.values(weekMap).reduce((a, b) => a + b, 0);
 
     dashEl.innerHTML = `
+      <div class="dash-kpis">
+        <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">전체 논문</div></div>
+        <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">섹션 완료 · ${secDone}/${secTotal}</div></div>
+        <div class="kpi"><div class="kpi-num">${avg ? avg.toFixed(1) : '–'}${avg ? '<span class="u gold">★</span>' : ''}</div><div class="kpi-lbl">평균 별점 · ${rated.length}개</div></div>
+        <div class="kpi"><div class="kpi-num">${figs}</div><div class="kpi-lbl">figure 총합</div></div>
+      </div>
+      <div class="dash-card grass-card">
+        <div class="dash-title">주간 활동 <span class="dash-sub">최근 1년 · 한 칸 = 1주 · 총 ${totalActs}건</span></div>
+        <div class="grass">${cells.join('')}</div>
+        <div class="grass-legend"><span>적음</span><span class="cell l0"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>많음</span></div>
+      </div>
       <div class="dash-grid">
-        <div class="dash-card stat">
-          <div class="stat-row"><span class="big">${N}</span><span class="cap">전체 논문</span></div>
-          <div class="stat-row"><span class="big">${secPct}%</span><span class="cap">섹션 완료 (${secDone}/${secTotal})</span></div>
-          <div class="stat-row"><span class="big">${avg ? avg.toFixed(1) : '–'}</span><span class="cap">평균 별점 (${rated.length}개)</span></div>
-          <div class="stat-row"><span class="big">${figs}</span><span class="cap">figure 총합</span></div>
-        </div>
         <div class="dash-card">
           <div class="dash-title">리뷰 진행 상태</div>
           <div class="dash-funnel">
@@ -413,19 +452,15 @@
         </div>
         <div class="dash-card">
           <div class="dash-title">별점 분포</div>
-          ${rated.length ? bars(ratingDist, maxRD, 'gold') : '<div class="dash-empty">아직 평가한 논문이 없어요</div>'}
+          ${rated.length ? dashBars(ratingDist, maxRD, 'gold') : '<div class="dash-empty">아직 평가한 논문이 없어요</div>'}
         </div>
         <div class="dash-card">
           <div class="dash-title">태그 Top</div>
-          ${topTags.length ? bars(topTags, maxTag) : '<div class="dash-empty">태그 없음</div>'}
+          ${topTags.length ? dashBars(topTags, maxTag) : '<div class="dash-empty">태그 없음</div>'}
         </div>
         <div class="dash-card">
           <div class="dash-title">분야</div>
-          ${topCats.length ? bars(topCats, maxCat) : '<div class="dash-empty">분류 없음</div>'}
-        </div>
-        <div class="dash-card">
-          <div class="dash-title">월별 시작</div>
-          ${monthKeys.length ? `<div class="dash-months">${monthKeys.map(m => `<div class="mcol" title="${m}: ${months[m]}건"><i style="height:${Math.round(months[m] / maxMonth * 100)}%"></i><span>${m.slice(2).replace('-', '.')}</span></div>`).join('')}</div>` : '<div class="dash-empty">날짜 정보 없음</div>'}
+          ${topCats.length ? dashBars(topCats, maxCat) : '<div class="dash-empty">분류 없음</div>'}
         </div>
       </div>`;
   }

@@ -61,9 +61,33 @@ def _paper_dir(slug: str) -> Path:
         raise HTTPException(404, f"unknown slug {safe!r}")
     return p
 
+
+# Central view-timestamp store (slug → unix seconds). Kept out of the paper
+# folders so opening a paper doesn't bump its dir mtime / gallery order.
+_VIEWS_FILE = SERVICE_ROOT / ".views.json"
+
+
+def _load_views() -> dict:
+    try:
+        return json.loads(_VIEWS_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _mark_viewed(slug: str) -> None:
+    import time
+    views = _load_views()
+    views[slug] = int(time.time())
+    try:
+        _VIEWS_FILE.write_text(json.dumps(views))
+    except Exception:
+        pass
+
+
 def _list_papers() -> list[dict]:
     if not SERVICE_ROOT.exists():
         return []
+    views = _load_views()
     rows: list[dict] = []
     for d in sorted(SERVICE_ROOT.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
         if not d.is_dir() or d.name.startswith((".", "_")):
@@ -102,6 +126,7 @@ def _list_papers() -> list[dict]:
             "tags": _parse_tags_value(meta.get("tags", "")),
             "rating": rating,
             "updated_at": int(wb.stat().st_mtime),
+            "last_viewed": int(views.get(d.name, 0)),
         })
     return rows
 
@@ -391,6 +416,14 @@ def patch_tags(slug: str, body: TagsPatchBody):
 def patch_rating(slug: str, body: RatingPatchBody):
     _paper_dir(slug)  # validate
     return patch_paper_rating(slug, body)
+
+
+@app.post("/paper/{slug}/viewed")
+def mark_viewed(slug: str):
+    """Record that the paper was opened (for the gallery's last-activity time)."""
+    _paper_dir(slug)  # validate
+    _mark_viewed(slug)
+    return {"ok": True}
 
 @app.get("/papers/jobs/{job_id}")
 def papers_job(job_id: str):

@@ -2,6 +2,9 @@
 (() => {
   const slug = document.body.dataset.slug;
 
+  // Record this view (for the gallery's last-activity time) — fire-and-forget
+  fetch(`/paper/${slug}/viewed`, { method: "POST" }).catch(() => {});
+
   // ───────────────────────────────────────────────────────── State
   let prevSectionContent = new Map();   // heading → text content, used for diff
   let figures = [];
@@ -603,7 +606,7 @@
       <div class="edit-toolbar">
         <strong>편집 (WYSIWYG)</strong>
         <span class="hint">우측 상단에서 마크다운/문서 모드 전환 · Cmd/Ctrl+S 저장 · Esc 취소</span>
-        <button class="btn-secondary" id="edit-figure" style="padding:6px 12px;font-size:12px">🖼 Figure 삽입</button>
+        <button class="btn-secondary" id="edit-figure" style="padding:6px 12px;font-size:12px">Figure 삽입</button>
         <button class="btn-secondary" id="edit-cancel" style="padding:6px 12px;font-size:12px">취소</button>
         <button class="btn-primary" id="edit-save" style="padding:6px 14px;font-size:12px">저장</button>
       </div>
@@ -660,6 +663,9 @@
     const url = `/paper/${slug}/fig/${f.id}`;
     const alt = (f.label || "figure").replace(/[\[\]]/g, "");
     tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
+    // Drop the figure's caption right below the image (translated if available)
+    const cap = (f.caption_ko || f.caption_en || "").trim();
+    if (cap) tuiEditor.insertText("\n" + cap + "\n");
     closeFigures();
   }
 
