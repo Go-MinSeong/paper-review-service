@@ -54,8 +54,9 @@
         const active = activeTags.has(info.path) ? ' active' : '';
         rows.push(`
           <div class="tag-node">
-            <button class="nav-item${active}" data-tag="${escapeHtml(info.path)}" data-depth="${depth}">
+            <button class="nav-item tag-item${active}" data-tag="${escapeHtml(info.path)}" data-depth="${depth}" style="--tagc:${tagColor(info.path)}">
               <span class="tag-twisty ${hasChildren ? (isCollapsed ? 'collapsed' : '') : 'leaf'}" data-twisty="${escapeHtml(info.path)}">▾</span>
+              <span class="tag-dot"></span>
               <span class="nav-name">${escapeHtml(name)}</span>
               <span class="nav-n">${cnt}</span>
             </button>
@@ -133,6 +134,15 @@
       `<span class="star${i <= r ? ' on' : ''}" data-v="${i}">★</span>`).join('');
     return `<span class="card-rating" data-slug="${escapeHtml(slug)}" data-rating="${r}" title="별점">${stars}</span>`;
   }
+  // Deterministic per-tag color. Hue is derived from the top-level segment
+  // so a family ("CV", "CV/segmentation", "CV/detection") shares one hue.
+  function tagHue(name) {
+    const s = (name || '').split('/')[0];
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 37 + s.charCodeAt(i)) >>> 0;
+    return h % 360;
+  }
+  function tagColor(name) { return `hsl(${tagHue(name)} 58% 52%)`; }
   function relTime(sec) {
     if (!sec) return '';
     const diff = Date.now() / 1000 - sec;
@@ -198,7 +208,7 @@
       const activeMeta = activeJobs.get(p.slug);
       const tags = p.tags || [];
       const tagsHTML = tags.length
-        ? `<div class="card-tags">${tags.slice(0, 3).map(t => `<span class="t">${escapeHtml(t)}</span>`).join('')}${tags.length > 3 ? `<span class="t more">+${tags.length - 3}</span>` : ''}</div>`
+        ? `<div class="card-tags">${tags.slice(0, 3).map(t => `<span class="t" style="--tagc:${tagColor(t)}">${escapeHtml(t)}</span>`).join('')}${tags.length > 3 ? `<span class="t more">+${tags.length - 3}</span>` : ''}</div>`
         : '';
       const isToRead = p.status === 'to_read';
       return `
