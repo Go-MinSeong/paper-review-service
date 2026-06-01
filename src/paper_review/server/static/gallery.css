@@ -314,6 +314,16 @@
   }
   .card:hover .card-tagedit { opacity: 1; transform: scale(1); }
   .card-tagedit:hover { background: var(--accent); }
+  /* Star rating overlay (bottom-right of the thumbnail) */
+  .card-rating {
+    position: absolute; bottom: 8px; right: 8px; z-index: 3;
+    display: inline-flex; gap: 1px; padding: 3px 6px; border-radius: 999px;
+    background: rgba(0,0,0,.42); backdrop-filter: blur(8px);
+    font-size: 12px; line-height: 1; cursor: pointer; user-select: none;
+  }
+  .card-rating .star { color: rgba(255,255,255,.45); transition: color .1s, transform .1s; }
+  .card-rating .star.on { color: #f5a623; }
+  .card-rating .star:hover { transform: scale(1.18); }
   .card-body { padding: 14px 16px 16px; }
   .card-title {
     font-size: 14.5px; font-weight: 650; line-height: 1.4;

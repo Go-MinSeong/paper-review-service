@@ -86,3 +86,28 @@ def patch_paper_tags(slug: str, body: TagsPatchBody) -> dict:
     new_text = _set_tags_in_text(text, cleaned)
     wb.write_text(new_text)
     return {"ok": True, "tags": cleaned}
+
+
+# ── Rating (1-5 stars; 0 clears) ─────────────────────────────────────────
+class RatingPatchBody(BaseModel):
+    rating: int
+
+
+def _set_rating_in_text(text: str, rating: int) -> str:
+    """Update / insert / remove the frontmatter `rating:` line."""
+    if rating <= 0:
+        return re.sub(r"^rating:.*\n?", "", text, count=1, flags=re.MULTILINE)
+    new_line = f"rating: {rating}"
+    if re.search(r"^rating:.*$", text, flags=re.MULTILINE):
+        return re.sub(r"^rating:.*$", new_line, text, count=1, flags=re.MULTILINE)
+    return re.sub(r"^---\n", f"---\n{new_line}\n", text, count=1)
+
+
+def patch_paper_rating(slug: str, body: RatingPatchBody) -> dict:
+    wb = SERVICE_ROOT / slug / "workbench.md"
+    if not wb.exists():
+        from fastapi import HTTPException
+        raise HTTPException(404, f"workbench not found for {slug}")
+    r = max(0, min(5, int(body.rating)))
+    wb.write_text(_set_rating_in_text(wb.read_text(), r))
+    return {"ok": True, "rating": r}

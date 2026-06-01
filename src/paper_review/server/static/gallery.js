@@ -127,6 +127,12 @@
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
   }
+  function starsHTML(rating, slug) {
+    const r = rating || 0;
+    const stars = [1,2,3,4,5].map(i =>
+      `<span class="star${i <= r ? ' on' : ''}" data-v="${i}">★</span>`).join('');
+    return `<span class="card-rating" data-slug="${escapeHtml(slug)}" data-rating="${r}" title="별점">${stars}</span>`;
+  }
   function renderCards() {
     const filtered = papers.filter(p => {
       if (activeFilter !== 'all' && p.status !== activeFilter) return false;
@@ -184,6 +190,7 @@
         ? `<div class="card-tags">${tags.slice(0, 3).map(t => `<span class="t">${escapeHtml(t)}</span>`).join('')}${tags.length > 3 ? `<span class="t more">+${tags.length - 3}</span>` : ''}</div>`
         : '';
       const isToRead = p.status === 'to_read';
+      const showRating = p.status === 'review_done' || p.status === 'exported' || (p.rating > 0);
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
@@ -192,6 +199,7 @@
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${isActive ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total}</span>` : ''}
+            ${showRating ? starsHTML(p.rating, p.slug) : ''}
           </div>
           <div class="card-body">
             <div class="card-title">${escapeHtml(title)}</div>
@@ -233,6 +241,28 @@
     } catch (err) {
       alert('태그 저장 실패: ' + (err.message || err));
     }
+  });
+  // Star rating (event-delegated) — click a star to set, click the current to clear
+  grid.addEventListener('click', async (e) => {
+    const star = e.target.closest('.card-rating .star');
+    if (!star) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const wrap = star.closest('.card-rating');
+    const slug = wrap.dataset.slug;
+    let v = +star.dataset.v;
+    if (v === (+wrap.dataset.rating || 0)) v = 0;
+    wrap.dataset.rating = v;
+    wrap.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('on', i < v));
+    const paper = papers.find(p => p.slug === slug);
+    if (paper) paper.rating = v;
+    try {
+      await fetch(`/paper/${encodeURIComponent(slug)}/rating`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: v }),
+      });
+    } catch (_) { /* non-fatal */ }
   });
 
   // Delete (event-delegated so it survives re-renders)

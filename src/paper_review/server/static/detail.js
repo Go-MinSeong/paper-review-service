@@ -402,6 +402,39 @@
     });
   }
 
+  // ─────────────────────────────────────────────── Star rating
+  const ratingEl = document.getElementById("rating");
+  let curRating = parseInt(document.body.dataset.rating || "0", 10) || 0;
+  function paintStars(value) {
+    ratingEl.querySelectorAll(".star").forEach((s, i) => s.classList.toggle("on", i < value));
+  }
+  if (ratingEl) {
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement("span");
+      s.className = "star"; s.textContent = "★"; s.dataset.v = String(i);
+      ratingEl.appendChild(s);
+    }
+    paintStars(curRating);
+    ratingEl.addEventListener("mousemove", (e) => {
+      const s = e.target.closest(".star"); if (s) paintStars(+s.dataset.v);
+    });
+    ratingEl.addEventListener("mouseleave", () => paintStars(curRating));
+    ratingEl.addEventListener("click", async (e) => {
+      const s = e.target.closest(".star"); if (!s) return;
+      let v = +s.dataset.v;
+      if (v === curRating) v = 0;            // click the current rating to clear
+      curRating = v;
+      paintStars(v);
+      try {
+        await fetch(`/paper/${slug}/rating`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rating: v }),
+        });
+      } catch (_) { /* non-fatal */ }
+    });
+  }
+
   // ───────────────────────────────────────────────────────── Model picker
   const modelPicker = document.getElementById("model-picker");
   // Migrate legacy values to the new explicit IDs

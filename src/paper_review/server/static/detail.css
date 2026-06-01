@@ -87,6 +87,12 @@
   .topbar .status.s-in_progress { background: var(--status-in_progress); }
   .topbar .status.s-review_done { background: var(--status-review_done); }
   .topbar .status.s-exported    { background: var(--status-exported); }
+  /* Star rating widget */
+  .rating { display: inline-flex; gap: 1px; cursor: pointer; user-select: none;
+            font-size: 15px; line-height: 1; }
+  .rating .star { color: var(--border-default); transition: color .1s, transform .1s; }
+  .rating .star.on { color: #f5a623; }
+  .rating:hover .star { transform: scale(1.08); }
   .topbar .spacer { flex: 1; }
   .topbar .btn {
     font: inherit; font-size: 12px;

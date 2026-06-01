@@ -24,7 +24,13 @@ from .analyze import AnalyzeBody, cancel as cancel_analysis, get_status as get_a
 from .chat import ChatBody, chat_route
 from .ingest import StartIngestBody, get_job, start_arxiv_job, start_pdf_job
 from .save import SaveBody, save_paper, save_pdf_paper
-from .tags import TagsPatchBody, list_all_tags, patch_paper_tags
+from .tags import (
+    RatingPatchBody,
+    TagsPatchBody,
+    list_all_tags,
+    patch_paper_rating,
+    patch_paper_tags,
+)
 
 app = FastAPI(title="paper-review")
 
@@ -68,6 +74,10 @@ def _list_papers() -> list[dict]:
         meta = _read_frontmatter(wb)
         text = wb.read_text()
         total, done = _section_progress(text)
+        try:
+            rating = max(0, min(5, int(str(meta.get("rating", "")).strip() or 0)))
+        except ValueError:
+            rating = 0
         # Figure count
         fig_files = list(d.glob("*_figures.json"))
         fig_count = 0
@@ -90,6 +100,7 @@ def _list_papers() -> list[dict]:
             "sections_done": done,
             "figures_count": fig_count,
             "tags": _parse_tags_value(meta.get("tags", "")),
+            "rating": rating,
             "updated_at": int(wb.stat().st_mtime),
         })
     return rows
@@ -162,6 +173,7 @@ def paper_detail(slug: str) -> HTMLResponse:
         SLUG=slug,
         TITLE=title,
         STATUS=meta.get("status", "?"),
+        RATING=str(meta.get("rating") or "0"),
         PDF_NAME=pdf_name,
         HAS_PDF="true" if has_pdf else "false",
         HAS_VIEWER="true" if has_viewer else "false",
@@ -373,6 +385,12 @@ def get_tags():
 def patch_tags(slug: str, body: TagsPatchBody):
     _paper_dir(slug)  # validate
     return patch_paper_tags(slug, body)
+
+
+@app.patch("/paper/{slug}/rating")
+def patch_rating(slug: str, body: RatingPatchBody):
+    _paper_dir(slug)  # validate
+    return patch_paper_rating(slug, body)
 
 @app.get("/papers/jobs/{job_id}")
 def papers_job(job_id: str):
