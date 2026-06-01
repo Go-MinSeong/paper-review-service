@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -13,10 +16,98 @@ def workbench_to_draft(
     draft_md: Path,
     *,
     paper_dir: Path,
+    vault_root: Path | None = None,
 ) -> None:
     wb = parse(workbench_md)
     draft = render(wb, paper_dir=paper_dir)
+    # Bridge editor-inserted figures into the Velog vault so `velog publish`
+    # can upload them (no-op when the draft has no figure references).
+    draft = _materialize_figures(
+        draft, paper_dir=paper_dir, draft_md=draft_md, vault_root=vault_root
+    )
     draft_md.write_text(draft)
+
+
+# ── Figure publish bridge ────────────────────────────────────────────────
+# The review UI references figures by live-server routes:
+#   ![alt](/paper/<slug>/fig/<id>)        → base64 data_uri in *_figures.json
+#   ![alt](/paper/<slug>/figures/<file>)  → a file in <paper_dir>/figures/
+#   ![alt](figures/<file>)                → same, relative form
+# Velog's publisher (velog-obsidian) only uploads LOCAL files that live inside
+# the vault. So at export time we decode/copy each referenced figure into
+# <vault>/attachments/<slug>__<id>.<ext> and rewrite the URL to a
+# vault-root-relative path the publisher resolves. Remote URLs and paths
+# already under attachments/ are left untouched.
+_MD_IMG = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+_FIG_BY_ID = re.compile(r"^/paper/[^/]+/fig/([^/?#]+)$")
+_FIG_BY_FILE = re.compile(r"^(?:/paper/[^/]+/)?figures/([^?#]+)$")
+_MIME_EXT = {
+    "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
+    "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg",
+}
+
+
+def _load_figures_index(paper_dir: Path) -> dict:
+    files = sorted(paper_dir.glob("*_figures.json"))
+    if not files:
+        return {}
+    try:
+        data = json.loads(files[0].read_text())
+    except Exception:
+        return {}
+    items = data if isinstance(data, list) else data.get("figures", [])
+    return {f.get("id"): f for f in items if isinstance(f, dict) and f.get("id")}
+
+
+def _materialize_figures(
+    draft: str, *, paper_dir: Path, draft_md: Path, vault_root: Path | None = None
+) -> str:
+    if "![" not in draft:
+        return draft  # fast path: no images at all
+    vault = vault_root or draft_md.parent.parent
+    attachments = vault / "attachments"
+    slug = paper_dir.name
+    fig_index: dict | None = None
+
+    def _write(name: str, raw: bytes, ext: str) -> str:
+        attachments.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^A-Za-z0-9_.-]", "_", name) or "figure"
+        out = attachments / f"{slug}__{safe}.{ext}"
+        out.write_bytes(raw)
+        return f"attachments/{out.name}"
+
+    def repl(m: "re.Match[str]") -> str:
+        nonlocal fig_index
+        alt, url = m.group(1), m.group(2).strip()
+        if url.startswith(("http://", "https://", "//", "attachments/")):
+            return m.group(0)
+        try:
+            mi = _FIG_BY_ID.match(url)
+            if mi:
+                if fig_index is None:
+                    fig_index = _load_figures_index(paper_dir)
+                fig = fig_index.get(mi.group(1))
+                if not (fig and fig.get("data_uri")):
+                    return m.group(0)
+                dm = re.match(r"data:(image/[\w.+-]+);base64,(.*)",
+                              fig["data_uri"], re.DOTALL)
+                if not dm:
+                    return m.group(0)
+                raw = base64.b64decode(dm.group(2))
+                ext = _MIME_EXT.get(dm.group(1).lower(), "png")
+                return f"![{alt}]({_write(mi.group(1), raw, ext)})"
+            mf = _FIG_BY_FILE.match(url)
+            if mf:
+                src = paper_dir / "figures" / mf.group(1)
+                if not src.is_file():
+                    return m.group(0)
+                ext = src.suffix.lstrip(".").lower() or "png"
+                return f"![{alt}]({_write(src.stem, src.read_bytes(), ext)})"
+        except Exception:
+            return m.group(0)  # never break export over one image
+        return m.group(0)
+
+    return _MD_IMG.sub(repl, draft)
 
 
 def render(wb: Workbench, *, paper_dir: Path) -> str:
