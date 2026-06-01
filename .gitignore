@@ -29,3 +29,14 @@ uv.lock
 # Excluded from the public repo — drop your own samples here locally.
 src/paper_review/publish/voice_samples/*.md
 !src/paper_review/publish/voice_samples/.gitkeep
+
+# Character illustrations based on third-party IP — kept locally only, not
+# published (potential copyright). Generic/original animals stay tracked.
+src/paper_review/server/static/characters/calcifer.jpg
+src/paper_review/server/static/characters/soot.jpg
+src/paper_review/server/static/characters/squirtle.jpg
+src/paper_review/server/static/characters/venom.jpg
+src/paper_review/server/static/characters/venom2.jpg
+src/paper_review/server/static/characters/agumon.jpg
+src/paper_review/server/static/characters/shinchan.jpg
+src/paper_review/server/static/characters/shinchan2.jpg
