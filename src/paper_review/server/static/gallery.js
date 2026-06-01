@@ -391,8 +391,8 @@
       { k: 'review_done', label: '완료', cls: 'review_done' },
       { k: 'exported', label: '발행', cls: 'exported' },
     ].map(s => ({ ...s, n: papers.filter(p => p.status === s.k).length }));
-    let secDone = 0, secTotal = 0, figs = 0;
-    papers.forEach(p => { secDone += p.sections_done || 0; secTotal += p.sections_total || 0; figs += p.figures_count || 0; });
+    let secDone = 0, secTotal = 0;
+    papers.forEach(p => { secDone += p.sections_done || 0; secTotal += p.sections_total || 0; });
     const secPct = secTotal ? Math.round(secDone / secTotal * 100) : 0;
     const rated = papers.filter(p => (p.rating || 0) > 0);
     const avg = rated.length ? (rated.reduce((a, p) => a + p.rating, 0) / rated.length) : 0;
@@ -402,12 +402,9 @@
     papers.forEach(p => (p.tags || []).forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; }));
     const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
     const maxTag = Math.max(1, ...topTags.map(t => t[1]));
-    const catCount = {};
-    papers.forEach(p => { const c = (p.category || '').trim(); if (c) catCount[c] = (catCount[c] || 0) + 1; });
-    const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const maxCat = Math.max(1, ...topCats.map(c => c[1]));
 
-    // Weekly activity heatmap ("잔디") — one cell per week, last 52 weeks.
+    // Weekly activity heatmap ("잔디") — one cell per week, last 52 weeks,
+    // laid out as a 4-row × 13-col block (column-major, oldest→newest).
     // An activity = a paper started or last-edited in that week.
     const weekMap = {};
     papers.forEach(p => {
@@ -428,19 +425,12 @@
     const totalActs = Object.values(weekMap).reduce((a, b) => a + b, 0);
 
     dashEl.innerHTML = `
-      <div class="dash-kpis">
+      <div class="dash-bar"><button class="dash-close" id="dash-close" title="닫기 (Esc)">✕ 닫기</button></div>
+      <div class="dash-layout">
         <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">전체 논문</div></div>
         <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">섹션 완료 · ${secDone}/${secTotal}</div></div>
         <div class="kpi"><div class="kpi-num">${avg ? avg.toFixed(1) : '–'}${avg ? '<span class="u gold">★</span>' : ''}</div><div class="kpi-lbl">평균 별점 · ${rated.length}개</div></div>
-        <div class="kpi"><div class="kpi-num">${figs}</div><div class="kpi-lbl">figure 총합</div></div>
-      </div>
-      <div class="dash-card grass-card">
-        <div class="dash-title">주간 활동 <span class="dash-sub">최근 1년 · 한 칸 = 1주 · 총 ${totalActs}건</span></div>
-        <div class="grass">${cells.join('')}</div>
-        <div class="grass-legend"><span>적음</span><span class="cell l0"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>많음</span></div>
-      </div>
-      <div class="dash-grid">
-        <div class="dash-card">
+        <div class="dash-card c-status">
           <div class="dash-title">리뷰 진행 상태</div>
           <div class="dash-funnel">
             ${STAT.filter(s => s.n).map(s => `<span class="seg s-${s.cls}" style="flex:${s.n}" title="${s.label} ${s.n}"></span>`).join('') || '<span class="seg" style="flex:1;background:var(--border-default)"></span>'}
@@ -449,17 +439,18 @@
             ${STAT.map(s => `<span><i class="dot s-${s.cls}"></i>${s.label} <b>${s.n}</b></span>`).join('')}
           </div>
         </div>
-        <div class="dash-card">
+        <div class="dash-card c-grass">
+          <div class="dash-title">주간 활동 <span class="dash-sub">최근 1년 · 한 칸 = 1주 · 총 ${totalActs}건</span></div>
+          <div class="grass">${cells.join('')}</div>
+          <div class="grass-legend"><span>적음</span><span class="cell l0"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>많음</span></div>
+        </div>
+        <div class="dash-card c-rating">
           <div class="dash-title">별점 분포</div>
           ${rated.length ? dashBars(ratingDist, maxRD, 'gold') : '<div class="dash-empty">아직 평가한 논문이 없어요</div>'}
         </div>
-        <div class="dash-card">
+        <div class="dash-card c-tags">
           <div class="dash-title">태그 Top</div>
           ${topTags.length ? dashBars(topTags, maxTag) : '<div class="dash-empty">태그 없음</div>'}
-        </div>
-        <div class="dash-card">
-          <div class="dash-title">분야</div>
-          ${topCats.length ? dashBars(topCats, maxCat) : '<div class="dash-empty">분류 없음</div>'}
         </div>
       </div>`;
   }
@@ -471,6 +462,8 @@
       if (open) renderDashboard();
     };
     dashToggle.addEventListener('click', () => setDash(dashEl.hidden));
+    dashEl.addEventListener('click', (e) => { if (e.target.closest('#dash-close')) setDash(false); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dashEl.hidden) setDash(false); });
     if (localStorage.getItem('pr-dash-open') === '1') setDash(true);
   }
 
