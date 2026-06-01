@@ -1,6 +1,9 @@
 # Per-paper runtime state — never committed
 /*/
 
+# Server runtime state at the service root
+.views.json
+
 # But keep the package source
 !src/
 !src/**

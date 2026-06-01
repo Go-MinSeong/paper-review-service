@@ -201,7 +201,6 @@
         ? `<div class="card-tags">${tags.slice(0, 3).map(t => `<span class="t">${escapeHtml(t)}</span>`).join('')}${tags.length > 3 ? `<span class="t more">+${tags.length - 3}</span>` : ''}</div>`
         : '';
       const isToRead = p.status === 'to_read';
-      const showRating = p.status === 'review_done' || p.status === 'exported' || (p.rating > 0);
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
@@ -210,7 +209,7 @@
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${isActive ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total}</span>` : ''}
-            ${showRating ? starsHTML(p.rating, p.slug) : ''}
+            ${starsHTML(p.rating, p.slug)}
           </div>
           <div class="card-body">
             <div class="card-title">${escapeHtml(title)}</div>
