@@ -108,7 +108,10 @@
     for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 10;
     return h;
   }
-  const CHARACTERS = ["fennec", "penguin", "dolphin", "badger", "redpanda", "corgi", "calcifer"];
+  const CHARACTERS = [
+    "fennec", "penguin", "dolphin", "badger", "redpanda", "corgi", "calcifer",
+    "squirtle", "soot", "venom", "venom2", "agumon", "shinchan", "shinchan2",
+  ];
   function hashChar(s) {
     // djb2 — better spread than a per-step modulo (slugs are mostly digits)
     let h = 5381;
@@ -184,7 +187,7 @@
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
-            <img class="card-illust" src="/static/characters/${charName}.png" alt="" loading="lazy">
+            <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="lazy">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>

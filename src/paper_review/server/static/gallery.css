@@ -218,42 +218,70 @@
   .card-thumb .card-illust {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
-    object-fit: cover; object-position: center 40%;
+    object-fit: cover; object-position: center;
     display: block;
     transition: transform .35s cubic-bezier(.34,1.4,.64,1);
   }
   .card:hover .card-thumb .card-illust { transform: scale(1.06); }
-  /* Per-character soft gradient backgrounds */
+  /* Per-character soft gradient backgrounds (load placeholder behind cover image) */
   .card-thumb.char-bg-0 { background: linear-gradient(135deg, #f7e8d2, #efd3ad); }  /* fennec */
   .card-thumb.char-bg-1 { background: linear-gradient(135deg, #d6e6f0, #b9d4e6); }  /* penguin */
   .card-thumb.char-bg-2 { background: linear-gradient(135deg, #d6eef7, #aedaee); }  /* dolphin */
-  .card-thumb.char-bg-3 { background: linear-gradient(135deg, #e2e6e3, #cdd3ce); }  /* badger */
-  .card-thumb.char-bg-4 { background: linear-gradient(135deg, #f7e2d0, #f0c7a8); }  /* red panda */
-  .card-thumb.char-bg-5 { background: linear-gradient(135deg, #f8eed0, #f1dcab); }  /* corgi */
+  .card-thumb.char-bg-3 { background: linear-gradient(135deg, #dfe9d0, #c4d6a8); }  /* badger */
+  .card-thumb.char-bg-4 { background: linear-gradient(135deg, #e0ead2, #c3d8a8); }  /* redpanda */
+  .card-thumb.char-bg-5 { background: linear-gradient(135deg, #e6f0d2, #cce2a6); }  /* corgi */
   .card-thumb.char-bg-6 { background: linear-gradient(135deg, #fdeec6, #fcd98f); }  /* calcifer */
+  .card-thumb.char-bg-7 { background: linear-gradient(135deg, #dcefd6, #bbdcc2); }  /* squirtle */
+  .card-thumb.char-bg-8 { background: linear-gradient(135deg, #ecdfc8, #d6c09c); }  /* soot */
+  .card-thumb.char-bg-9 { background: linear-gradient(135deg, #ddd6ec, #bdb4dd); }  /* venom */
+  .card-thumb.char-bg-10 { background: linear-gradient(135deg, #d6e0cf, #b2ccae); }  /* venom2 */
+  .card-thumb.char-bg-11 { background: linear-gradient(135deg, #f7ddc6, #f0b895); }  /* agumon */
+  .card-thumb.char-bg-12 { background: linear-gradient(135deg, #f3e6d2, #e6cba8); }  /* shinchan */
+  .card-thumb.char-bg-13 { background: linear-gradient(135deg, #efe7d6, #dcd0b4); }  /* shinchan2 */
   @media (prefers-color-scheme: dark) {
     .card-thumb.char-bg-0 { background: linear-gradient(135deg, #4a3f30, #5c4d38); }
     .card-thumb.char-bg-1 { background: linear-gradient(135deg, #2f3a44, #3a4754); }
     .card-thumb.char-bg-2 { background: linear-gradient(135deg, #2c3e48, #36505d); }
-    .card-thumb.char-bg-3 { background: linear-gradient(135deg, #34383a, #41464a); }
-    .card-thumb.char-bg-4 { background: linear-gradient(135deg, #4a3a30, #5c4636); }
-    .card-thumb.char-bg-5 { background: linear-gradient(135deg, #4a4030, #5c4f38); }
+    .card-thumb.char-bg-3 { background: linear-gradient(135deg, #353f30, #454f38); }
+    .card-thumb.char-bg-4 { background: linear-gradient(135deg, #36402f, #465237); }
+    .card-thumb.char-bg-5 { background: linear-gradient(135deg, #383f2c, #4a5236); }
     .card-thumb.char-bg-6 { background: linear-gradient(135deg, #4d3f24, #604e2c); }
+    .card-thumb.char-bg-7 { background: linear-gradient(135deg, #2f3f34, #3d503f); }
+    .card-thumb.char-bg-8 { background: linear-gradient(135deg, #463c2c, #564a36); }
+    .card-thumb.char-bg-9 { background: linear-gradient(135deg, #34304a, #443e5c); }
+    .card-thumb.char-bg-10 { background: linear-gradient(135deg, #303f33, #3e503e); }
+    .card-thumb.char-bg-11 { background: linear-gradient(135deg, #4a382c, #5c4636); }
+    .card-thumb.char-bg-12 { background: linear-gradient(135deg, #463d2c, #564d38); }
+    .card-thumb.char-bg-13 { background: linear-gradient(135deg, #423d30, #524d3c); }
   }
   body[data-theme="dark"] .card-thumb.char-bg-0 { background: linear-gradient(135deg, #4a3f30, #5c4d38); }
   body[data-theme="dark"] .card-thumb.char-bg-1 { background: linear-gradient(135deg, #2f3a44, #3a4754); }
   body[data-theme="dark"] .card-thumb.char-bg-2 { background: linear-gradient(135deg, #2c3e48, #36505d); }
-  body[data-theme="dark"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #34383a, #41464a); }
-  body[data-theme="dark"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #4a3a30, #5c4636); }
-  body[data-theme="dark"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #4a4030, #5c4f38); }
+  body[data-theme="dark"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #353f30, #454f38); }
+  body[data-theme="dark"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #36402f, #465237); }
+  body[data-theme="dark"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #383f2c, #4a5236); }
   body[data-theme="dark"] .card-thumb.char-bg-6 { background: linear-gradient(135deg, #4d3f24, #604e2c); }
+  body[data-theme="dark"] .card-thumb.char-bg-7 { background: linear-gradient(135deg, #2f3f34, #3d503f); }
+  body[data-theme="dark"] .card-thumb.char-bg-8 { background: linear-gradient(135deg, #463c2c, #564a36); }
+  body[data-theme="dark"] .card-thumb.char-bg-9 { background: linear-gradient(135deg, #34304a, #443e5c); }
+  body[data-theme="dark"] .card-thumb.char-bg-10 { background: linear-gradient(135deg, #303f33, #3e503e); }
+  body[data-theme="dark"] .card-thumb.char-bg-11 { background: linear-gradient(135deg, #4a382c, #5c4636); }
+  body[data-theme="dark"] .card-thumb.char-bg-12 { background: linear-gradient(135deg, #463d2c, #564d38); }
+  body[data-theme="dark"] .card-thumb.char-bg-13 { background: linear-gradient(135deg, #423d30, #524d3c); }
   body[data-theme="light"] .card-thumb.char-bg-0 { background: linear-gradient(135deg, #f7e8d2, #efd3ad); }
   body[data-theme="light"] .card-thumb.char-bg-1 { background: linear-gradient(135deg, #d6e6f0, #b9d4e6); }
   body[data-theme="light"] .card-thumb.char-bg-2 { background: linear-gradient(135deg, #d6eef7, #aedaee); }
-  body[data-theme="light"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #e2e6e3, #cdd3ce); }
-  body[data-theme="light"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #f7e2d0, #f0c7a8); }
-  body[data-theme="light"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #f8eed0, #f1dcab); }
+  body[data-theme="light"] .card-thumb.char-bg-3 { background: linear-gradient(135deg, #dfe9d0, #c4d6a8); }
+  body[data-theme="light"] .card-thumb.char-bg-4 { background: linear-gradient(135deg, #e0ead2, #c3d8a8); }
+  body[data-theme="light"] .card-thumb.char-bg-5 { background: linear-gradient(135deg, #e6f0d2, #cce2a6); }
   body[data-theme="light"] .card-thumb.char-bg-6 { background: linear-gradient(135deg, #fdeec6, #fcd98f); }
+  body[data-theme="light"] .card-thumb.char-bg-7 { background: linear-gradient(135deg, #dcefd6, #bbdcc2); }
+  body[data-theme="light"] .card-thumb.char-bg-8 { background: linear-gradient(135deg, #ecdfc8, #d6c09c); }
+  body[data-theme="light"] .card-thumb.char-bg-9 { background: linear-gradient(135deg, #ddd6ec, #bdb4dd); }
+  body[data-theme="light"] .card-thumb.char-bg-10 { background: linear-gradient(135deg, #d6e0cf, #b2ccae); }
+  body[data-theme="light"] .card-thumb.char-bg-11 { background: linear-gradient(135deg, #f7ddc6, #f0b895); }
+  body[data-theme="light"] .card-thumb.char-bg-12 { background: linear-gradient(135deg, #f3e6d2, #e6cba8); }
+  body[data-theme="light"] .card-thumb.char-bg-13 { background: linear-gradient(135deg, #efe7d6, #dcd0b4); }
   .card-thumb .badge {
     position: absolute; top: 10px; right: 10px; z-index: 2;
     font-size: 10px; font-weight: 600; padding: 3px 8px;
