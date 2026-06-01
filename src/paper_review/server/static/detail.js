@@ -362,6 +362,46 @@
     if (window.innerWidth <= 1280) delete navEl.dataset.open;
   }
 
+  // ─────────────────────────────────────────────── Resizable PDF | workbench split
+  const gutter = document.getElementById("gutter");
+  const SPLIT_KEY = "pr-split";
+  const DEFAULT_SPLIT = "42%";
+  const savedSplit = localStorage.getItem(SPLIT_KEY);
+  if (savedSplit) layoutEl.style.setProperty("--split", savedSplit);
+  if (gutter) {
+    const pdfPane = document.querySelector(".pane.pdf");
+    let dragging = false;
+    const onMove = (e) => {
+      if (!dragging) return;
+      const lr = layoutEl.getBoundingClientRect();
+      const navW = pdfPane.getBoundingClientRect().left - lr.left; // 0 when nav closed
+      let pct = ((e.clientX - lr.left - navW) / lr.width) * 100;
+      pct = Math.max(18, Math.min(78, pct));
+      layoutEl.style.setProperty("--split", pct.toFixed(1) + "%");
+    };
+    const stop = () => {
+      if (!dragging) return;
+      dragging = false;
+      layoutEl.classList.remove("dragging");
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", stop);
+      const v = layoutEl.style.getPropertyValue("--split").trim();
+      if (v) localStorage.setItem(SPLIT_KEY, v);
+    };
+    gutter.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      dragging = true;
+      layoutEl.classList.add("dragging");
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", stop);
+    });
+    // double-click resets to the default split
+    gutter.addEventListener("dblclick", () => {
+      layoutEl.style.setProperty("--split", DEFAULT_SPLIT);
+      localStorage.setItem(SPLIT_KEY, DEFAULT_SPLIT);
+    });
+  }
+
   // ───────────────────────────────────────────────────────── Model picker
   const modelPicker = document.getElementById("model-picker");
   // Migrate legacy values to the new explicit IDs
