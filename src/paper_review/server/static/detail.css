@@ -125,6 +125,16 @@
   .layout.dragging { user-select: none; cursor: col-resize; }
   .layout.dragging iframe { pointer-events: none; }
   .layout[data-nav="closed"] { --nav-w: 0; }
+  /* Pane visibility — collapse the PDF or workbench to a 0-width track
+     (kept in the grid, not display:none, so the others don't reflow). */
+  .layout[data-panes="wb"]  { grid-template-columns: var(--nav-w) 0 0 minmax(0, 1fr); }
+  .layout[data-panes="pdf"] { grid-template-columns: var(--nav-w) minmax(0, 1fr) 0 0; }
+  .layout[data-panes="wb"]  .pane.pdf,
+  .layout[data-panes="pdf"] .wb-stack { overflow: hidden; }
+  .layout[data-panes="wb"]  .gutter,
+  .layout[data-panes="pdf"] .gutter { pointer-events: none; }
+  .layout[data-panes="wb"]  .gutter::before, .layout[data-panes="pdf"] .gutter::before,
+  .layout[data-panes="wb"]  .gutter::after,  .layout[data-panes="pdf"] .gutter::after { display: none; }
   /* Keep .nav in the grid (display:none would reflow auto-placement and
      shift the PDF/workbench panes into the wrong tracks). Collapse it to a
      clipped 0-width track instead. */
@@ -644,6 +654,8 @@
   @media (max-width: 1280px) {
     /* nav becomes a drawer (out of grid); PDF | gutter | workbench remain */
     .layout { grid-template-columns: max(160px, var(--split)) 6px minmax(0, 1fr); }
+    .layout[data-panes="wb"]  { grid-template-columns: 0 0 minmax(0, 1fr); }
+    .layout[data-panes="pdf"] { grid-template-columns: minmax(0, 1fr) 0 0; }
     .nav { display: none; position: fixed; left: 0; top: 49px;
            width: 280px; height: calc(100vh - 49px); z-index: 40;
            box-shadow: var(--shadow-pop);
@@ -653,6 +665,8 @@
   @media (max-width: 880px) {
     /* stack PDF over workbench; the vertical gutter doesn't apply */
     .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: 45vh 1fr; }
+    .layout[data-panes="wb"]  { grid-template-columns: minmax(0,1fr); grid-template-rows: 0 1fr; }
+    .layout[data-panes="pdf"] { grid-template-columns: minmax(0,1fr); grid-template-rows: 1fr 0; }
     .gutter { display: none; }
     .pane.pdf { border-bottom: 1px solid var(--border-default); }
     .pane.wb { padding: 24px 20px 60px; }

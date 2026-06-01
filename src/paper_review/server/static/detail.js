@@ -405,6 +405,27 @@
     });
   }
 
+  // ─────────────────────────────────────── Pane visibility (원본 PDF / 정리본)
+  const paneToggle = document.getElementById("pane-toggle");
+  function setPanes(mode) {           // 'both' | 'pdf' | 'wb'
+    layoutEl.dataset.panes = mode;
+    if (paneToggle) {
+      paneToggle.querySelector('[data-pane="pdf"]').classList.toggle('active', mode === 'both' || mode === 'pdf');
+      paneToggle.querySelector('[data-pane="wb"]').classList.toggle('active', mode === 'both' || mode === 'wb');
+    }
+    localStorage.setItem("pr-panes", mode);
+  }
+  setPanes(localStorage.getItem("pr-panes") || "both");
+  if (paneToggle) paneToggle.querySelectorAll("button").forEach(b =>
+    b.addEventListener("click", () => {
+      const cur = layoutEl.dataset.panes || "both";
+      let pdfOn = cur === "both" || cur === "pdf";
+      let wbOn = cur === "both" || cur === "wb";
+      if (b.dataset.pane === "pdf") pdfOn = !pdfOn; else wbOn = !wbOn;
+      if (!pdfOn && !wbOn) return;    // keep at least one pane visible
+      setPanes(pdfOn && wbOn ? "both" : pdfOn ? "pdf" : "wb");
+    }));
+
   // ─────────────────────────────────────────────── Star rating
   const ratingEl = document.getElementById("rating");
   let curRating = parseInt(document.body.dataset.rating || "0", 10) || 0;
