@@ -57,6 +57,20 @@ def _resolve_cli() -> str:
     return "paper-review"
 
 
+def _lan_ip() -> str | None:
+    """Best-effort local network IP (for accessing the app from a phone on the
+    same Wi-Fi). Returns None if it can't be determined."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))  # no packets sent; just picks the egress iface
+        ip = s.getsockname()[0]
+        return ip if not ip.startswith("127.") else None
+    except Exception:
+        return None
+    finally:
+        s.close()
+
+
 class PaperReviewMenubarApp:
     def __init__(self, port: int = DEFAULT_PORT, auto_open: bool = False):
         if rumps is None:
@@ -83,6 +97,10 @@ class PaperReviewMenubarApp:
                                         callback=self._on_open_gallery)
         self.menu_url = rumps.MenuItem(f"http://127.0.0.1:{port}",
                                        callback=self._on_open_gallery)
+        lan = _lan_ip()
+        self.menu_lan = rumps.MenuItem(
+            f"📱  http://{lan}:{port}" if lan else "📱  LAN: (offline)",
+            callback=None)
         self.menu_restart = rumps.MenuItem("Restart Server",
                                            callback=self._on_restart)
         self.menu_toggle = rumps.MenuItem("Stop Server",
@@ -100,6 +118,7 @@ class PaperReviewMenubarApp:
             None,
             self.menu_open,
             self.menu_url,
+            self.menu_lan,
             None,
             self.menu_restart,
             self.menu_toggle,
@@ -123,7 +142,11 @@ class PaperReviewMenubarApp:
         ts = time.strftime("%Y%m%d-%H%M%S")
         self.log_path = _LOG_DIR / f"server-{ts}.log"
         cli = _resolve_cli()
-        cmd = [cli, "serve", "--port", str(self.port)]
+        # Bind all interfaces by default so the app is reachable from a phone
+        # on the same Wi-Fi (http://<lan-ip>:<port>). Override with
+        # PAPER_REVIEW_HOST=127.0.0.1 for localhost-only.
+        host = os.environ.get("PAPER_REVIEW_HOST", "0.0.0.0")
+        cmd = [cli, "serve", "--port", str(self.port), "--host", host]
         try:
             self.proc = subprocess.Popen(
                 cmd,
