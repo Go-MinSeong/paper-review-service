@@ -64,8 +64,9 @@
     padding: 4px 10px 16px;
   }
   .sidebar-brand .brand-mark {
-    font-size: 17px; color: var(--accent);
+    display: inline-flex; align-items: center; color: var(--accent);
   }
+  .sidebar-brand .brand-mark svg { display: block; }
   .sidebar-brand .brand-text {
     font-family: var(--font-display);
     font-size: 16px; font-weight: 650; letter-spacing: -0.3px;
@@ -198,32 +199,21 @@
     padding: 5px 12px; border-radius: 999px; transition: background .12s, color .12s;
   }
   .dash-close:hover { background: var(--bg-hover); color: var(--text-primary); }
-  /* Two-row, 12-column layout */
-  .dash-layout { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
-  .dash-layout .kpi { grid-column: span 2; }
-  .dash-layout .c-status { grid-column: span 6; }
-  .dash-layout .c-grass  { grid-column: span 6; }
-  .dash-layout .c-rating { grid-column: span 3; }
-  .dash-layout .c-tags   { grid-column: span 3; }
-  @media (max-width: 1000px) {
-    .dash-layout { grid-template-columns: repeat(6, 1fr); }
-    .dash-layout .kpi { grid-column: span 2; }
-    .dash-layout .c-status, .dash-layout .c-grass { grid-column: span 6; }
-    .dash-layout .c-rating, .dash-layout .c-tags { grid-column: span 3; }
-  }
-  @media (max-width: 560px) {
-    .dash-layout { grid-template-columns: 1fr 1fr; }
-    .dash-layout .kpi { grid-column: span 2; }
-    .dash-layout .c-status, .dash-layout .c-grass,
-    .dash-layout .c-rating, .dash-layout .c-tags { grid-column: span 2; }
-  }
+  /* Two flex rows. Row 1: 3 KPIs + status funnel. Row 2: grass (hugs its
+     fixed block — no empty space) + rating + tags filling the rest. */
+  .dash-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .dash-row + .dash-row { margin-top: 14px; }
+  .dash-row1 .kpi { flex: 1 1 110px; }
+  .dash-row1 .c-status { flex: 2.4 1 280px; }
+  .dash-row2 .c-grass { flex: 0 0 auto; }
+  .dash-row2 .c-rating, .dash-row2 .c-tags { flex: 1 1 200px; min-width: 0; }
   .dash-card {
     background: var(--bg-surface); border: 1px solid var(--border-default);
     border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow-card);
   }
   .dash-title { font-size: 11px; font-weight: 700; color: var(--text-muted);
                 text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;
-                display: flex; align-items: baseline; gap: 8px; }
+                display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .dash-title .dash-sub { font-weight: 500; text-transform: none; letter-spacing: 0;
                           color: var(--text-muted); opacity: .8; font-size: 11px; }
   .dash-empty { color: var(--text-muted); font-size: 12.5px; padding: 6px 0; }

@@ -431,7 +431,7 @@
 
     dashEl.innerHTML = `
       <div class="dash-bar"><button class="dash-close" id="dash-close" title="닫기 (Esc)">✕ 닫기</button></div>
-      <div class="dash-layout">
+      <div class="dash-row dash-row1">
         <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">전체 논문</div></div>
         <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">섹션 완료 · ${secDone}/${secTotal}</div></div>
         <div class="kpi"><div class="kpi-num">${avg ? avg.toFixed(1) : '–'}${avg ? '<span class="u gold">★</span>' : ''}</div><div class="kpi-lbl">평균 별점 · ${rated.length}개</div></div>
@@ -444,6 +444,8 @@
             ${STAT.map(s => `<span><i class="dot s-${s.cls}"></i>${s.label} <b>${s.n}</b></span>`).join('')}
           </div>
         </div>
+      </div>
+      <div class="dash-row dash-row2">
         <div class="dash-card c-grass">
           <div class="dash-title">주간 활동 <span class="dash-sub">최근 1년 · 한 칸 = 1주 · 총 ${totalActs}건</span></div>
           <div class="grass">${cells.join('')}</div>
