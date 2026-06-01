@@ -136,13 +136,13 @@
   function relTime(sec) {
     if (!sec) return '';
     const diff = Date.now() / 1000 - sec;
-    if (diff < 90) return '방금';
-    if (diff < 3600) return Math.floor(diff / 60) + '분 전';
-    if (diff < 86400) return Math.floor(diff / 3600) + '시간 전';
-    if (diff < 86400 * 7) return Math.floor(diff / 86400) + '일 전';
-    if (diff < 86400 * 30) return Math.floor(diff / 86400 / 7) + '주 전';
-    if (diff < 86400 * 365) return Math.floor(diff / 86400 / 30) + '개월 전';
-    return Math.floor(diff / 86400 / 365) + '년 전';
+    if (diff < 90) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 86400 * 7) return Math.floor(diff / 86400) + 'd ago';
+    if (diff < 86400 * 30) return Math.floor(diff / 86400 / 7) + 'w ago';
+    if (diff < 86400 * 365) return Math.floor(diff / 86400 / 30) + 'mo ago';
+    return Math.floor(diff / 86400 / 365) + 'y ago';
   }
   function renderCards() {
     const filtered = papers.filter(p => {
@@ -219,7 +219,7 @@
               ${isToRead ? '<span class="frac">reading list</span>' : `<span class="frac">${done}/${total} sections</span>`}
               ${p.category ? `<span class="sep">·</span><span class="cat">${escapeHtml(p.category)}</span>` : ''}
               ${p.figures_count > 0 ? `<span class="sep">·</span><span>${p.figures_count} figs</span>` : ''}
-              ${(p.updated_at || p.last_viewed) ? `<span class="sep">·</span><span class="act">${(p.last_viewed || 0) > (p.updated_at || 0) ? '조회' : '편집'} ${relTime(Math.max(p.last_viewed || 0, p.updated_at || 0))}</span>` : ''}
+              ${(p.updated_at || p.last_viewed) ? `<span class="sep">·</span><span class="act">${(p.last_viewed || 0) > (p.updated_at || 0) ? 'viewed' : 'edited'} ${relTime(Math.max(p.last_viewed || 0, p.updated_at || 0))}</span>` : ''}
             </div>
             ${tagsHTML}
           </div>
@@ -430,7 +430,7 @@
     const totalActs = Object.values(weekMap).reduce((a, b) => a + b, 0);
 
     dashEl.innerHTML = `
-      <div class="dash-bar"><button class="dash-close" id="dash-close" title="닫기 (Esc)">✕ 닫기</button></div>
+      <div class="dash-bar"><button class="dash-close" id="dash-close" title="Close (Esc)">✕ Close</button></div>
       <div class="dash-row dash-row1">
         <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">전체 논문</div></div>
         <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">섹션 완료 · ${secDone}/${secTotal}</div></div>
@@ -473,6 +473,18 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dashEl.hidden) setDash(false); });
     if (localStorage.getItem('pr-dash-open') === '1') setDash(true);
   }
+
+  // ─── Grid / List view toggle ─────────────────────────────────────
+  const viewSwitch = document.getElementById('view-switch');
+  function setGridView(mode) {
+    grid.dataset.view = mode;
+    if (viewSwitch) viewSwitch.querySelectorAll('button').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === mode));
+    localStorage.setItem('pr-grid-view', mode);
+  }
+  setGridView(localStorage.getItem('pr-grid-view') || 'grid');
+  if (viewSwitch) viewSwitch.querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => setGridView(b.dataset.view)));
 
   // ─── New paper modal (unchanged) ─────────────────────────────────
   const modal = document.getElementById('modal-new');

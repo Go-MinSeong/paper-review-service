@@ -181,8 +181,21 @@
   }
   .result-count { color: var(--text-muted); font-size: 12.5px;
                   font-variant-numeric: tabular-nums; }
+  /* Grid / List view segmented control */
+  .view-switch {
+    margin-left: auto; display: inline-flex; gap: 2px; padding: 2px;
+    border: 1px solid var(--border-default); border-radius: 999px; background: var(--bg-surface);
+  }
+  .view-switch button {
+    font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
+    width: 30px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px; background: transparent; color: var(--text-muted);
+    transition: background .12s, color .12s;
+  }
+  .view-switch button:hover { color: var(--text-primary); }
+  .view-switch button.active { background: var(--accent); color: #fff; }
   .dash-toggle {
-    margin-left: auto; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;
+    font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer;
     padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-default);
     background: var(--bg-surface); color: var(--text-secondary);
     transition: background .12s, color .12s, border-color .12s;
@@ -309,6 +322,32 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
     gap: 16px;
+  }
+  /* List view: one paper per row, horizontal card, full (un-clamped) title */
+  .grid[data-view="list"] {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .grid[data-view="list"] .card { display: flex; flex-direction: row; align-items: stretch; }
+  .grid[data-view="list"] .card-thumb {
+    flex: 0 0 180px; width: 180px; height: auto; min-height: 104px;
+  }
+  .grid[data-view="list"] .card-illust { object-position: center 38%; }
+  .grid[data-view="list"] .card-body {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+    padding: 14px 18px;
+  }
+  .grid[data-view="list"] .card-title {
+    display: block; -webkit-line-clamp: unset; overflow: visible; white-space: normal;
+    font-size: 15px;
+  }
+  .grid[data-view="list"] .card-sub { -webkit-line-clamp: 2; }
+  /* progress bar is noisy at full width in a row — keep it compact */
+  .grid[data-view="list"] .progress { max-width: 320px; }
+  @media (max-width: 560px) {
+    /* on phones a list row would be cramped — fall back to stacked cards */
+    .grid[data-view="list"] .card { flex-direction: column; }
+    .grid[data-view="list"] .card-thumb { flex-basis: auto; width: 100%; height: 132px; }
   }
   .card {
     position: relative;
