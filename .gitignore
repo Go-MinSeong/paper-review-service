@@ -8,6 +8,10 @@
 !src/
 !src/**
 
+# ...and the docs
+!docs/
+!docs/**
+
 # Standard Python
 __pycache__/
 *.py[cod]
