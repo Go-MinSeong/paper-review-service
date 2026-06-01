@@ -542,7 +542,11 @@
     btnEdit.style.background = 'var(--accent)';
     btnEdit.style.color = 'white';
 
-    tuiEditor = new toastui.Editor({
+    // Text-color picker (color-syntax plugin) — loaded from CDN in detail.html.
+    // Guard so the editor still opens if the plugin script failed to load.
+    const colorPlugin = (window.toastui && toastui.Editor && toastui.Editor.plugin
+      && toastui.Editor.plugin.colorSyntax) || null;
+    const editorOpts = {
       el: document.getElementById('tui-host'),
       initialValue: body,
       initialEditType: 'wysiwyg',
@@ -558,7 +562,18 @@
         ['table', 'link'],
         ['code', 'codeblock'],
       ],
-    });
+    };
+    if (colorPlugin) {
+      // Korean-blog-friendly palette + a custom hex box. The plugin appends a
+      // color button to the toolbar and emits inline <span style="color:…">.
+      editorOpts.plugins = [[colorPlugin, {
+        preset: ['#212529', '#868e96', '#fa5252', '#e64980', '#be4bdb',
+                 '#7950f2', '#4c6ef5', '#228be6', '#15aabf', '#12b886',
+                 '#40c057', '#82c91e', '#fab005', '#fd7e14'],
+        useCustomInputBox: true,
+      }]];
+    }
+    tuiEditor = new toastui.Editor(editorOpts);
 
     document.getElementById('edit-cancel').onclick = cancelEdit;
     document.getElementById('edit-save').onclick = saveEdit;
