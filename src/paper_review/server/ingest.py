@@ -123,6 +123,7 @@ async def _run_ingest(job: IngestJob) -> None:
                 _detect_slug_post_hoc(job)
             job.status = "done"
             _restore_preserved_fields(job)
+            await _auto_tag(job)
             # Remove the old reading-list folder if this promote produced a new slug
             if job.cleanup_dir:
                 old = Path(job.cleanup_dir)
@@ -169,6 +170,74 @@ def _restore_preserved_fields(job: IngestJob) -> None:
             text = re.sub(r"^category:.*$", f'category: "{cat}"', text,
                           count=1, flags=re.MULTILINE)
     wb.write_text(text)
+
+
+async def _auto_tag(job: IngestJob) -> None:
+    """Best-effort auto-tagging at registration: derive 3-6 topical tags from
+    the paper's title + abstract via a fast headless `claude -p` call. Skips
+    silently if the workbench already has tags (manual or restored) or on any
+    failure — auto-tagging must never break ingest."""
+    if not job.slug:
+        return
+    paper_dir = SERVICE_ROOT / job.slug
+    wb = paper_dir / "workbench.md"
+    if not wb.exists():
+        return
+    try:
+        import json as _json
+        from .tags import _read_frontmatter_tags, _set_tags_in_text
+
+        if _read_frontmatter_tags(wb):
+            return  # already tagged — respect it
+
+        title = abstract = ""
+        pj = next(iter(paper_dir.glob("*_paper.json")), None)
+        if pj:
+            data = _json.loads(pj.read_text())
+            meta = data.get("metadata", {}) if isinstance(data, dict) else {}
+            title = meta.get("title", "") or meta.get("title_en", "")
+            abstract = meta.get("abstract_en", "") or meta.get("abstract", "")
+        if not (title or abstract):
+            return
+
+        prompt = (
+            "Tag this academic paper for a personal reading library.\n"
+            f"Title: {title}\n"
+            f"Abstract: {abstract[:1500]}\n\n"
+            "Output 3-6 short topical tags (model families, techniques, domains, "
+            "task types) as ONE comma-separated line — no explanation, no prose. "
+            "Good examples: VLM, diffusion, RAG, object-detection, RLHF, benchmark."
+        )
+        proc = await asyncio.create_subprocess_exec(
+            "claude", "-p", prompt, "--model", "haiku", "--max-turns", "1",
+            limit=16 * 1024 * 1024,
+            cwd=str(paper_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
+        text = out.decode("utf-8", "replace").strip()
+        if not text:
+            return
+        line = [ln for ln in text.splitlines() if ln.strip()][-1]
+        tags: list[str] = []
+        seen: set[str] = set()
+        for raw in line.split(","):
+            t = raw.strip().strip('"').strip("'").lstrip("#").rstrip(".").strip()
+            if not t or len(t) > 24:
+                continue
+            key = t.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            tags.append(t)
+            if len(tags) >= 6:
+                break
+        if tags:
+            wb.write_text(_set_tags_in_text(wb.read_text(), tags))
+            job.log.append(f"✓ auto-tags: {', '.join(tags)}")
+    except Exception as e:  # never fail ingest over tagging
+        job.log.append(f"auto-tag skipped: {e}")
 
 
 def _detect_slug_post_hoc(job: IngestJob) -> None:
