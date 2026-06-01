@@ -732,3 +732,46 @@
   /* Figures embedded in the workbench body */
   .wb img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0;
             border: 1px solid var(--border-subtle); }
+
+  /* ─── Print / PDF export ──────────────────────────────────────────
+     Isolate the review (workbench) content so the browser's "Save as PDF"
+     produces a clean, light, phone-readable document. Reuses the exact
+     rendered content (figures, KaTeX, color spans, authorship tints). */
+  @media print {
+    /* Force a light palette regardless of the active theme */
+    :root,
+    body[data-theme="dark"],
+    body[data-theme="light"] {
+      --bg-canvas: #ffffff; --bg-surface: #ffffff; --bg-elevated: #ffffff;
+      --bg-subtle: #fafafc; --bg-hover: #f0f0f0;
+      --border-default: #d8d8dc; --border-subtle: #ececef;
+      --text-primary: #1d1d1f; --text-secondary: #333333; --text-muted: #6a6a6a;
+      --accent: #0066cc; --accent-hover: #0071e3;
+    }
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body { height: auto !important; background: #fff !important; }
+
+    /* Hide everything that isn't the review body */
+    .topbar, .nav, .nav-reopen, .pane.pdf, .chat,
+    .a-toast, .modal, .lightbox, .edit-toolbar, .view-toggle { display: none !important; }
+
+    /* Collapse the app shell down to a single flowing column */
+    .layout { display: block !important; height: auto !important; }
+    .wb-stack { display: block !important; height: auto !important; }
+    .pane { overflow: visible !important; height: auto !important; }
+    .pane.wb {
+      padding: 0 !important; overflow: visible !important;
+      max-width: none !important; color: #1d1d1f;
+    }
+
+    @page { margin: 16mm 14mm; }
+
+    /* Keep figures, code, tables and callout blocks from splitting across pages */
+    .wb img, .wb pre, .wb table, .wb blockquote,
+    .wb-block-user, .wb-block-translation, .wb-block-notes { break-inside: avoid; }
+    .wb h1, .wb h2, .wb h3 { break-after: avoid; }
+    .wb h2 { margin-top: 1.4em; }
+    .wb a { color: var(--accent); text-decoration: none; }
+    /* Print the original arXiv/URL after each link so it's usable on paper */
+    .wb a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.8em; color: #6a6a6a; word-break: break-all; }
+  }

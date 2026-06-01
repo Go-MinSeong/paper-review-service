@@ -885,6 +885,21 @@
   chatHead.addEventListener('click', toggleChat);
   document.getElementById('btn-chat').addEventListener('click', toggleChat);
 
+  // ───────────────────────────────────────────────────────── PDF export
+  // Print the review content to PDF (browser "Save as PDF"). Force the full
+  // (detail) view and collapse the nav so the print stylesheet captures the
+  // entire workbench; restore the prior view afterwards.
+  const btnPdf = document.getElementById('btn-pdf');
+  if (btnPdf) btnPdf.addEventListener('click', () => {
+    if (editing) { alert('편집 중에는 PDF로 내보낼 수 없습니다. 저장 후 다시 시도하세요.'); return; }
+    const prevView = document.getElementById('wb').dataset.view;
+    if (prevView !== 'detail') setView('detail');
+    const restore = () => { if (prevView && prevView !== 'detail') setView(prevView); window.removeEventListener('afterprint', restore); };
+    window.addEventListener('afterprint', restore);
+    // let the view switch + KaTeX/layout settle, then open the print dialog
+    setTimeout(() => window.print(), 200);
+  });
+
   document.querySelectorAll('.slash-chip').forEach(btn => {
     btn.addEventListener('click', () => {
       if (chatBusy) return;
