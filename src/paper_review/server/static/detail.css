@@ -110,11 +110,13 @@
     display: grid;
     grid-template-columns: var(--nav-w) max(160px, var(--split)) 6px minmax(0, 1fr);
     height: calc(100vh - 49px);
-    transition: grid-template-columns .22s ease;
+    /* NB: no transition on grid-template-columns — Chromium freezes a
+       var()/max()-driven track list mid-interpolation, breaking the
+       draggable split. Nav open/close therefore snaps instead of sliding. */
   }
-  /* While dragging the gutter, kill the column transition (no lag) and stop
-     the PDF iframe from swallowing the mouse. */
-  .layout.dragging { transition: none; user-select: none; cursor: col-resize; }
+  /* While dragging the gutter, stop the PDF iframe from swallowing the mouse
+     and suppress text selection. */
+  .layout.dragging { user-select: none; cursor: col-resize; }
   .layout.dragging iframe { pointer-events: none; }
   .layout[data-nav="closed"] { --nav-w: 0; }
   /* Keep .nav in the grid (display:none would reflow auto-placement and
