@@ -111,7 +111,15 @@
   .layout[data-nav="closed"] {
     grid-template-columns: 0 minmax(0, 40fr) minmax(0, 60fr);
   }
-  .layout[data-nav="closed"] .nav { display: none; }
+  /* Keep .nav in the grid (display:none would reflow auto-placement and
+     shift the PDF/workbench panes into the wrong tracks). Collapse it to a
+     clipped 0-width track instead. */
+  .layout[data-nav="closed"] .nav {
+    overflow: hidden;
+    padding: 0;
+    border-right: 0;
+    min-width: 0;
+  }
   .pane { overflow: auto; }
   .pane.pdf { padding: 0; border-right: 1px solid var(--border-default); }
   .pane.pdf iframe { width: 100%; height: 100%; border: 0; background: var(--bg-subtle); }
