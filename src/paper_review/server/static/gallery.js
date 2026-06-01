@@ -256,6 +256,8 @@
     wrap.querySelectorAll('.star').forEach((s, i) => s.classList.toggle('on', i < v));
     const paper = papers.find(p => p.slug === slug);
     if (paper) paper.rating = v;
+    const dEl = document.getElementById('dashboard');
+    if (dEl && !dEl.hidden && typeof renderDashboard === 'function') renderDashboard();
     try {
       await fetch(`/paper/${encodeURIComponent(slug)}/rating`, {
         method: 'PATCH',
@@ -353,6 +355,90 @@
   renderTagTree();
   renderCards();
   updateClearTags();
+
+  // ─── Dashboard (client-side aggregates over `papers`) ────────────
+  const dashEl = document.getElementById('dashboard');
+  const dashToggle = document.getElementById('dash-toggle');
+  function bars(rows, max, cls) {
+    return rows.map(([label, n]) =>
+      `<div class="dash-bar-row"><span class="lbl" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`
+      + `<span class="bar"><i class="${cls||''}" style="width:${Math.round(n / max * 100)}%"></i></span>`
+      + `<span class="val">${n}</span></div>`).join('');
+  }
+  function renderDashboard() {
+    if (!dashEl) return;
+    const N = papers.length;
+    const STAT = [
+      { k: 'to_read', label: '읽을 예정', cls: 'to_read' },
+      { k: 'in_progress', label: '리뷰 중', cls: 'in_progress' },
+      { k: 'review_done', label: '완료', cls: 'review_done' },
+      { k: 'exported', label: '발행', cls: 'exported' },
+    ].map(s => ({ ...s, n: papers.filter(p => p.status === s.k).length }));
+    let secDone = 0, secTotal = 0, figs = 0;
+    papers.forEach(p => { secDone += p.sections_done || 0; secTotal += p.sections_total || 0; figs += p.figures_count || 0; });
+    const secPct = secTotal ? Math.round(secDone / secTotal * 100) : 0;
+    const rated = papers.filter(p => (p.rating || 0) > 0);
+    const avg = rated.length ? (rated.reduce((a, p) => a + p.rating, 0) / rated.length) : 0;
+    const ratingDist = [5, 4, 3, 2, 1].map(r => [r + '★', papers.filter(p => p.rating === r).length]);
+    const maxRD = Math.max(1, ...ratingDist.map(d => d[1]));
+    const tagCount = {};
+    papers.forEach(p => (p.tags || []).forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; }));
+    const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const maxTag = Math.max(1, ...topTags.map(t => t[1]));
+    const catCount = {};
+    papers.forEach(p => { const c = (p.category || '').trim(); if (c) catCount[c] = (catCount[c] || 0) + 1; });
+    const topCats = Object.entries(catCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxCat = Math.max(1, ...topCats.map(c => c[1]));
+    const months = {};
+    papers.forEach(p => { const d = (p.review_started || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(d)) months[d] = (months[d] || 0) + 1; });
+    const monthKeys = Object.keys(months).sort().slice(-8);
+    const maxMonth = Math.max(1, ...monthKeys.map(m => months[m]));
+
+    dashEl.innerHTML = `
+      <div class="dash-grid">
+        <div class="dash-card stat">
+          <div class="stat-row"><span class="big">${N}</span><span class="cap">전체 논문</span></div>
+          <div class="stat-row"><span class="big">${secPct}%</span><span class="cap">섹션 완료 (${secDone}/${secTotal})</span></div>
+          <div class="stat-row"><span class="big">${avg ? avg.toFixed(1) : '–'}</span><span class="cap">평균 별점 (${rated.length}개)</span></div>
+          <div class="stat-row"><span class="big">${figs}</span><span class="cap">figure 총합</span></div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-title">리뷰 진행 상태</div>
+          <div class="dash-funnel">
+            ${STAT.filter(s => s.n).map(s => `<span class="seg s-${s.cls}" style="flex:${s.n}" title="${s.label} ${s.n}"></span>`).join('') || '<span class="seg" style="flex:1;background:var(--border-default)"></span>'}
+          </div>
+          <div class="dash-legend">
+            ${STAT.map(s => `<span><i class="dot s-${s.cls}"></i>${s.label} <b>${s.n}</b></span>`).join('')}
+          </div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-title">별점 분포</div>
+          ${rated.length ? bars(ratingDist, maxRD, 'gold') : '<div class="dash-empty">아직 평가한 논문이 없어요</div>'}
+        </div>
+        <div class="dash-card">
+          <div class="dash-title">태그 Top</div>
+          ${topTags.length ? bars(topTags, maxTag) : '<div class="dash-empty">태그 없음</div>'}
+        </div>
+        <div class="dash-card">
+          <div class="dash-title">분야</div>
+          ${topCats.length ? bars(topCats, maxCat) : '<div class="dash-empty">분류 없음</div>'}
+        </div>
+        <div class="dash-card">
+          <div class="dash-title">월별 시작</div>
+          ${monthKeys.length ? `<div class="dash-months">${monthKeys.map(m => `<div class="mcol" title="${m}: ${months[m]}건"><i style="height:${Math.round(months[m] / maxMonth * 100)}%"></i><span>${m.slice(2).replace('-', '.')}</span></div>`).join('')}</div>` : '<div class="dash-empty">날짜 정보 없음</div>'}
+        </div>
+      </div>`;
+  }
+  if (dashToggle && dashEl) {
+    const setDash = (open) => {
+      dashEl.hidden = !open;
+      dashToggle.classList.toggle('active', open);
+      localStorage.setItem('pr-dash-open', open ? '1' : '0');
+      if (open) renderDashboard();
+    };
+    dashToggle.addEventListener('click', () => setDash(dashEl.hidden));
+    if (localStorage.getItem('pr-dash-open') === '1') setDash(true);
+  }
 
   // ─── New paper modal (unchanged) ─────────────────────────────────
   const modal = document.getElementById('modal-new');
