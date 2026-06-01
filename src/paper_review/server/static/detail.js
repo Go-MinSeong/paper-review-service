@@ -197,7 +197,7 @@
       btn.textContent = "✨ 이 섹션 분석";
       btn.addEventListener("click", (e) => {
         e.preventDefault();
-        if (analyzePolling) { alert("이미 분석이 진행 중입니다."); return; }
+        if (analyzePolling) { UIDialog.alert("이미 분석이 진행 중입니다."); return; }
         analyzeSection(sec.heading, btn);
       });
       h.appendChild(btn);
@@ -215,7 +215,7 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       pollAnalyze();  // reuse the existing progress toast + polling
     } catch (e) {
-      alert("섹션 분석 실패: " + (e.message || e));
+      UIDialog.alert("섹션 분석 실패: " + (e.message || e));
       if (btn) { btn.textContent = "✨ 이 섹션 분석"; btn.disabled = false; }
     }
   }
@@ -249,7 +249,7 @@
         firstRender = true; prevSectionContent = new Map();
         await loadWorkbench();
       } catch (err) {
-        alert("질문 생성 실패: " + (err.message || err));
+        UIDialog.alert("질문 생성 실패: " + (err.message || err));
       } finally {
         genQBusy = false;
       }
@@ -659,7 +659,7 @@
   function insertFigureIntoEditor(idx) {
     const f = figures[idx];
     if (!f || !tuiEditor) return;
-    if (!f.data_uri) { alert("이 항목은 이미지가 아니라 삽입할 수 없습니다 (표 등)."); return; }
+    if (!f.data_uri) { UIDialog.alert("이 항목은 이미지가 아니라 삽입할 수 없습니다 (표 등)."); return; }
     const url = `/paper/${slug}/fig/${f.id}`;
     const alt = (f.label || "figure").replace(/[\[\]]/g, "");
     tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
@@ -682,7 +682,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       exitEdit();
     } catch (e) {
-      alert('저장 실패: ' + (e.message || e));
+      UIDialog.alert('저장 실패: ' + (e.message || e));
     }
   }
 
@@ -739,14 +739,17 @@
   btnAnalyze.addEventListener('click', async () => {
     if (analyzePolling) {
       // Cancel
-      if (!confirm('진행 중인 분석을 취소할까요?')) return;
+      if (!await UIDialog.confirm('진행 중인 분석을 취소할까요?',
+        { title: '분석 취소', danger: true, okLabel: '분석 중단', cancelLabel: '계속' })) return;
       await fetch(`/paper/${slug}/analyze/cancel`, { method: 'POST' });
       return;
     }
     // If this paper is still on the reading list, first promote (ingest body)
     const status = document.body.dataset.status;
     if (status === 'to_read') {
-      if (!confirm('이 paper는 reading list에만 저장된 상태입니다.\n본문 추출 + figures 다운로드를 진행할까요? (~5-15분, paper에 따라 다름)')) return;
+      if (!await UIDialog.confirm(
+        '이 paper는 reading list에만 저장된 상태입니다.\n본문 추출 + figures 다운로드를 진행할까요? (~5-15분, paper에 따라 다름)',
+        { title: '본문 추출', okLabel: '진행' })) return;
       try {
         const r = await fetch(`/paper/${slug}/promote`, { method: 'POST' });
         if (!r.ok) {
@@ -754,11 +757,11 @@
           throw new Error(err.detail || 'HTTP ' + r.status);
         }
         const out = await r.json();
-        alert('본문 추출이 시작되었습니다 (~5-15분). 완료 후 페이지가 자동 새로고침됩니다.');
+        UIDialog.alert('본문 추출이 시작되었습니다 (~5-15분). 완료 후 페이지가 자동 새로고침됩니다.');
         // Poll the ingest job
         pollPromoteJob(out.job_id);
       } catch (e) {
-        alert('✗ ' + (e.message || e));
+        UIDialog.alert('✗ ' + (e.message || e));
       }
       return;
     }
@@ -774,7 +777,7 @@
       const pre = preview.needs_prelude ? ' (TL;DR+contribution+사전지식 자동 생성 포함)' : '';
       msg = `${preview.pending_sections}개 섹션 분석${pre}\n예상 시간: ~${min}분 · 예상 비용: ~$${cost.toFixed(2)}\n진행할까요?`;
     }
-    if (!confirm(msg)) return;
+    if (!await UIDialog.confirm(msg, { title: '자동 분석', okLabel: '시작' })) return;
     try {
       const r = await fetch(`/paper/${slug}/analyze`, {
         method: 'POST',
@@ -784,7 +787,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       pollAnalyze();
     } catch (e) {
-      alert('✗ ' + (e.message || e));
+      UIDialog.alert('✗ ' + (e.message || e));
     }
   });
 
@@ -800,7 +803,7 @@
         return;
       }
       if (job.status === 'error') {
-        alert('✗ 본문 추출 실패: ' + (job.error || 'unknown'));
+        UIDialog.alert('✗ 본문 추출 실패: ' + (job.error || 'unknown'));
         return;
       }
     }
@@ -830,7 +833,8 @@
   const aLog = document.getElementById('a-toast-log');
   const aPreview = document.getElementById('a-toast-preview');
   document.getElementById('a-toast-cancel').addEventListener('click', async () => {
-    if (confirm('분석을 취소할까요?')) {
+    if (await UIDialog.confirm('분석을 취소할까요?',
+      { title: '분석 취소', danger: true, okLabel: '분석 중단', cancelLabel: '계속' })) {
       await fetch(`/paper/${slug}/analyze/cancel`, { method: 'POST' });
     }
   });
@@ -927,15 +931,15 @@
 
   // ───────────────────────────────────────────────────────── Publish
   document.getElementById('btn-publish').addEventListener('click', async () => {
-    if (!confirm('Velog draft으로 export 할까요? (~/Documents/velog-vault/drafts/<slug>.md)')) return;
+    if (!await UIDialog.confirm('~/Documents/velog-vault/drafts/<slug>.md 로 내보냅니다.', { title: 'Velog draft export', okLabel: 'Export' })) return;
     try {
       const res = await fetch(`/paper/${slug}/publish`, { method: 'POST' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       const kb = (data.size / 1024).toFixed(1);
-      alert(`✓ Velog draft 생성됨\n\n경로: ${data.draft_path}\n크기: ${kb} KB\n\n터미널에서: velog publish drafts/${slug}.md`);
+      UIDialog.alert(`✓ Velog draft 생성됨\n\n경로: ${data.draft_path}\n크기: ${kb} KB\n\n터미널에서: velog publish drafts/${slug}.md`);
     } catch (e) {
-      alert('✗ ' + (e.message || e));
+      UIDialog.alert('✗ ' + (e.message || e));
     }
   });
 
@@ -970,7 +974,7 @@
   // entire workbench; restore the prior view afterwards.
   const btnPdf = document.getElementById('btn-pdf');
   if (btnPdf) btnPdf.addEventListener('click', () => {
-    if (editing) { alert('편집 중에는 PDF로 내보낼 수 없습니다. 저장 후 다시 시도하세요.'); return; }
+    if (editing) { UIDialog.alert('편집 중에는 PDF로 내보낼 수 없습니다. 저장 후 다시 시도하세요.'); return; }
     const prevView = document.getElementById('wb').dataset.view;
     if (prevView !== 'detail') setView('detail');
     const restore = () => { if (prevView && prevView !== 'detail') setView(prevView); window.removeEventListener('afterprint', restore); };

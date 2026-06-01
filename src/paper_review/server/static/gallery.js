@@ -235,7 +235,9 @@
     const slug = tbtn.dataset.tagedit;
     const paper = papers.find(p => p.slug === slug);
     const cur = (paper?.tags || []).join(', ');
-    const next = prompt('태그 (쉼표 구분, 계층은 "CV/segmentation" 처럼):', cur);
+    const next = await UIDialog.prompt('쉼표로 구분 · 계층은 "CV/segmentation" 처럼', {
+      title: '태그 편집', value: cur, placeholder: '예: VLM, benchmark, CV/segmentation', okLabel: '저장',
+    });
     if (next === null) return;
     const tags = next.split(',').map(t => t.trim()).filter(Boolean);
     try {
@@ -250,7 +252,7 @@
       renderCards();
       updateClearTags();
     } catch (err) {
-      alert('태그 저장 실패: ' + (err.message || err));
+      UIDialog.alert('태그 저장 실패: ' + (err.message || err), { title: '오류' });
     }
   });
   // Star rating (event-delegated) — click a star to set, click the current to clear
@@ -285,7 +287,10 @@
     e.preventDefault();
     e.stopPropagation();
     const slug = btn.dataset.del;
-    if (!confirm(`"${slug}" 를 삭제할까요?\n원본 PDF·워크벤치·분석 결과가 모두 사라집니다 (되돌릴 수 없음).`)) return;
+    const ok = await UIDialog.confirm(
+      `"${slug}" 를 삭제할까요?\n원본 PDF · 워크벤치 · 분석 결과가 모두 사라집니다 (되돌릴 수 없음).`,
+      { title: 'paper 삭제', danger: true, okLabel: '삭제' });
+    if (!ok) return;
     btn.textContent = '…';
     try {
       const r = await fetch(`/paper/${encodeURIComponent(slug)}`, { method: 'DELETE' });
@@ -297,7 +302,7 @@
       renderCards();
       updateClearTags();
     } catch (err) {
-      alert('삭제 실패: ' + (err.message || err));
+      UIDialog.alert('삭제 실패: ' + (err.message || err), { title: '오류' });
       btn.textContent = '🗑';
     }
   });
