@@ -4,6 +4,16 @@ A local-first service for **collaborative paper review** — ingest a paper, rea
 
 > Built on top of the `paper-reader` translation engine. Connects to a Velog/Obsidian vault only at the publish step.
 
+## Screenshots
+
+**Gallery** — reading list + dashboard (weekly-activity heatmap, KPIs, status funnel), color-coded hierarchical tags, star ratings, grid/list views.
+
+![Gallery](docs/assets/gallery.png)
+
+**Review page** — the original PDF and the review workbench side by side (resizable splitter, each pane toggleable), section navigator, WYSIWYG editing, live updates over SSE.
+
+![Review page](docs/assets/review.png)
+
 ## What it does
 
 ```
