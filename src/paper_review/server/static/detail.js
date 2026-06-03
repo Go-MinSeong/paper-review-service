@@ -45,10 +45,13 @@
       if (!chunk.trim().startsWith("### ")) continue;
       const headM = chunk.match(/^###\s+(.+?)\s*$/m);
       if (!headM) continue;
+      // Un-escape markdown escapes (WYSIWYG writes "1\." to avoid an ordered
+      // list) so the nav shows "1." not "1\.".
+      const heading = headM[1].replace(/\\([\\`*_{}\[\]()#+\-.!~>|])/g, "$1");
       sections.push({
-        heading: headM[1],
+        heading,
         status: statusFromBody(chunk),
-        slug: slugify(headM[1]),
+        slug: slugify(heading),
       });
     }
     return sections;
@@ -761,13 +764,16 @@
       tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
       if (cap) tuiEditor.insertText("\n" + cap + "\n");
     } else if (f.html) {
-      // Table → convert to a markdown table and append (re-parse so WYSIWYG
-      // renders it as a real table; getMarkdown round-trips cleanly).
+      // Table → markdown table, inserted AT THE CURSOR: drop a plain-text
+      // marker at the cursor (survives getMarkdown unescaped), swap it for the
+      // table markdown, then re-parse so WYSIWYG renders a real table in place.
       const tableMd = htmlTableToMarkdown(f.html);
       if (!tableMd) { UIDialog.alert("이 표는 변환할 수 없습니다."); return; }
       const block = (f.label ? `**${f.label}**\n\n` : "") + tableMd + (cap ? `\n\n${cap}` : "");
-      const cur = tuiEditor.getMarkdown().replace(/\s+$/, "");
-      tuiEditor.setMarkdown(cur + "\n\n" + block + "\n", true);
+      const token = "TBLINSERT" + Date.now();
+      tuiEditor.insertText(token);
+      const md = tuiEditor.getMarkdown().replace(token, "\n\n" + block + "\n\n");
+      tuiEditor.setMarkdown(md, false);
     } else {
       UIDialog.alert("삽입할 수 없는 항목입니다."); return;
     }
