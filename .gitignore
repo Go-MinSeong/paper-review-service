@@ -22,6 +22,9 @@ build/
 .uv/
 uv.lock
 
+# macOS
+.DS_Store
+
 # IDE
 .vscode/
 .idea/
