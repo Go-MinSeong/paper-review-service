@@ -105,6 +105,21 @@
   .topbar .btn.btn-danger { color: var(--text-muted); }
   .topbar .btn.btn-danger:hover { background: rgba(239,68,68,.12); border-color: #ef4444; color: #ef4444; }
   .topbar .btn .count { color: var(--text-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+  /* Bookmark button */
+  #btn-bookmark { display: inline-flex; align-items: center; gap: 4px; }
+  #btn-bookmark .bm-ico { display: block; }
+  #btn-bookmark.has-bm { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
+  #btn-bookmark.has-bm .bm-ico path { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+  /* Transient bookmark toast */
+  .bm-toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(8px);
+    background: var(--bg-elevated); color: var(--text-primary);
+    border: 1px solid var(--border-default); border-radius: 999px;
+    padding: 8px 16px; font-size: 12.5px; box-shadow: var(--shadow-pop);
+    opacity: 0; pointer-events: none; z-index: 9500;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .bm-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
   /* ─── 3-column layout (nav | PDF | gutter | workbench) ───────────────
      --split = PDF pane width as a % of the whole layout; draggable via the

@@ -167,9 +167,12 @@
     const wb = document.getElementById("wb");
     wb.innerHTML = html;
 
-    // Add ids to h3 for nav jumps
+    // Add ids to h3 for nav jumps; h1/h2 too so bookmarks can anchor to them
     wb.querySelectorAll("h3").forEach(h => {
       h.id = "sec-" + slugify(h.textContent);
+    });
+    wb.querySelectorAll("h1, h2").forEach(h => {
+      if (!h.id) h.id = "h-" + slugify(h.textContent);
     });
 
     // Mark workbench blocks by label so view toggle (summary/detail) can hide
@@ -770,10 +773,13 @@
       const tableMd = htmlTableToMarkdown(f.html);
       if (!tableMd) { UIDialog.alert("이 표는 변환할 수 없습니다."); return; }
       const block = (f.label ? `**${f.label}**\n\n` : "") + tableMd + (cap ? `\n\n${cap}` : "");
+      const scroll = tuiEditor.getScrollTop ? tuiEditor.getScrollTop() : 0;
       const token = "TBLINSERT" + Date.now();
       tuiEditor.insertText(token);
       const md = tuiEditor.getMarkdown().replace(token, "\n\n" + block + "\n\n");
-      tuiEditor.setMarkdown(md, false);
+      tuiEditor.setMarkdown(md, false);   // re-parse resets scroll → restore it
+      if (tuiEditor.setScrollTop)         // double rAF so layout settles first
+        requestAnimationFrame(() => requestAnimationFrame(() => tuiEditor.setScrollTop(scroll)));
     } else {
       UIDialog.alert("삽입할 수 없는 항목입니다."); return;
     }
@@ -1093,6 +1099,72 @@
     // let the view switch + KaTeX/layout settle, then open the print dialog
     setTimeout(() => window.print(), 200);
   });
+
+  // ─────────────────────────────────────────────── Bookmark (resume position)
+  const BM_KEY = "pr-bm-" + slug;
+  function _wbPane() { return document.querySelector(".pane.wb"); }
+  let _bmToastT;
+  function bmToast(msg) {
+    let t = document.getElementById("bm-toast");
+    if (!t) { t = document.createElement("div"); t.id = "bm-toast"; t.className = "bm-toast"; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(_bmToastT); _bmToastT = setTimeout(() => t.classList.remove("show"), 1400);
+  }
+  function refreshBookmarkBtn() {
+    const b = document.getElementById("btn-bookmark");
+    if (b) b.classList.toggle("has-bm", !!localStorage.getItem(BM_KEY));
+  }
+  // "Reading line" = top edge of the workbench viewport (below the sticky bar).
+  function _readY() {
+    const wb = _wbPane();
+    return (wb ? wb.getBoundingClientRect().top : 49) + 6;
+  }
+  function setBookmark() {
+    const wb = _wbPane(); if (!wb) return;
+    const refY = _readY();
+    let anchor = null;
+    for (const h of wb.querySelectorAll("h1[id],h2[id],h3[id]")) {
+      if (h.getBoundingClientRect().top <= refY) anchor = h; else break;
+    }
+    // Anchor to the nearest heading above the fold + how far past it we are
+    // (works whether the pane or the page is the actual scroller).
+    const data = anchor
+      ? { id: anchor.id, off: Math.round(refY - anchor.getBoundingClientRect().top) }
+      : { top: true };
+    localStorage.setItem(BM_KEY, JSON.stringify(data));
+    refreshBookmarkBtn();
+    bmToast("책갈피를 저장했어요");
+  }
+  function _nudge(px) {
+    if (!px) return;
+    const wb = _wbPane();
+    const el = (wb && wb.scrollTop > 0) ? wb : (document.scrollingElement || wb);
+    if (el) el.scrollBy({ top: px, behavior: "smooth" });
+  }
+  function gotoBookmark() {
+    const raw = localStorage.getItem(BM_KEY);
+    if (!raw) { setBookmark(); return; }       // nothing yet → set here
+    let d; try { d = JSON.parse(raw); } catch { return; }
+    if (d.top || !d.id) {
+      const wb = _wbPane();
+      (wb || document.scrollingElement)?.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      const el = document.getElementById(d.id);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (d.off) setTimeout(() => _nudge(d.off), 380);   // refine within the section
+    }
+    bmToast("책갈피로 이동");
+  }
+  const btnBookmark = document.getElementById("btn-bookmark");
+  if (btnBookmark) {
+    refreshBookmarkBtn();
+    btnBookmark.addEventListener("click", (e) => {
+      if (e.shiftKey) { localStorage.removeItem(BM_KEY); refreshBookmarkBtn(); bmToast("책갈피 삭제"); }
+      else if (e.altKey) setBookmark();
+      else gotoBookmark();
+    });
+  }
 
   document.querySelectorAll('.slash-chip').forEach(btn => {
     btn.addEventListener('click', () => {
