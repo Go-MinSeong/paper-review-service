@@ -571,7 +571,11 @@
 
   // ───────────────────────────────────────────────────────── Keyboard
   document.addEventListener("keydown", e => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    // Don't hijack single-key shortcuts (g/s/c/ …) while the user is typing
+    // in a field, the WYSIWYG editor (contenteditable), or any edit mode.
+    const t = e.target;
+    if (t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA"
+        || t.tagName === "SELECT" || (typeof editing !== "undefined" && editing)) return;
     if (e.key === "Escape") {
       if (lb.hasAttribute("open")) return closeLightbox();
       if (document.getElementById("modal-figs").hasAttribute("open")) return closeFigures();
