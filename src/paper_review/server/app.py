@@ -418,6 +418,19 @@ def patch_rating(slug: str, body: RatingPatchBody):
     return patch_paper_rating(slug, body)
 
 
+@app.get("/paper/{slug}/baseline.json")
+def paper_baseline(slug: str) -> JSONResponse:
+    """Claude-authored section snapshots (heading → markdown), used by the UI
+    to word-diff and highlight the user's own edits. Empty if not yet built."""
+    p = _paper_dir(slug) / ".baseline.json"
+    if not p.exists():
+        return JSONResponse({})
+    try:
+        return JSONResponse(json.loads(p.read_text()))
+    except Exception:
+        return JSONResponse({})
+
+
 @app.post("/paper/{slug}/viewed")
 def mark_viewed(slug: str):
     """Record that the paper was opened (for the gallery's last-activity time)."""

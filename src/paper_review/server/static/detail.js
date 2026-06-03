@@ -102,13 +102,65 @@
     }
   }
 
+  // ──────────────── Authorship edit-diff ────────────────
+  // Highlight the words the user changed vs Claude's per-section baseline.
+  function _tokenize(s) { return s.match(/\s+|[^\s]+/g) || []; }
+  function _markable(t) { return /[\p{L}\p{N}]/u.test(t) && !/^[|>#*_`~\-=]+$/.test(t); }
+  function _lcsFlags(a, b) {           // → boolean[] over b: true if unchanged (in LCS)
+    const n = a.length, m = b.length;
+    const flags = new Array(m).fill(false);
+    if (!n || !m) return flags;
+    const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+    for (let i = n - 1; i >= 0; i--)
+      for (let j = m - 1; j >= 0; j--)
+        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { flags[j] = true; i++; j++; }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
+      else j++;
+    }
+    return flags;
+  }
+  function wordDiffMark(baseText, curText) {
+    const baseWords = _tokenize(baseText).filter(t => /\S/.test(t));
+    const cur = _tokenize(curText);
+    const flags = _lcsFlags(baseWords, cur.filter(t => /\S/.test(t)));
+    let wi = 0, open = false, out = "";
+    const close = () => { if (open) { out += "</mark>"; open = false; } };
+    for (const tok of cur) {
+      if (/\S/.test(tok)) {
+        const unchanged = flags[wi++];
+        if (unchanged || !_markable(tok)) { close(); out += tok; }
+        else { if (!open) { out += '<mark class="wb-edit">'; open = true; } out += tok; }
+      } else { if (tok.includes("\n")) close(); out += tok; }   // don't span blocks
+    }
+    close();
+    return out;
+  }
+  function injectEditMarks(body, baseline) {
+    if (!baseline || !Object.keys(baseline).length) return body;
+    return body.split(/(?=^###\s)/m).map(chunk => {
+      const hm = chunk.match(/^###\s+(.+?)\s*$/m);
+      if (!hm) return chunk;
+      const base = baseline[hm[1].trim()];
+      if (!base) return chunk;
+      const baseBody = base.replace(/^###\s+.*(?:\r?\n|$)/, "");
+      const nl = chunk.indexOf("\n");
+      if (nl < 0) return chunk;
+      return chunk.slice(0, nl + 1) + wordDiffMark(baseBody, chunk.slice(nl + 1));
+    }).join("");
+  }
+
   // ───────────────────────────────────────────────────────── Render
   async function loadWorkbench() {
     const res = await fetch(`/paper/${slug}/workbench.md`);
     const md = await res.text();
     const stripped = stripFrontmatter(md);
+    let baseline = {};
+    try { baseline = await (await fetch(`/paper/${slug}/baseline.json`)).json(); } catch (_) {}
 
-    const html = marked.parse(stripped);
+    const html = marked.parse(injectEditMarks(stripped, baseline));
     const wb = document.getElementById("wb");
     wb.innerHTML = html;
 

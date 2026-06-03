@@ -704,6 +704,15 @@
   .wb-label-user strong { color: var(--accent); }
   .wb-block-user { padding-top: 2px; padding-bottom: 2px; }
 
+  /* Edit-diff — words I changed vs Claude's baseline get a soft highlight.
+     Suppressed inside my own (내 정리) blocks, which the tint already marks. */
+  .wb-edit {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    border-radius: 2px; padding: 0 1px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .wb-block-user .wb-edit { background: none; box-shadow: none; padding: 0; }
+
   /* Topbar select (model picker) */
   .topbar select {
     font: inherit; font-size: 12px;

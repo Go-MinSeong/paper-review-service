@@ -80,6 +80,43 @@ def cancel(slug: str) -> dict:
     return {"ok": True}
 
 
+def _section_blocks(text: str) -> dict:
+    """Map each '### ' section heading → its full block markdown (within the
+    '## 섹션별 리뷰' region)."""
+    m = re.search(r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s|\Z)", text,
+                  flags=re.DOTALL | re.MULTILINE)
+    body = m.group(1) if m else text
+    blocks: dict = {}
+    for chunk in re.split(r"(?=^###\s)", body, flags=re.MULTILINE):
+        c = chunk.strip()
+        hm = re.match(r"^###\s+(.+?)\s*$", c, flags=re.MULTILINE)
+        if hm:
+            blocks[hm.group(1).strip()] = c
+    return blocks
+
+
+def _snapshot_baseline(paper_dir: Path, headings: list[str]) -> None:
+    """Store the Claude-authored text of the given sections (right after
+    analyze fills them) so the UI can later word-diff user edits against it.
+    Best-effort — never raises."""
+    try:
+        wb = paper_dir / "workbench.md"
+        if not wb.exists():
+            return
+        blocks = _section_blocks(wb.read_text())
+        bpath = paper_dir / ".baseline.json"
+        try:
+            base = json.loads(bpath.read_text())
+        except Exception:
+            base = {}
+        for h in headings:
+            if h in blocks:
+                base[h] = blocks[h]
+        bpath.write_text(json.dumps(base, ensure_ascii=False))
+    except Exception:
+        pass
+
+
 async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) -> None:
     job.status = "running"
     job.log.append(f"분석 시작: {job.slug}")
@@ -133,6 +170,10 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
                 if not job.cancel_event.is_set():
                     job.failed_sections.append(sec_heading)
                     job.log.append(f"   ⚠ 실패 — 다음으로 진행")
+
+        # Snapshot the Claude baseline for sections filled this run (edit-diff)
+        if job.succeeded_sections:
+            _snapshot_baseline(paper_dir, job.succeeded_sections)
 
         if job.status == "running":
             job.status = "done"
