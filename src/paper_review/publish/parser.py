@@ -135,6 +135,24 @@ def _extract_sections(text: str) -> list[Section]:
     return out
 
 
+def _deemph_lines(block: str) -> str:
+    """Strip decorative line-wrapping emphasis the WYSIWYG editor adds.
+
+    The Toast UI editor re-serializes each answer line wrapped in its own
+    *...* italic, e.g. "1. …남는다.*\\n*2. …필요하다.*". Rendered verbatim that
+    leaves literal "*" in the Velog callout. We drop one leading and one
+    trailing emphasis run per line (content/emphasis loss is negligible for
+    plain answer prose).
+    """
+    out = []
+    for ln in block.splitlines():
+        t = ln.strip()
+        t = re.sub(r"^[*_]{1,3}", "", t)
+        t = re.sub(r"[*_]{1,3}$", "", t)
+        out.append(t.strip())
+    return "\n".join(out).strip()
+
+
 def _extract_qna(text: str) -> list[QnaItem]:
     """Parse ## Q&A section into [QnaItem]."""
     m = re.search(r"^##\s+Q&A\s*\n(.+?)(?=^##\s|\Z)", text,
@@ -154,11 +172,26 @@ def _extract_qna(text: str) -> list[QnaItem]:
         item = QnaItem(from_section=head.group(1).strip())
         qs = re.findall(r"^\s*\d+\.\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
         item.questions = [q for q in qs if q.strip()]
-        a_match = re.search(r"_답변:_\s*(.+?)(?=^###\s|\Z)",
-                            chunk, flags=re.DOTALL | re.MULTILINE)
+        # Match the user's answer regardless of how it was serialized:
+        #   "_답변:_ ..."        (skill placeholder, underscore + colon-marker)
+        #   "*답변: ...*"         (WYSIWYG re-serializes each line italic)
+        #   "**답변:** ..." / "답변: ..."  (bold / bare variants)
+        # The WYSIWYG editor also wraps EACH answer line in its own *...* italic,
+        # so we de-emphasize line by line after dropping the label.
+        a_match = re.search(
+            r"^[ \t>]*[*_]{0,2}\s*답변\s*[*_]{0,2}\s*:?\s*[*_]{0,2}"
+            r"(.*?)(?=^[ \t]*###\s|\Z)",
+            chunk, flags=re.DOTALL | re.MULTILINE,
+        )
         if a_match:
-            ans = a_match.group(1).strip()
-            if ans and ans != "<empty>" and not ans.startswith("_("):
+            ans = _deemph_lines(a_match.group(1))
+            if (
+                ans
+                and ans != "<empty>"
+                and not ans.startswith("(")
+                and "미진행" not in ans
+                and "여기에 본인 답변" not in ans
+            ):
                 item.answer = ans
         out.append(item)
     return out

@@ -25,6 +25,8 @@ def workbench_to_draft(
     draft = _materialize_figures(
         draft, paper_dir=paper_dir, draft_md=draft_md, vault_root=vault_root
     )
+    # Heal Toast-UI-fragmented color spans so Velog keeps the color (see below).
+    draft = _merge_color_runs(draft)
     draft_md.write_text(draft)
 
 
@@ -141,6 +143,7 @@ def _render_frontmatter(wb: Workbench) -> str:
         f'title: "{_yaml_q(title)}"',
         f"tags: [{', '.join(tags)}]",
         "draft: true",
+        "confirm: false",   # velog publish approval gate — flip to true to publish
         "is_private: false",
         f'paper_title: "{_yaml_q(wb.frontmatter.get("title_en", ""))}"',
         f"paper_url: {paper_url}",
@@ -280,7 +283,7 @@ def _render_qna(qna: list[QnaItem]) -> list[str]:
             parts.append("")
         if item.questions:
             for i, q in enumerate(item.questions, 1):
-                parts.append(f"{i}. **{_clean(q)}**")
+                parts.append(f"{i}. {_clean(q)}")
             parts.append("")
         if item.answer:
             parts.append("> 💬 " + _clean(item.answer).replace("\n", "\n> "))
@@ -299,7 +302,41 @@ def _is_placeholder(text: str) -> bool:
     )
 
 
+# WYSIWYG (Toast UI) over-escapes on save: "$\\sigma$" (doubled backslash),
+# "정식화한다\." , "Qwen3\-4B". The review page looks fine because marked.js
+# un-escapes when rendering — but the published draft was a verbatim copy, so
+# Velog received "\\sigma" (a KaTeX line break) and "\." literals. We replicate
+# marked's CommonMark backslash-unescaping at export so Velog matches the review.
+_MATH_RE = re.compile(r"(\$\$[\s\S]*?\$\$|\$[^$\n]*?\$)")
+# Inside math: un-escape ALL ASCII punctuation, incl. "\\"→"\" (restores LaTeX
+# commands); single-backslash commands like \frac/\sigma are kept (letters aren't
+# in the class).
+_MATH_UNESCAPE = re.compile(r"\\([!-/:-@\[-`{-~])")
+# Outside math: only un-escape "inactive" punctuation that won't re-trigger
+# markdown (leave \* \_ \[ \# \| \` \~ \\ escaped so Velog doesn't re-parse them).
+_PROSE_UNESCAPE = re.compile(r"""\\([.,:;!?()<>=/"'-])""")
+
+
+def _unescape_md(text: str) -> str:
+    parts = _MATH_RE.split(text)
+    for i, p in enumerate(parts):
+        parts[i] = (_MATH_UNESCAPE if i % 2 else _PROSE_UNESCAPE).sub(r"\1", p)
+    return "".join(parts)
+
+
+# LaTeX table-styling directives that leak from the paper source into markdown
+# table cells (no markdown meaning — Velog renders them as literal garbage).
+_LATEX_TABLE_JUNK = re.compile(
+    r"\\{1,2}(?:rowcolors?|cellcolor|columncolor)\s*"
+    r"(?:\[[^\]]*\])?\s*(?:\{[^}]*\}|[\d.]+)?\s*"
+    r"|\\{1,2}(?:hline|toprule|midrule|bottomrule)\b"
+    r"|\\{1,2}cline\s*\{[^}]*\}"
+)
+
+
 def _clean(text: str) -> str:
+    text = _unescape_md(text)
+    text = _LATEX_TABLE_JUNK.sub("", text)
     lines = [ln.rstrip() for ln in text.strip().splitlines()]
     out: list[str] = []
     blank = False
@@ -315,7 +352,53 @@ def _clean(text: str) -> str:
 
 
 def _clean_heading(h: str) -> str:
-    return h.strip()
+    return _unescape_md(h.strip())
+
+
+# ── Color-span reliability ───────────────────────────────────────────────
+# Toast UI's color-syntax plugin splits a colored run around bold/italic
+# markers, producing the SYMMETRIC triple
+#   <span C>A</span>**<span C>B</span>**<span C>C</span>
+# (same emphasis token on both sides of the middle span). Velog's markdown
+# parser frequently DROPS the color on these fragmented `**<span>**` forms —
+# the user's "색상이 일부 반영 안 됨" symptom. We heal it by folding the triple
+# into one span with the emphasis moved inside: <span C>A**B**C</span>, which
+# Velog renders reliably. Only the symmetric form is merged (markers stay
+# balanced); asymmetric/odd cases are left untouched to avoid dangling markers.
+_EMPH = r"(?:\*\*|\*|__|_|~~)"
+_OPEN = r'<span style="color:\s*{c}\s*">'
+_CONTENT = r"(?:(?!</span>).)*?"
+_COLOR_TRIPLE = re.compile(
+    _OPEN.format(c=r"(?P<c>[^\";]+?)") + r"(?P<a>" + _CONTENT + r")</span>"
+    r"(?P<e>" + _EMPH + r")"
+    + _OPEN.format(c=r"(?P=c)") + r"(?P<b>" + _CONTENT + r")</span>"
+    r"(?P=e)"
+    + _OPEN.format(c=r"(?P=c)"),
+    re.S,
+)
+# Adjacent same-color spans separated only by whitespace → one span.
+_COLOR_WS = re.compile(
+    _OPEN.format(c=r"(?P<c>[^\";]+?)") + r"(?P<a>" + _CONTENT + r")</span>"
+    r"(?P<sep>\s*)" + _OPEN.format(c=r"(?P=c)"),
+    re.S,
+)
+
+
+def _merge_color_runs(text: str) -> str:
+    prev = None
+    while prev != text:
+        prev = text
+        text = _COLOR_TRIPLE.sub(
+            lambda m: f'<span style="color: {m.group("c")}">'
+            f'{m.group("a")}{m.group("e")}{m.group("b")}{m.group("e")}',
+            text,
+        )
+        text = _COLOR_WS.sub(
+            lambda m: f'<span style="color: {m.group("c")}">'
+            f'{m.group("a")}{m.group("sep")}',
+            text,
+        )
+    return text
 
 
 def _yaml_q(s: str) -> str:
