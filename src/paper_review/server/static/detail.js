@@ -498,12 +498,12 @@
         } else {
           preview = `<div class="fig-html-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted)">no preview</div>`;
         }
-        const badge = kind === 'table' ? '<span class="fig-kind-badge">TABLE</span>' : '';
+        const badgeText = f.label || ((kind === 'table' ? 'Table ' : 'Figure ') + (i + 1));
+        const badge = `<span class="fig-kind-badge ${kind === 'table' ? 'is-table' : 'is-figure'}">${escapeHtml(badgeText)}</span>`;
         return `
         <div class="fig-card" data-idx="${i}">
           ${preview}${badge}
           <div class="meta">
-            <div class="label">${escapeHtml(f.label || f.id || `Figure ${i+1}`)}</div>
             <div class="cap">${escapeHtml(f.caption_ko || f.caption_en || "")}</div>
           </div>
         </div>`;
@@ -681,16 +681,44 @@
     document.getElementById('edit-figure').onclick = () => openFigures();
   }
 
+  // Convert an HTML <table> (from figures.json) into a GFM markdown table.
+  function htmlTableToMarkdown(html) {
+    const tbl = new DOMParser().parseFromString(html, "text/html").querySelector("table");
+    if (!tbl) return null;
+    const rows = [...tbl.querySelectorAll("tr")].map(tr =>
+      [...tr.querySelectorAll("th,td")].map(c =>
+        c.textContent.replace(/\s+/g, " ").trim().replace(/\|/g, "\\|")));
+    const data = rows.filter(r => r.length);
+    if (!data.length) return null;
+    const cols = Math.max(...data.map(r => r.length));
+    const fill = r => { const x = r.slice(); while (x.length < cols) x.push(""); return x; };
+    const ln = cells => "| " + cells.join(" | ") + " |";
+    const out = [ln(fill(data[0])), ln(Array(cols).fill("---"))];
+    data.slice(1).forEach(r => out.push(ln(fill(r))));
+    return out.join("\n");
+  }
+
   function insertFigureIntoEditor(idx) {
     const f = figures[idx];
     if (!f || !tuiEditor) return;
-    if (!f.data_uri) { UIDialog.alert("이 항목은 이미지가 아니라 삽입할 수 없습니다 (표 등)."); return; }
-    const url = `/paper/${slug}/fig/${f.id}`;
-    const alt = (f.label || "figure").replace(/[\[\]]/g, "");
-    tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
-    // Drop the figure's caption right below the image (translated if available)
     const cap = (f.caption_ko || f.caption_en || "").trim();
-    if (cap) tuiEditor.insertText("\n" + cap + "\n");
+    if (f.data_uri) {
+      // Image → addImage at the cursor + caption below
+      const url = `/paper/${slug}/fig/${f.id}`;
+      const alt = (f.label || "figure").replace(/[\[\]]/g, "");
+      tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
+      if (cap) tuiEditor.insertText("\n" + cap + "\n");
+    } else if (f.html) {
+      // Table → convert to a markdown table and append (re-parse so WYSIWYG
+      // renders it as a real table; getMarkdown round-trips cleanly).
+      const tableMd = htmlTableToMarkdown(f.html);
+      if (!tableMd) { UIDialog.alert("이 표는 변환할 수 없습니다."); return; }
+      const block = (f.label ? `**${f.label}**\n\n` : "") + tableMd + (cap ? `\n\n${cap}` : "");
+      const cur = tuiEditor.getMarkdown().replace(/\s+$/, "");
+      tuiEditor.setMarkdown(cur + "\n\n" + block + "\n", true);
+    } else {
+      UIDialog.alert("삽입할 수 없는 항목입니다."); return;
+    }
     closeFigures();
   }
 
