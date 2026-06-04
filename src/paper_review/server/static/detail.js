@@ -756,7 +756,39 @@
     return out.join("\n");
   }
 
-  function insertFigureIntoEditor(idx) {
+  // Rasterize an HTML <table> to a PNG data URL via html2canvas. Math in cells
+  // is KaTeX-rendered first. Tables are published as images (GFM tables break
+  // on Velog: merged cells, math, multi-row headers, WYSIWYG re-serialization).
+  async function renderTableToDataURL(html) {
+    if (typeof html2canvas === "undefined") throw new Error("html2canvas 미로드");
+    const wrap = document.createElement("div");
+    wrap.className = "tbl-raster";
+    wrap.innerHTML = html;
+    document.body.appendChild(wrap);
+    try {
+      if (window.renderMathInElement) {
+        try {
+          renderMathInElement(wrap, {
+            delimiters: [
+              { left: "$$", right: "$$", display: true },
+              { left: "$", right: "$", display: false },
+            ],
+            throwOnError: false,
+          });
+        } catch {}
+      }
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const target = wrap.querySelector("table") || wrap;
+      const canvas = await html2canvas(target, {
+        backgroundColor: "#ffffff", scale: 2, logging: false, useCORS: true,
+      });
+      return canvas.toDataURL("image/png");
+    } finally {
+      wrap.remove();
+    }
+  }
+
+  async function insertFigureIntoEditor(idx) {
     const f = figures[idx];
     if (!f || !tuiEditor) return;
     const cap = (f.caption_ko || f.caption_en || "").trim();
@@ -767,19 +799,31 @@
       tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
       if (cap) tuiEditor.insertText("\n" + cap + "\n");
     } else if (f.html) {
-      // Table → markdown table, inserted AT THE CURSOR: drop a plain-text
-      // marker at the cursor (survives getMarkdown unescaped), swap it for the
-      // table markdown, then re-parse so WYSIWYG renders a real table in place.
-      const tableMd = htmlTableToMarkdown(f.html);
-      if (!tableMd) { UIDialog.alert("이 표는 변환할 수 없습니다."); return; }
-      const block = (f.label ? `**${f.label}**\n\n` : "") + tableMd + (cap ? `\n\n${cap}` : "");
-      const scroll = tuiEditor.getScrollTop ? tuiEditor.getScrollTop() : 0;
-      const token = "TBLINSERT" + Date.now();
-      tuiEditor.insertText(token);
-      const md = tuiEditor.getMarkdown().replace(token, "\n\n" + block + "\n\n");
-      tuiEditor.setMarkdown(md, false);   // re-parse resets scroll → restore it
-      if (tuiEditor.setScrollTop)         // double rAF so layout settles first
-        requestAnimationFrame(() => requestAnimationFrame(() => tuiEditor.setScrollTop(scroll)));
+      // Table → rasterize to a PNG (GFM tables break on Velog). Render
+      // offscreen, persist as this figure's data_uri, insert as an image.
+      const card = document.querySelector(`#figs-grid .fig-card[data-idx="${idx}"]`);
+      if (card) card.classList.add("rasterizing");
+      let dataUrl;
+      try {
+        dataUrl = await renderTableToDataURL(f.html);
+        const r = await fetch(`/paper/${slug}/fig/${f.id}/image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data_uri: dataUrl }),
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+      } catch (e) {
+        if (card) card.classList.remove("rasterizing");
+        UIDialog.alert("표를 이미지로 변환 실패: " + (e.message || e));
+        return;
+      }
+      f.data_uri = dataUrl;
+      f.kind = "image";
+      if (card) card.classList.remove("rasterizing");
+      const url = `/paper/${slug}/fig/${f.id}`;
+      const alt = (f.label || "table").replace(/[\[\]]/g, "");
+      tuiEditor.exec("addImage", { imageUrl: url, altText: alt });
+      if (cap) tuiEditor.insertText("\n" + cap + "\n");
     } else {
       UIDialog.alert("삽입할 수 없는 항목입니다."); return;
     }

@@ -283,6 +283,33 @@ def paper_fig_by_id(slug: str, fig_id: str):
     return Response(base64.b64decode(m.group(2)), media_type=m.group(1))
 
 
+@app.post("/paper/{slug}/fig/{fig_id}/image")
+async def set_fig_image(slug: str, fig_id: str, request: Request):
+    """Attach a rasterized PNG (data URI) to a figure entry. The review UI
+    renders tables to images (html2canvas) so they survive the WYSIWYG → Velog
+    pipeline intact; this stores the result as the figure's data_uri so the
+    /fig/{id} route serves it and publish materializes it like any figure.
+    Body: {"data_uri": "data:image/png;base64,..."}."""
+    d = _paper_dir(slug)
+    figs = list(d.glob("*_figures.json"))
+    if not figs:
+        raise HTTPException(404, "no figures.json")
+    body = await request.json()
+    data_uri = (body or {}).get("data_uri", "")
+    if not isinstance(data_uri, str) or not data_uri.startswith("data:image/"):
+        raise HTTPException(400, "data_uri must be a data:image/* URI")
+    path = figs[0]
+    data = json.loads(path.read_text())
+    items = data if isinstance(data, list) else data.get("figures", [])
+    fig = next((f for f in items if f.get("id") == fig_id), None)
+    if fig is None:
+        raise HTTPException(404, "fig id not found")
+    fig["data_uri"] = data_uri
+    fig["kind"] = "image"  # rasterized — no longer an HTML table
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return {"ok": True, "url": f"/paper/{slug}/fig/{fig_id}"}
+
+
 @app.get("/paper/{slug}/figures.json")
 def paper_figures_json(slug: str) -> JSONResponse:
     """Serve the raw figures.json (list of {id, label, caption_en, caption_ko,
