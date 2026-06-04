@@ -46,6 +46,61 @@ def _wait_port(port: int, timeout: float = 6.0) -> bool:
     return False
 
 
+def _stale_server_pids(port: int) -> list[int]:
+    """PIDs of our own `paper-review serve` left listening on `port`.
+
+    When the menubar is SIGKILLed (e.g. `launchctl kickstart -k`), its server
+    child — spawned with start_new_session=True — is orphaned to PID 1 and keeps
+    holding the port, so a fresh menubar can't bind and ends up serving stale
+    code. We match by command so we never touch unrelated processes.
+    """
+    # Absolute paths: under launchd the inherited PATH is minimal and would not
+    # find lsof (/usr/sbin) or ps (/bin), silently disabling reclaim.
+    lsof = shutil.which("lsof") or "/usr/sbin/lsof"
+    ps = shutil.which("ps") or "/bin/ps"
+    try:
+        out = subprocess.run(
+            [lsof, "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
+            capture_output=True, text=True, timeout=4,
+        ).stdout
+    except Exception:
+        return []
+    pids: list[int] = []
+    for tok in out.split():
+        if not tok.strip().isdigit():
+            continue
+        pid = int(tok)
+        try:
+            cmd = subprocess.run(
+                [ps, "-o", "command=", "-p", str(pid)],
+                capture_output=True, text=True, timeout=4,
+            ).stdout
+        except Exception:
+            cmd = ""
+        if "paper-review serve" in cmd or "paper_review" in cmd:
+            pids.append(pid)
+    return pids
+
+
+def _reclaim_port(port: int) -> bool:
+    """Kill stale paper-review servers on `port`. True if the port ends up free."""
+    for pid in _stale_server_pids(port):
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.kill(pid, sig)
+            except (ProcessLookupError, PermissionError):
+                break
+            freed = False
+            for _ in range(20):  # up to ~2s
+                if not _port_in_use(port):
+                    freed = True
+                    break
+                time.sleep(0.1)
+            if freed:
+                break
+    return not _port_in_use(port)
+
+
 def _resolve_cli() -> str:
     """Find paper-review CLI — prefer the venv next to this module."""
     venv_bin = SERVICE_ROOT / ".venv" / "bin" / "paper-review"
@@ -137,8 +192,11 @@ class PaperReviewMenubarApp:
         if self.proc and self.proc.poll() is None:
             return
         if _port_in_use(self.port):
-            self._set_status("●  port in use", "yellow")
-            return
+            # A previous instance may have been SIGKILLed (launchctl kickstart),
+            # orphaning its server here. Reclaim it so we serve current code.
+            if not _reclaim_port(self.port):
+                self._set_status("●  port in use", "yellow")
+                return
         ts = time.strftime("%Y%m%d-%H%M%S")
         self.log_path = _LOG_DIR / f"server-{ts}.log"
         cli = _resolve_cli()
