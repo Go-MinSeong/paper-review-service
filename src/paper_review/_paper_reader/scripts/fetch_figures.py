@@ -48,6 +48,26 @@ def http_get(url, timeout=30):
         return r.read()
 
 
+def _img_url_candidates(src, page_url, join_base):
+    """Resolve an <img src> to candidate absolute URLs, most-likely first.
+
+    arXiv's native HTML (arxiv.org/html/<id>v1/) uses PAGE-relative srcs like
+    "x1.png" or "extracted/.../fig.jpeg", whereas older ar5iv emits id-prefixed
+    srcs like "<id>v1/figures/fig2.jpeg". Joining only against the /html/ root
+    (the old assumption) turns "x1.png" into ".../html/x1.png" → 404. Trying
+    page-relative first, then the /html/ root, handles both formats without
+    having to detect which one a given paper uses.
+    """
+    if src.startswith("http"):
+        return [src]
+    out = []
+    for cand in (urllib.parse.urljoin(page_url, src),
+                 urllib.parse.urljoin(join_base, src)):
+        if cand not in out:
+            out.append(cand)
+    return out
+
+
 # ---------- Image processing ----------
 
 def downsize_to_data_uri(raw_bytes, max_width=800, jpeg_quality=80, force_jpeg=True):
@@ -222,12 +242,16 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
             continue
         seen_srcs.add(src)
 
-        full_url = urllib.parse.urljoin(join_base, src) if not src.startswith("http") else src
-
-        try:
-            raw = http_get(full_url, timeout=20)
-        except Exception as e:
-            sys.stderr.write(f"[warn] failed to fetch {full_url}: {e}\n")
+        raw = None
+        last_err = None
+        for full_url in _img_url_candidates(src, page_url, join_base):
+            try:
+                raw = http_get(full_url, timeout=20)
+                break
+            except Exception as e:
+                last_err = e
+        if raw is None:
+            sys.stderr.write(f"[warn] failed to fetch image '{src}': {last_err}\n")
             continue
 
         data_uri, w, _ = downsize_to_data_uri(raw, max_width=max_width, jpeg_quality=jpeg_quality)
