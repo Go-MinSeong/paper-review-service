@@ -105,9 +105,26 @@
   .topbar .btn.btn-danger { color: var(--text-muted); }
   .topbar .btn.btn-danger:hover { background: rgba(239,68,68,.12); border-color: #ef4444; color: #ef4444; }
   .topbar .btn .count { color: var(--text-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
-  /* Bookmark button */
-  #btn-bookmark { display: inline-flex; align-items: center; gap: 4px; }
-  #btn-bookmark .bm-ico { display: block; }
+  /* Primary action (Publish) */
+  .topbar .btn.btn-primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+  .topbar .btn.btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+  /* Icon-only utility buttons (Figures · 책갈피 · PDF · Chat) */
+  .topbar .iconbtn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    height: 30px; min-width: 30px; padding: 0 7px;
+    border: 1px solid transparent; border-radius: 7px;
+    background: transparent; color: var(--text-secondary);
+    cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+  }
+  .topbar .iconbtn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .topbar .iconbtn svg { display: block; }
+  .topbar .iconbtn .count {
+    font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-secondary);
+  }
+  .topbar .iconbtn:disabled { opacity: .38; cursor: default; }
+  .topbar .iconbtn:disabled:hover { background: transparent; color: var(--text-secondary); }
   #btn-bookmark.has-bm { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-default)); }
   #btn-bookmark.has-bm .bm-ico path { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
   /* Transient bookmark toast */

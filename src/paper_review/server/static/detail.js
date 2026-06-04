@@ -234,7 +234,7 @@
     injectSectionAnalyzeButtons(wb, secs);
   }
 
-  // Inject "✨ 이 섹션 분석" buttons on every not-yet-done section heading
+  // Inject "이 섹션 분석" buttons on every not-yet-done section heading
   function injectSectionAnalyzeButtons(wb, secs) {
     // Hide the "_(미진행 …)_" placeholder paragraphs — the button replaces them.
     wb.querySelectorAll("p, em").forEach(el => {
@@ -252,7 +252,7 @@
       if (h.querySelector(".gen-sec-btn")) return;
       const btn = document.createElement("button");
       btn.className = "gen-q-btn gen-sec-btn";
-      btn.textContent = "✨ 이 섹션 분석";
+      btn.textContent = "이 섹션 분석";
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         if (analyzePolling) { UIDialog.alert("이미 분석이 진행 중입니다."); return; }
@@ -274,7 +274,7 @@
       pollAnalyze();  // reuse the existing progress toast + polling
     } catch (e) {
       UIDialog.alert("섹션 분석 실패: " + (e.message || e));
-      if (btn) { btn.textContent = "✨ 이 섹션 분석"; btn.disabled = false; }
+      if (btn) { btn.textContent = "이 섹션 분석"; btn.disabled = false; }
     }
   }
 
@@ -287,7 +287,7 @@
     if (!qaH || qaH.querySelector(".gen-q-btn")) return;
     const btn = document.createElement("button");
     btn.className = "gen-q-btn";
-    btn.textContent = genQBusy ? "생성 중…" : "✨ 질문 생성";
+    btn.textContent = genQBusy ? "생성 중…" : "질문 생성";
     btn.disabled = genQBusy;
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
@@ -697,7 +697,7 @@
     `;
     wbPane.appendChild(wrap);
     editing = true;
-    btnEdit.textContent = '✎ Editing';
+    btnEdit.textContent = 'Editing';
     btnEdit.style.background = 'var(--accent)';
     btnEdit.style.color = 'white';
 
@@ -809,7 +809,7 @@
     if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
     editing = false;
     suppressSSEReload = false;
-    btnEdit.textContent = '✎ Edit';
+    btnEdit.textContent = 'Edit';
     btnEdit.style.background = '';
     btnEdit.style.color = '';
     wbPane.classList.remove('editing');
@@ -958,17 +958,17 @@
 
   function updateAnalyzeButton(s) {
     if (s.status === 'running') {
-      btnAnalyze.textContent = `⏸ ${s.current}/${s.total}`;
+      btnAnalyze.textContent = `${s.current}/${s.total}`;
       btnAnalyze.style.background = 'var(--status-in_progress)';
       btnAnalyze.style.color = 'white';
-      btnAnalyze.title = `Analyzing: ${s.current_heading} (click to cancel)`;
+      btnAnalyze.title = `분석 중: ${s.current_heading} (클릭하여 취소)`;
       renderAnalyzeToast(s);
       aToast.setAttribute('open', '');
     } else {
-      btnAnalyze.textContent = '▶ Analyze';
+      btnAnalyze.textContent = 'Analyze';
       btnAnalyze.style.background = '';
       btnAnalyze.style.color = '';
-      btnAnalyze.title = 'Auto-analyze unfinished sections';
+      btnAnalyze.title = '미완료 섹션 자동 분석';
       if (s.status === 'done' || s.status === 'cancelled' || s.status === 'error') {
         // Show final state briefly then hide
         renderAnalyzeToast(s);

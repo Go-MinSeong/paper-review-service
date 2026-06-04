@@ -20,17 +20,21 @@
 </head>
 <body data-slug="__SLUG__" data-pdf-name="__PDF_NAME__" data-has-pdf="__HAS_PDF__" data-has-viewer="__HAS_VIEWER__" data-status="__STATUS__" data-rating="__RATING__">
   <div class="topbar">
-    <a href="/" class="back" title="Gallery">←</a>
+    <a href="/" class="back" title="목록으로">←</a>
     <span class="title">__TITLE__</span>
     <span class="status s-__STATUS__">__STATUS__</span>
     <span class="rating" id="rating" title="별점 — 클릭하여 평가, 같은 별 다시 클릭 시 해제"></span>
     <span class="spacer"></span>
-    <select id="model-picker" title="Model">
+
+    <select id="model-picker" title="모델 선택">
       <option value="claude-opus-4-8">Opus 4.8</option>
       <option value="claude-opus-4-7">Opus 4.7</option>
       <option value="sonnet">Sonnet 4.6</option>
       <option value="haiku">Haiku 4.5</option>
     </select>
+
+    <span class="topbar-div"></span>
+
     <div class="view-toggle" id="view-toggle" title="요약 / 상세 토글">
       <button data-view="summary">요약</button>
       <button data-view="detail" class="active">상세</button>
@@ -39,17 +43,28 @@
       <button data-pane="pdf" title="논문 원본 PDF">원본</button>
       <button data-pane="wb" title="정리본 (리뷰)">정리본</button>
     </div>
-    <button class="btn" id="btn-analyze" title="Auto-analyze unfinished sections">▶ Analyze</button>
-    <button class="btn" id="btn-edit" title="Edit raw markdown">✎ Edit</button>
-    <button class="btn" id="btn-publish" title="Export to Velog draft">↗ Publish</button>
-    <button class="btn" id="btn-pdf" title="PDF로 내보내기 (인쇄 → PDF로 저장)">📄 PDF</button>
-    <button class="btn" id="btn-bookmark" title="클릭: 책갈피로 이동 · ⌥+클릭: 현재 위치에 저장 · ⇧+클릭: 삭제">
-      <svg class="bm-ico" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>
-      책갈피
-    </button>
+
     <span class="topbar-div"></span>
-    <button class="btn" id="btn-figures" title="Figures (G)">Figures <span class="count" id="figs-count">·</span></button>
-    <button class="btn" id="btn-chat" title="Chat (C)">💬 Chat</button>
+
+    <button class="btn" id="btn-analyze" title="미완료 섹션 자동 분석">Analyze</button>
+    <button class="btn" id="btn-edit" title="마크다운 편집">Edit</button>
+    <button class="btn btn-primary" id="btn-publish" title="Velog 초안으로 내보내기">Publish</button>
+
+    <span class="topbar-div"></span>
+
+    <button class="iconbtn" id="btn-figures" title="Figures (G)">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-4.5-4.5L4 21"/></svg>
+      <span class="count" id="figs-count">·</span>
+    </button>
+    <button class="iconbtn" id="btn-bookmark" title="책갈피 — 클릭: 이동 · ⌥+클릭: 현재 위치 저장 · ⇧+클릭: 삭제">
+      <svg class="bm-ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
+    </button>
+    <button class="iconbtn" id="btn-pdf" title="PDF로 내보내기 (인쇄 → PDF로 저장)">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4"/><path d="M5 21h14"/></svg>
+    </button>
+    <button class="iconbtn" id="btn-chat" title="Chat (C)">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/></svg>
+    </button>
   </div>
 
   <main class="layout" id="layout">
