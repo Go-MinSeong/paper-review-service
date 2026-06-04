@@ -231,7 +231,15 @@ def _render_paper_info(wb: Workbench) -> list[str]:
 def _render_sections(wb: Workbench) -> list[str]:
     parts: list[str] = []
     for sec in wb.sections:
-        if not sec.done:
+        # Render any section with real content — not just ones with a Claude
+        # translation. Parent/transition sections (e.g. "6. 표현 분석") often
+        # carry only a 요약 or Reader's Notes; skipping them dropped their
+        # heading and notes from the post.
+        if not any(
+            v and not _is_placeholder(v)
+            for v in (sec.user_answer, sec.summary,
+                      sec.claude_translation, sec.claude_notes)
+        ):
             continue
 
         parts.append(f"## {_clean_heading(sec.heading)}")

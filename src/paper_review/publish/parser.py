@@ -97,19 +97,22 @@ def _extract_bullets(body: str) -> list[str]:
 
 
 def _extract_sections(text: str) -> list[Section]:
-    h2_match = re.search(r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s|\Z)", text,
+    # The review block runs until the next NON-numbered H2 (Q&A / Wrap-up / 메타).
+    # A stray numbered "## 6. …" section heading (some sections get written at H2
+    # instead of H3) must NOT terminate it — that silently dropped every section
+    # after it from the published draft.
+    h2_match = re.search(r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s+(?!\d)|\Z)", text,
                         flags=re.DOTALL | re.MULTILINE)
     if not h2_match:
         return []
     body = h2_match.group(1)
 
-    section_chunks = re.split(r"(?=^###\s)", body, flags=re.MULTILINE)
+    # Sections are normally H3 (### N.) but tolerate a malformed numbered H2.
+    section_chunks = re.split(r"(?=^###\s|^##\s+\d)", body, flags=re.MULTILINE)
     out: list[Section] = []
     for chunk in section_chunks:
         chunk = chunk.strip()
-        if not chunk.startswith("### "):
-            continue
-        head_m = re.match(r"^###\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
+        head_m = re.match(r"^#{2,3}\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
         if not head_m:
             continue
         heading = head_m.group(1)
