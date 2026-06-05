@@ -8,6 +8,9 @@
   let activeTags = new Set();
   let collapsedTags = new Set();
   let sortBy = localStorage.getItem('pr-sort') || 'created';   // 등록순 default
+  // ?capture — freeze live updates (polling/SSE) so the page reaches network
+  // idle for clean screenshots.
+  const CAPTURE = new URLSearchParams(location.search).has('capture');
 
   function statusCounts() {
     const c = { all: papers.length, to_read: 0, in_progress: 0, review_done: 0, exported: 0 };
@@ -223,7 +226,7 @@
       return `
         <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
-            <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="lazy">
+            <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
@@ -377,7 +380,7 @@
     } catch {}
   }
   pollActiveJobs();
-  setInterval(pollActiveJobs, 3000);
+  if (!CAPTURE) setInterval(pollActiveJobs, 3000);
 
   // ─── Theme toggle
   function applyTheme(t) {

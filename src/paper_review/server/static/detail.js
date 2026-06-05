@@ -1,6 +1,9 @@
 
 (() => {
   const slug = document.body.dataset.slug;
+  // ?capture — freeze live updates (SSE) so the page reaches network idle for
+  // clean screenshots.
+  const CAPTURE = new URLSearchParams(location.search).has('capture');
 
   // Record this view (for the gallery's last-activity time) — fire-and-forget
   fetch(`/paper/${slug}/viewed`, { method: "POST" }).catch(() => {});
@@ -1757,5 +1760,5 @@
   // ───────────────────────────────────────────────────────── Init
   loadWorkbench();
   loadFigures();
-  connectSSE();
+  if (!CAPTURE) connectSSE();
 })();
