@@ -777,63 +777,116 @@
 
   /* Animated pipeline player — ▶ play to watch data flow stage by stage. */
   .pipe-player {
-    margin: 18px 0; padding: 14px 16px 12px; border-radius: 12px;
-    border: 1px solid var(--border-default); background: var(--bg-surface);
+    margin: 20px 0; padding: 16px 18px 15px; border-radius: 16px;
+    border: 1px solid var(--border-default);
+    background:
+      radial-gradient(130% 120% at 0% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%),
+      var(--bg-surface);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
   }
-  .pipe-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-  .pipe-title { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .pipe-head { display: flex; align-items: center; gap: 10px; }
+  .pipe-title {
+    font-size: 13px; font-weight: 650; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pipe-title::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 9px var(--accent);
+  }
   .pipe-controls { margin-left: auto; display: flex; align-items: center; gap: 5px; }
   .pipe-btn {
-    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-    border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-elevated);
-    color: var(--text-primary); cursor: pointer; font-size: 13px; line-height: 1;
-    transition: background .12s, border-color .12s;
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-default); border-radius: 8px; background: var(--bg-elevated);
+    color: var(--text-secondary); cursor: pointer; font-size: 13px; line-height: 1;
+    transition: background .12s, border-color .12s, color .12s, transform .08s;
   }
-  .pipe-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
-  .pipe-play { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .pipe-step-ind { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
+  .pipe-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); color: var(--text-primary); }
+  .pipe-btn:active { transform: scale(.92); }
+  .pipe-play {
+    width: 34px; height: 34px; font-size: 14px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 85%, #fff), var(--accent));
+    border-color: var(--accent); color: #fff;
+  }
+  .pipe-play:hover { color: #fff; filter: brightness(1.06); }
+  .pipe-step-ind { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: 5px; min-width: 34px; }
+  .pipe-progress { height: 3px; border-radius: 3px; background: var(--border-default); overflow: hidden; margin: 11px 0 2px; }
+  .pipe-progress-fill {
+    display: block; height: 100%; width: 0; border-radius: 3px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, #fff), var(--accent));
+    transition: width .55s cubic-bezier(.5, 0, .25, 1);
+  }
   .pipe-stages {
-    position: relative; display: flex; align-items: center; gap: 0;
-    overflow-x: auto; scroll-behavior: smooth; padding: 10px 4px 6px;
-    scrollbar-width: none;
+    position: relative; display: flex; align-items: stretch; gap: 0;
+    overflow-x: auto; padding: 16px 8px 10px; scrollbar-width: none;
   }
   .pipe-stages::-webkit-scrollbar { display: none; }
   .pipe-stage {
-    flex: 0 0 auto; min-width: 116px; max-width: 168px; padding: 11px 13px;
-    border-radius: 10px; border: 1.5px solid var(--border-default); background: var(--bg-elevated);
-    text-align: center; font-size: 12.5px; line-height: 1.35; color: var(--text-muted);
-    white-space: pre-line; transition: border-color .35s, color .35s, box-shadow .35s,
-      transform .35s, background .35s;
+    flex: 0 0 auto; width: 152px; padding: 15px 12px 13px; border-radius: 14px;
+    border: 1px solid var(--border-default);
+    background: linear-gradient(180deg, var(--bg-elevated), color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-canvas)));
+    display: flex; flex-direction: column; align-items: center; gap: 9px; text-align: center;
+    position: relative; color: var(--text-muted); filter: saturate(.65) opacity(.8);
+    transition: border-color .45s, color .45s, box-shadow .45s, transform .45s, background .45s, filter .45s;
   }
-  .pipe-stage.done { border-color: color-mix(in srgb, var(--accent) 38%, var(--border-default)); color: var(--text-secondary); }
+  .pipe-stage.done { filter: none; color: var(--text-secondary); border-color: color-mix(in srgb, var(--accent) 28%, var(--border-default)); }
   .pipe-stage.active {
-    border-color: var(--accent); color: var(--text-primary); transform: translateY(-2px);
-    background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+    filter: none; color: var(--text-primary); transform: translateY(-5px) scale(1.05);
+    border-color: var(--accent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 13%, var(--bg-elevated)), var(--bg-elevated));
+    box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 0 1px var(--accent);
   }
+  .pipe-num {
+    position: absolute; top: -9px; left: -9px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+    color: var(--text-muted); transition: background .45s, border-color .45s, color .45s;
+  }
+  .pipe-stage.done .pipe-num, .pipe-stage.active .pipe-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pipe-ico { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); transition: color .45s, transform .45s; }
+  .pipe-ico svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .pipe-stage.done .pipe-ico { color: color-mix(in srgb, var(--accent) 65%, var(--text-secondary)); }
+  .pipe-stage.active .pipe-ico { color: var(--accent); transform: scale(1.12); }
+  .pipe-label { font-size: 12px; font-weight: 600; line-height: 1.32; white-space: pre-line; }
   .pipe-arrow {
-    flex: 0 0 26px; height: 2px; background: var(--border-default); position: relative;
-    transition: background .3s;
+    flex: 0 0 32px; align-self: center; height: 2px; position: relative; border-radius: 2px;
+    background: var(--border-default); transition: background .4s;
   }
   .pipe-arrow::after {
     content: ""; position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
-    border-style: solid; border-width: 5px 0 5px 7px;
-    border-color: transparent transparent transparent var(--border-default); transition: border-color .3s;
+    border: 5px solid transparent; border-left: 7px solid var(--border-default); transition: border-left-color .4s;
   }
   .pipe-arrow.lit { background: var(--accent); }
   .pipe-arrow.lit::after { border-left-color: var(--accent); }
+  .pipe-arrow.flow {
+    background-image: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 95%, #fff), transparent);
+    background-size: 220% 100%; animation: pipeFlow .9s linear infinite;
+  }
+  @keyframes pipeFlow { from { background-position: 180% 0; } to { background-position: -180% 0; } }
   .pipe-packet {
-    position: absolute; width: 13px; height: 13px; border-radius: 50%; background: var(--accent);
-    box-shadow: 0 0 12px 1px var(--accent); opacity: 0; z-index: 5; pointer-events: none;
-    transform: translate(-50%, -50%);
-    transition: left .55s cubic-bezier(.5, 0, .25, 1), top .25s, opacity .3s;
+    position: absolute; width: 14px; height: 14px; border-radius: 50%; z-index: 6; opacity: 0;
+    background: radial-gradient(circle at 35% 32%, #fff, var(--accent));
+    box-shadow: 0 0 16px 3px color-mix(in srgb, var(--accent) 75%, transparent);
+    transform: translate(-50%, -50%); pointer-events: none;
+    transition: left .8s cubic-bezier(.45, 0, .2, 1), top .35s, opacity .3s;
   }
   .pipe-caption {
-    margin-top: 12px; padding: 11px 13px; border-radius: 8px; background: var(--bg-elevated);
-    border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.6; color: var(--text-primary);
-    min-height: 1.6em;
+    margin-top: 14px; padding: 13px 15px; border-radius: 12px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)), var(--bg-elevated));
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-default));
+    display: flex; gap: 12px; align-items: flex-start;
   }
-  .pipe-caption .lbl { font-weight: 600; color: var(--accent); margin-right: 7px; }
+  .pipe-caption.in { animation: pipeCapIn .4s ease; }
+  @keyframes pipeCapIn { from { opacity: .25; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .pipe-cap-ico {
+    flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent);
+  }
+  .pipe-cap-ico svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .pipe-cap-body { min-width: 0; }
+  .pipe-cap-label { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; letter-spacing: .01em; }
+  .pipe-cap-text { font-size: 13px; line-height: 1.62; color: var(--text-primary); }
 
   /* Mermaid pipeline diagram block */
   .wb-mermaid {

@@ -191,9 +191,27 @@
   }
 
   // Animated pipeline player. Reads a ```pipeline JSON fence:
-  //   { "title": "...", "stages": [{ "label": "...", "caption": "..." }, ...] }
-  // ▶ play walks the stages: each lights up in turn, a data packet glides along,
-  // the view follows, and the caption explains the step.
+  //   { "title": "...", "stages": [{ "label","icon","caption" }, ...] }
+  // ▶ play walks the stages: each lights up in turn with its icon, a data packet
+  // glides along the connector (which animates a flow), the view follows, the
+  // progress bar fills, and the caption explains the step.
+  const PIPE_ICONS = {
+    image:  '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5-5L4.5 20.5"/>',
+    eye:    '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+    layers: '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
+    chip:   '<rect x="6" y="6" width="12" height="12" rx="2.5"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+    bolt:   '<path d="M13 2L4.5 13.5H11l-1 8.5L19.5 10H13z"/>',
+    robot:  '<rect x="4.5" y="8" width="15" height="11" rx="2.5"/><path d="M12 8V4.5M9 4.5h6"/><circle cx="9.2" cy="13" r="1.1"/><circle cx="14.8" cy="13" r="1.1"/><path d="M2.5 12v3M21.5 12v3"/>',
+    data:   '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+    text:   '<path d="M4 6h16M4 12h16M4 18h10"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',
+    arrow:  '<path d="M5 12h13M13 6l6 6-6 6"/>',
+  };
+  function _pipeIcon(name) {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (PIPE_ICONS[name] || PIPE_ICONS.arrow) + "</svg>";
+  }
+  const PIPE_STEP_MS = 2400;
+
   function buildPipelinePlayer(spec) {
     const stages = Array.isArray(spec.stages) ? spec.stages : [];
     const root = document.createElement("div");
@@ -203,10 +221,14 @@
       '<div class="pipe-controls">' +
       '<button class="pipe-btn" data-act="restart" title="처음부터">↺</button>' +
       '<button class="pipe-btn" data-act="prev" title="이전">‹</button>' +
-      '<button class="pipe-btn pipe-play" data-act="play" title="재생">▶</button>' +
+      '<button class="pipe-btn pipe-play" data-act="play" title="재생 / 정지">▶</button>' +
       '<button class="pipe-btn" data-act="next" title="다음">›</button>' +
       '<span class="pipe-step-ind"></span></div></div>' +
-      '<div class="pipe-stages"></div><div class="pipe-caption"></div>';
+      '<div class="pipe-progress"><span class="pipe-progress-fill"></span></div>' +
+      '<div class="pipe-stages"></div>' +
+      '<div class="pipe-caption"><span class="pipe-cap-ico"></span>' +
+      '<div class="pipe-cap-body"><span class="pipe-cap-label"></span>' +
+      '<span class="pipe-cap-text"></span></div></div>';
     root.querySelector(".pipe-title").textContent = spec.title || "파이프라인";
     const stagesEl = root.querySelector(".pipe-stages");
     const stageEls = [];
@@ -214,49 +236,59 @@
       if (i > 0) { const a = document.createElement("div"); a.className = "pipe-arrow"; stagesEl.appendChild(a); }
       const el = document.createElement("div");
       el.className = "pipe-stage";
-      el.textContent = s.label || ("단계 " + (i + 1));
+      el.innerHTML = '<span class="pipe-num">' + (i + 1) + '</span>' +
+        '<span class="pipe-ico">' + _pipeIcon(s.icon) + '</span><span class="pipe-label"></span>';
+      el.querySelector(".pipe-label").textContent = s.label || ("단계 " + (i + 1));
       stagesEl.appendChild(el); stageEls.push(el);
     });
-    const packet = document.createElement("div");
-    packet.className = "pipe-packet";
-    stagesEl.appendChild(packet);
+    const packet = document.createElement("div"); packet.className = "pipe-packet"; stagesEl.appendChild(packet);
     const arrowEls = [...stagesEl.querySelectorAll(".pipe-arrow")];
     const capEl = root.querySelector(".pipe-caption");
+    const capIco = root.querySelector(".pipe-cap-ico");
+    const capLabel = root.querySelector(".pipe-cap-label");
+    const capText = root.querySelector(".pipe-cap-text");
     const indEl = root.querySelector(".pipe-step-ind");
+    const fillEl = root.querySelector(".pipe-progress-fill");
     const playBtn = root.querySelector(".pipe-play");
 
     let step = 0, playing = false, timer = null;
-    function setStep(i) {
+    function setStep(i, animateArrow) {
       i = Math.max(0, Math.min(stages.length - 1, i));
-      step = i;
+      const prev = step; step = i;
       stageEls.forEach((el, k) => { el.classList.toggle("active", k === i); el.classList.toggle("done", k < i); });
-      arrowEls.forEach((a, k) => a.classList.toggle("lit", k < i));
+      arrowEls.forEach((a, k) => { a.classList.toggle("lit", k < i); a.classList.remove("flow"); });
+      if (animateArrow && i > prev && arrowEls[i - 1]) {
+        const a = arrowEls[i - 1]; a.classList.add("flow");
+        setTimeout(() => a.classList.remove("flow"), Math.max(700, PIPE_STEP_MS - 600));
+      }
       const s = stages[i] || {};
-      capEl.innerHTML = '<span class="lbl">' + escapeHtml((s.label || "").replace(/\n/g, " ")) +
-        "</span>" + escapeHtml(s.caption || "");
+      capIco.innerHTML = _pipeIcon(s.icon);
+      capLabel.textContent = (s.label || "").replace(/\n/g, " ");
+      capText.textContent = s.caption || "";
+      capEl.classList.remove("in"); void capEl.offsetWidth; capEl.classList.add("in");
       indEl.textContent = (i + 1) + " / " + stages.length;
+      fillEl.style.width = (stages.length > 1 ? (i / (stages.length - 1)) * 100 : 100) + "%";
       const el = stageEls[i];
-      const target = Math.max(0, el.offsetLeft - stagesEl.clientWidth / 2 + el.offsetWidth / 2);
-      stagesEl.scrollLeft = target;
+      stagesEl.scrollLeft = Math.max(0, el.offsetLeft - stagesEl.clientWidth / 2 + el.offsetWidth / 2);
       packet.style.left = (el.offsetLeft + el.offsetWidth / 2 - stagesEl.scrollLeft) + "px";
       packet.style.top = (el.offsetTop + el.offsetHeight / 2) + "px";
       packet.style.opacity = "1";
     }
     function stop() { playing = false; playBtn.textContent = "▶"; if (timer) { clearTimeout(timer); timer = null; } }
     function advance() {
-      if (step < stages.length - 1) { setStep(step + 1); timer = setTimeout(advance, 1700); }
+      if (step < stages.length - 1) { setStep(step + 1, true); timer = setTimeout(advance, PIPE_STEP_MS); }
       else stop();
     }
     function play() {
       if (playing) { stop(); return; }
       if (step >= stages.length - 1) setStep(0);
-      playing = true; playBtn.textContent = "⏸"; timer = setTimeout(advance, 650);
+      playing = true; playBtn.textContent = "⏸"; timer = setTimeout(advance, 900);
     }
     root.addEventListener("click", e => {
-      const act = e.target.closest("[data-act]") && e.target.closest("[data-act]").dataset.act;
-      if (!act) return;
+      const t = e.target.closest("[data-act]"); if (!t) return;
+      const act = t.dataset.act;
       if (act === "play") play();
-      else if (act === "next") { stop(); setStep(step + 1); }
+      else if (act === "next") { stop(); setStep(step + 1, true); }
       else if (act === "prev") { stop(); setStep(step - 1); }
       else if (act === "restart") { stop(); setStep(0); }
     });
