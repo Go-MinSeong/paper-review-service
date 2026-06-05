@@ -7,6 +7,7 @@
   let searchQuery = '';
   let activeTags = new Set();
   let collapsedTags = new Set();
+  let sortBy = localStorage.getItem('pr-sort') || 'created';   // 등록순 default
 
   function statusCounts() {
     const c = { all: papers.length, to_read: 0, in_progress: 0, review_done: 0, exported: 0 };
@@ -171,6 +172,13 @@
       }
       return true;
     });
+    // Sort: 등록순(created) / 편집순(edited) / 별점순(rating). All newest/highest first.
+    const cmp = {
+      created: (a, b) => (b.created_at || 0) - (a.created_at || 0),
+      edited: (a, b) => (b.updated_at || 0) - (a.updated_at || 0),
+      rating: (a, b) => (b.rating || 0) - (a.rating || 0) || (b.updated_at || 0) - (a.updated_at || 0),
+    }[sortBy] || ((a, b) => (b.created_at || 0) - (a.created_at || 0));
+    filtered.sort(cmp);
     const rc = document.getElementById('result-count');
     if (rc) rc.textContent = `${filtered.length} / ${papers.length}`;
 
@@ -336,6 +344,16 @@
     searchQuery = searchEl.value;
     renderCards();
   });
+  // Sort selector (등록순 / 편집순 / 별점순)
+  const sortEl = document.getElementById('sort-select');
+  if (sortEl) {
+    sortEl.value = sortBy;
+    sortEl.addEventListener('change', () => {
+      sortBy = sortEl.value;
+      localStorage.setItem('pr-sort', sortBy);
+      renderCards();
+    });
+  }
   // Sidebar toggle (narrow)
   const sidebarEl = document.getElementById('sidebar');
   document.getElementById('sidebar-toggle').addEventListener('click', () => {

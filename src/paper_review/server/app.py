@@ -126,6 +126,7 @@ def _list_papers() -> list[dict]:
             "tags": _parse_tags_value(meta.get("tags", "")),
             "rating": rating,
             "updated_at": int(wb.stat().st_mtime),
+            "created_at": int(getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime),
             "last_viewed": int(views.get(d.name, 0)),
         })
     return rows

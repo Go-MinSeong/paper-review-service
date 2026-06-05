@@ -186,6 +186,18 @@
   }
   .result-count { color: var(--text-muted); font-size: 12.5px;
                   font-variant-numeric: tabular-nums; }
+  /* Sort selector */
+  .sort-select {
+    font: inherit; font-size: 12.5px; color: var(--text-secondary); cursor: pointer;
+    padding: 5px 26px 5px 11px; border-radius: 999px;
+    border: 1px solid var(--border-default); background-color: var(--bg-surface);
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat; background-position: right 9px center;
+    transition: border-color .12s, color .12s;
+  }
+  .sort-select:hover { border-color: var(--text-muted); color: var(--text-primary); }
+  .sort-select:focus { outline: none; border-color: var(--accent); }
   /* Grid / List view segmented control */
   .view-switch {
     margin-left: auto; display: inline-flex; gap: 2px; padding: 2px;
