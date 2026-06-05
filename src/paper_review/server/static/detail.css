@@ -887,6 +887,44 @@
   .pipe-cap-body { min-width: 0; }
   .pipe-cap-label { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; letter-spacing: .01em; }
   .pipe-cap-text { font-size: 13px; line-height: 1.62; color: var(--text-primary); }
+  .pipe-gif {
+    font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .03em;
+    padding: 5px 9px; border-radius: 7px; cursor: pointer;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-default));
+    background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent);
+    transition: background .12s;
+  }
+  .pipe-gif:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  .pipe-gif:disabled { opacity: .6; cursor: default; }
+
+  /* Off-screen capture for GIF export: solid colors (html2canvas can't read
+     color-mix), no transitions, no scroll, no controls. */
+  .pipe-capture .pipe-player { background: #fff; box-shadow: none; border-color: #e5e7eb; }
+  .pipe-capture, .pipe-capture * { transition: none !important; animation: none !important; }
+  .pipe-capture .pipe-controls, .pipe-capture .pipe-gif { display: none !important; }
+  .pipe-capture .pipe-stages { overflow: visible; }
+  .pipe-capture .pipe-title { color: #18181b; }
+  .pipe-capture .pipe-title::before { background: #4263eb; box-shadow: none; }
+  .pipe-capture .pipe-progress { background: #e5e7eb; }
+  .pipe-capture .pipe-progress-fill { background: #4263eb; }
+  .pipe-capture .pipe-stage { background: #f6f7f9; border-color: #e5e7eb; color: #9ca3af; filter: none; }
+  .pipe-capture .pipe-stage.done { color: #52525b; border-color: #b9c4f5; }
+  .pipe-capture .pipe-stage.active { background: #eef2ff; border-color: #4263eb; color: #18181b; box-shadow: 0 0 0 1px #4263eb; transform: none; }
+  .pipe-capture .pipe-num { background: #fff; border-color: #e5e7eb; color: #9ca3af; }
+  .pipe-capture .pipe-stage.done .pipe-num,
+  .pipe-capture .pipe-stage.active .pipe-num { background: #4263eb; border-color: #4263eb; color: #fff; }
+  .pipe-capture .pipe-ico { color: #9ca3af; }
+  .pipe-capture .pipe-stage.done .pipe-ico { color: #6b7fd7; }
+  .pipe-capture .pipe-stage.active .pipe-ico { color: #4263eb; transform: none; }
+  .pipe-capture .pipe-arrow { background: #e5e7eb; }
+  .pipe-capture .pipe-arrow::after { border-left-color: #e5e7eb; }
+  .pipe-capture .pipe-arrow.lit { background: #4263eb; }
+  .pipe-capture .pipe-arrow.lit::after { border-left-color: #4263eb; }
+  .pipe-capture .pipe-packet { background: #4263eb; box-shadow: 0 0 10px 2px rgba(66,99,235,.55); }
+  .pipe-capture .pipe-caption { background: #eef2ff; border-color: #c7d2fe; }
+  .pipe-capture .pipe-cap-ico { background: #dbe3ff; color: #4263eb; }
+  .pipe-capture .pipe-cap-label { color: #4263eb; }
+  .pipe-capture .pipe-cap-text { color: #18181b; }
 
   /* Mermaid pipeline diagram block */
   .wb-mermaid {

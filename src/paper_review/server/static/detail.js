@@ -211,13 +211,16 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (PIPE_ICONS[name] || PIPE_ICONS.arrow) + "</svg>";
   }
   const PIPE_STEP_MS = 2400;
+  // Same-origin worker: a cross-origin worker URL throws SecurityError.
+  const PIPE_GIF_WORKER = "/static/gif.worker.js";
 
-  function buildPipelinePlayer(spec) {
+  function buildPipelinePlayer(spec, index) {
     const stages = Array.isArray(spec.stages) ? spec.stages : [];
     const root = document.createElement("div");
     root.className = "pipe-player";
     root.innerHTML =
       '<div class="pipe-head"><span class="pipe-title"></span>' +
+      '<button class="pipe-gif" data-act="gif" title="애니메이션 GIF로 내보내기 (발행용)">GIF</button>' +
       '<div class="pipe-controls">' +
       '<button class="pipe-btn" data-act="restart" title="처음부터">↺</button>' +
       '<button class="pipe-btn" data-act="prev" title="이전">‹</button>' +
@@ -291,11 +294,134 @@
       else if (act === "next") { stop(); setStep(step + 1, true); }
       else if (act === "prev") { stop(); setStep(step - 1); }
       else if (act === "restart") { stop(); setStep(0); }
+      else if (act === "gif") { stop(); exportPipelineGif(spec, (index || 0) + 1, t); }
     });
+    root.__pipe = { setStep, count: stages.length };
     requestAnimationFrame(() => requestAnimationFrame(() => { if (stages.length) setStep(0); }));
     return root;
   }
+
+  // Draw one pipeline frame directly to a canvas (no html2canvas — it freezes on
+  // the player's gradients/SVG). Pure Canvas 2D → fast and reliable for GIF.
+  function _rr(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function _wrapText(ctx, text, maxW) {
+    const words = (text || "").split(/\s+/).filter(Boolean), lines = []; let cur = "";
+    for (const w of words) {
+      const t = cur ? cur + " " + w : w;
+      if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) lines.push(cur); return lines;
+  }
+  const PIPE_FONT = '-apple-system, "Pretendard Variable", Pretendard, system-ui, sans-serif';
+  function drawPipelineFrame(spec, step) {
+    const stages = spec.stages || [], n = stages.length, S = 2;
+    const SW = 152, SH = 92, AW = 30, PAD = 18;
+    const C = {
+      bg: "#fff", track: "#e5e7eb", accent: "#4263eb", arrow: "#d4d4d8",
+      upBg: "#f6f7f9", upBd: "#e5e7eb", upTx: "#9ca3af", dnBd: "#b9c4f5", dnTx: "#52525b",
+      acBg: "#eef2ff", acBd: "#4263eb", acTx: "#18181b",
+      capBg: "#eef2ff", capBd: "#c7d2fe", capTile: "#dbe3ff", text: "#18181b",
+    };
+    const contentW = n * SW + (n - 1) * AW, W = PAD * 2 + contentW;
+    const titleY = PAD, progY = titleY + 20, stagesY = progY + 16;
+    const capX = PAD, capW = W - PAD * 2, capPadX = 14, capPadY = 12, capTile = 40;
+    const cv = document.createElement("canvas"), ctx = cv.getContext("2d");
+    const s = stages[step] || {};
+    ctx.font = `13px ${PIPE_FONT}`;
+    const capLines = _wrapText(ctx, s.caption || "", capW - capPadX * 2 - capTile - 10);
+    const capH = capPadY * 2 + 16 + Math.max(1, capLines.length) * 19;
+    const captionY = stagesY + SH + 16, H = captionY + capH + PAD;
+    cv.width = Math.round(W * S); cv.height = Math.round(H * S); ctx.scale(S, S);
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+    // title + step counter
+    ctx.fillStyle = C.accent; ctx.beginPath(); ctx.arc(PAD + 4, titleY + 7, 4, 0, 7); ctx.fill();
+    ctx.fillStyle = C.text; ctx.font = `700 13px ${PIPE_FONT}`; ctx.textBaseline = "middle";
+    ctx.textAlign = "left"; ctx.fillText(spec.title || "파이프라인", PAD + 14, titleY + 7);
+    ctx.fillStyle = C.upTx; ctx.font = `12px ${PIPE_FONT}`; ctx.textAlign = "right";
+    ctx.fillText((step + 1) + " / " + n, W - PAD, titleY + 7); ctx.textAlign = "left";
+    // progress bar
+    _rr(ctx, PAD, progY, contentW, 3, 1.5); ctx.fillStyle = C.track; ctx.fill();
+    const pw = n > 1 ? (step / (n - 1)) * contentW : contentW;
+    if (pw > 0) { _rr(ctx, PAD, progY, pw, 3, 1.5); ctx.fillStyle = C.accent; ctx.fill(); }
+    // arrows
+    for (let k = 0; k < n - 1; k++) {
+      const ax = PAD + (k + 1) * SW + k * AW, ay = stagesY + SH / 2, lit = k < step;
+      ctx.strokeStyle = lit ? C.accent : C.arrow; ctx.fillStyle = lit ? C.accent : C.arrow; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(ax + 3, ay); ctx.lineTo(ax + AW - 6, ay); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax + AW - 6, ay - 4); ctx.lineTo(ax + AW, ay); ctx.lineTo(ax + AW - 6, ay + 4); ctx.closePath(); ctx.fill();
+    }
+    // stage cards
+    stages.forEach((st, k) => {
+      const x = PAD + k * (SW + AW), y = stagesY, state = k === step ? "ac" : (k < step ? "dn" : "up");
+      const bg = state === "ac" ? C.acBg : (state === "dn" ? C.bg : C.upBg);
+      const bd = state === "ac" ? C.acBd : (state === "dn" ? C.dnBd : C.upBd);
+      const tx = state === "ac" ? C.acTx : (state === "dn" ? C.dnTx : C.upTx);
+      _rr(ctx, x, y, SW, SH, 13); ctx.fillStyle = bg; ctx.fill();
+      ctx.lineWidth = state === "ac" ? 2 : 1; ctx.strokeStyle = bd; ctx.stroke();
+      const bx = x + 13, by = y + 13;
+      ctx.beginPath(); ctx.arc(bx, by, 11, 0, 7);
+      if (state === "up") { ctx.fillStyle = "#fff"; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = C.upBd; ctx.stroke(); ctx.fillStyle = C.upTx; }
+      else { ctx.fillStyle = C.accent; ctx.fill(); ctx.fillStyle = "#fff"; }
+      ctx.font = `700 11px ${PIPE_FONT}`; ctx.textAlign = "center"; ctx.fillText(String(k + 1), bx, by + 0.5);
+      ctx.fillStyle = tx; ctx.font = `600 12px ${PIPE_FONT}`;
+      const lns = (st.label || "").split("\n"), lh = 15, sy = y + SH / 2 + 8 - (lns.length - 1) * lh / 2;
+      lns.forEach((ln, li) => ctx.fillText(ln, x + SW / 2, sy + li * lh));
+      ctx.textAlign = "left";
+    });
+    // caption
+    _rr(ctx, capX, captionY, capW, capH, 12); ctx.fillStyle = C.capBg; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = C.capBd; ctx.stroke();
+    _rr(ctx, capX + capPadX, captionY + capPadY, 34, 34, 9); ctx.fillStyle = C.capTile; ctx.fill();
+    ctx.fillStyle = C.accent; ctx.font = `700 14px ${PIPE_FONT}`; ctx.textAlign = "center";
+    ctx.fillText(String(step + 1), capX + capPadX + 17, captionY + capPadY + 18); ctx.textAlign = "left";
+    const tX = capX + capPadX + capTile + 8;
+    ctx.fillStyle = C.accent; ctx.font = `700 12px ${PIPE_FONT}`; ctx.textBaseline = "top";
+    ctx.fillText((s.label || "").replace(/\n/g, " "), tX, captionY + capPadY);
+    ctx.fillStyle = C.text; ctx.font = `13px ${PIPE_FONT}`;
+    capLines.forEach((ln, li) => ctx.fillText(ln, tX, captionY + capPadY + 18 + li * 19));
+    return cv;
+  }
+
+  // Export the pipeline animation as a GIF (Velog/Obsidian can't run the live
+  // player). Frames are drawn directly to canvas; encoded with gif.js; stored as
+  // figure `pipe<n>` so publish embeds it.
+  async function exportPipelineGif(spec, index, btn) {
+    if (typeof GIF === "undefined") { UIDialog.alert("GIF 라이브러리가 아직 로드되지 않았습니다."); return; }
+    const orig = btn ? btn.textContent : "";
+    if (btn) { btn.textContent = "생성 중…"; btn.disabled = true; }
+    try {
+      const n = (spec.stages || []).length;
+      if (!n) throw new Error("빈 파이프라인");
+      const frames = []; for (let i = 0; i < n; i++) frames.push(drawPipelineFrame(spec, i));
+      const W = Math.max(...frames.map(c => c.width)), H = Math.max(...frames.map(c => c.height));
+      const gif = new GIF({ workers: 2, quality: 8, width: W, height: H, background: "#ffffff", workerScript: PIPE_GIF_WORKER });
+      frames.forEach((c, i) => {
+        const fc = document.createElement("canvas"); fc.width = W; fc.height = H;
+        const x = fc.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, W, H); x.drawImage(c, 0, 0);
+        gif.addFrame(fc, { delay: i === n - 1 ? 2600 : 1900, copy: true });
+      });
+      const blob = await new Promise((res, rej) => { gif.on("finished", res); gif.on("abort", () => rej(new Error("abort"))); gif.render(); });
+      const dataUrl = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+      const r = await fetch(`/paper/${slug}/pipeline-image`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index, data_uri: dataUrl }),
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      if (btn) { btn.textContent = "✓ 저장"; setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200); }
+      UIDialog.alert("파이프라인 GIF 저장 완료 (" + Math.round(blob.size / 1024) + "KB). 발행하면 이 GIF가 글에 들어갑니다.");
+    } catch (e) {
+      if (btn) { btn.textContent = orig; btn.disabled = false; }
+      UIDialog.alert("GIF 생성 실패: " + (e && e.message ? e.message : e));
+    }
+  }
+
   function renderPipelinePlayers(wb) {
+    let idx = 0;
     for (const code of [...wb.querySelectorAll("code.language-pipeline")]) {
       const pre = code.closest("pre") || code;
       let spec;
@@ -306,7 +432,7 @@
         err.textContent = "파이프라인 스펙 JSON 파싱 실패: " + (e && e.message ? e.message : e);
         pre.replaceWith(err); continue;
       }
-      pre.replaceWith(buildPipelinePlayer(spec));
+      pre.replaceWith(buildPipelinePlayer(spec, idx++));
     }
   }
 

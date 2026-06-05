@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,6 +40,7 @@ class Workbench:
     wrap_one_line: str = ""
     wrap_weakness: str = ""
     wrap_followups: list[str] = field(default_factory=list)
+    pipelines: list = field(default_factory=list)   # parsed ```pipeline specs
 
 
 _BLOCK_PATTERNS = {
@@ -71,6 +73,7 @@ def parse(workbench_md: Path) -> Workbench:
 
     wb.sections = _extract_sections(text)
     wb.qna = _extract_qna(text)
+    wb.pipelines = _extract_pipelines(text)
 
     wrap = _extract_h2_body(text, "Wrap-up")
     wb.wrap_one_line = _extract_dash_field(wrap, "한 줄 contribution")
@@ -135,6 +138,17 @@ def _extract_sections(text: str) -> list[Section]:
         sec.done = bool(sec.claude_translation or sec.user_answer)
         out.append(sec)
 
+    return out
+
+
+def _extract_pipelines(text: str) -> list:
+    """Parse ```pipeline JSON fences (animated pipeline specs) into dicts."""
+    out = []
+    for m in re.finditer(r"```pipeline\s*\n(.*?)\n```", text, flags=re.DOTALL):
+        try:
+            out.append(json.loads(m.group(1)))
+        except Exception:
+            pass
     return out
 
 

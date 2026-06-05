@@ -182,6 +182,8 @@ def _render_body(wb: Workbench, *, paper_dir: Path) -> str:
             parts.append(f"- {_clean(p)}")
         parts.append("")
 
+    parts += _render_pipelines(wb, paper_dir=paper_dir)
+
     parts += _render_sections(wb)
 
     parts += _render_qna(wb.qna)
@@ -209,6 +211,42 @@ def _render_body(wb: Workbench, *, paper_dir: Path) -> str:
     ]
 
     return "\n".join(parts)
+
+
+def _render_pipelines(wb: Workbench, *, paper_dir: Path) -> list[str]:
+    """Render ```pipeline specs for publish. The review page animates them, but
+    Velog/Obsidian are static — so if the user exported an animated GIF (stored
+    as a figure `pipe<n>`), embed that image; otherwise fall back to a numbered
+    step list + a one-line flow so the pipeline is never silently dropped."""
+    pipelines = getattr(wb, "pipelines", None) or []
+    if not pipelines:
+        return []
+    slug = paper_dir.name
+    figs = _load_figures_index(paper_dir)
+    out: list[str] = []
+    for i, spec in enumerate(pipelines, 1):
+        if not isinstance(spec, dict):
+            continue
+        title = (spec.get("title") or "파이프라인").strip()
+        stages = [s for s in (spec.get("stages") or []) if isinstance(s, dict)]
+        out += [f"## {title}", ""]
+        fid = f"pipe{i}"
+        if figs.get(fid, {}).get("data_uri"):
+            # Animated GIF exported from the review page → image (animates on both).
+            out += [f"![{title}](/paper/{slug}/fig/{fid})", ""]
+        else:
+            flow = " → ".join(
+                (s.get("label", "").replace("\n", " ").split("(")[0].strip())
+                for s in stages if s.get("label")
+            )
+            if flow:
+                out += [f"**{flow}**", ""]
+            for j, s in enumerate(stages, 1):
+                lbl = _clean(s.get("label", "").replace("\n", " ").strip())
+                cap = _clean((s.get("caption") or "").strip())
+                out.append(f"{j}. **{lbl}**" + (f" — {cap}" if cap else ""))
+            out.append("")
+    return out
 
 
 def _render_paper_info(wb: Workbench) -> list[str]:

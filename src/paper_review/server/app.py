@@ -310,6 +310,39 @@ async def set_fig_image(slug: str, fig_id: str, request: Request):
     return {"ok": True, "url": f"/paper/{slug}/fig/{fig_id}"}
 
 
+@app.post("/paper/{slug}/pipeline-image")
+async def set_pipeline_image(slug: str, request: Request):
+    """Store an exported pipeline GIF (data URI) as figure `pipe<n>` so publish
+    materializes it like any figure. Body: {"index": 1, "data_uri": "data:image/gif;base64,..."}.
+    Creates the figures.json sidecar / entry if needed (pipelines aren't ar5iv figures)."""
+    body = await request.json()
+    data_uri = (body or {}).get("data_uri", "")
+    try:
+        index = int((body or {}).get("index", 1))
+    except (TypeError, ValueError):
+        index = 1
+    if not isinstance(data_uri, str) or not data_uri.startswith("data:image/"):
+        raise HTTPException(400, "data_uri must be a data:image/* URI")
+    d = _paper_dir(slug)
+    figs = list(d.glob("*_figures.json"))
+    path = figs[0] if figs else (d / f"{slug}_figures.json")
+    data = json.loads(path.read_text()) if path.exists() else []
+    items = data if isinstance(data, list) else data.get("figures", [])
+    fig_id = f"pipe{max(1, index)}"
+    fig = next((f for f in items if f.get("id") == fig_id), None)
+    if fig is None:
+        fig = {"id": fig_id, "label": f"Pipeline {index}", "kind": "image", "source": "pipeline"}
+        items.append(fig)
+    fig["data_uri"] = data_uri
+    fig["kind"] = "image"
+    if isinstance(data, list):
+        data = items
+    else:
+        data["figures"] = items
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return {"ok": True, "url": f"/paper/{slug}/fig/{fig_id}", "id": fig_id}
+
+
 @app.get("/paper/{slug}/figures.json")
 def paper_figures_json(slug: str) -> JSONResponse:
     """Serve the raw figures.json (list of {id, label, caption_en, caption_ko,
