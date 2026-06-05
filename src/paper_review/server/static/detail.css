@@ -745,10 +745,47 @@
   .view-toggle button:hover { background: var(--bg-hover); color: var(--text-primary); }
   .view-toggle button.active { background: var(--accent); color: white; }
 
-  /* Workbench view modes */
-  .wb-block-translation, .wb-block-notes { transition: opacity .15s; }
+  /* Workbench view modes.
+     요약(summary): drop the verbatim/reference blocks — the English excerpt
+     (원문 발췌) AND the full Korean translation — leaving 요약 + Reader's Notes
+     + 내 정리 (the digested insight). 상세(detail) shows everything. */
+  .wb-block-translation, .wb-block-notes, .wb-block-orig { transition: opacity .15s; }
   .wb[data-view="summary"] .wb-block-translation,
-  .wb[data-view="summary"] .wb-label-translation { display: none; }
+  .wb[data-view="summary"] .wb-label-translation,
+  .wb[data-view="summary"] .wb-block-orig,
+  .wb[data-view="summary"] .wb-label-orig { display: none; }
+  /* NOTE: 요약/Notes text is glued into the label paragraph (no blank line in
+     the workbench), so we must NOT dim/hide .wb-label-summary/.wb-label-notes —
+     that's the content itself. Only the verbatim orig/translation blocks go. */
+
+  /* "한눈에" hero card — elevates the TL;DR so it reads as the executive summary. */
+  .wb-hero {
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border-default));
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-surface));
+    border-radius: 12px; padding: 18px 22px; margin: 4px 0 26px;
+  }
+  .wb-hero > h2 {
+    margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--accent); border: 0; padding: 0;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .wb-hero > h2::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  }
+  .wb-hero > p { margin: 0; font-size: 15px; line-height: 1.7; color: var(--text-primary); }
+  .wb-hero > p + p { margin-top: 10px; }
+
+  /* Mermaid pipeline diagram block */
+  .wb-mermaid {
+    margin: 18px 0; padding: 14px; border-radius: 10px;
+    border: 1px solid var(--border-default); background: var(--bg-surface);
+    overflow-x: auto; text-align: center;
+  }
+  .wb-mermaid svg { max-width: 100%; height: auto; }
+  .wb-mermaid.err {
+    text-align: left; font-size: 12px; color: var(--text-muted);
+    white-space: pre-wrap; font-family: ui-monospace, monospace;
+  }
 
   /* Authorship tint — my own writing gets a soft accent background;
      Claude-generated blocks stay on the plain canvas. */

@@ -173,6 +173,56 @@
     }).join("");
   }
 
+  // Elevate the TL;DR into a "한눈에" hero card pinned at the top.
+  function wrapHeroCard(wb) {
+    const h2 = [...wb.children].find(
+      el => el.tagName === "H2" && /^TL;?DR/i.test(el.textContent.trim()));
+    if (!h2 || h2.parentElement.classList.contains("wb-hero")) return;
+    const card = document.createElement("div");
+    card.className = "wb-hero";
+    wb.insertBefore(card, h2);
+    let node = h2;
+    while (node) {
+      const next = node.nextElementSibling;
+      card.appendChild(node);
+      if (next && next.tagName === "H2") break;
+      node = next;
+    }
+  }
+
+  // Render ```mermaid fences into SVG pipeline diagrams.
+  let _mermaidReady = false;
+  function _initMermaid() {
+    if (_mermaidReady || typeof mermaid === "undefined") return;
+    const dark = document.body.dataset.theme === "dark" ||
+      (!document.body.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+    mermaid.initialize({
+      startOnLoad: false, theme: dark ? "dark" : "default",
+      securityLevel: "strict", fontFamily: "inherit",
+    });
+    _mermaidReady = true;
+  }
+  async function renderMermaid(wb) {
+    const blocks = [...wb.querySelectorAll("code.language-mermaid")];
+    if (!blocks.length || typeof mermaid === "undefined") return;
+    _initMermaid();
+    let i = 0;
+    for (const code of blocks) {
+      const pre = code.closest("pre") || code;
+      const spec = code.textContent;
+      const box = document.createElement("div");
+      box.className = "wb-mermaid";
+      try {
+        const { svg } = await mermaid.render("mmd-" + slug.replace(/\W/g, "") + "-" + (i++), spec);
+        box.innerHTML = svg;
+      } catch (e) {
+        box.classList.add("err");
+        box.textContent = "다이어그램 렌더 실패: " + (e && e.message ? e.message : e);
+      }
+      pre.replaceWith(box);
+    }
+  }
+
   // ───────────────────────────────────────────────────────── Render
   async function loadWorkbench() {
     const res = await fetch(`/paper/${slug}/workbench.md`);
@@ -195,6 +245,8 @@
 
     // Mark workbench blocks by label so view toggle (summary/detail) can hide
     annotateBlocksByLabel(wb);
+    wrapHeroCard(wb);
+    renderMermaid(wb);
 
     // KaTeX
     if (window.renderMathInElement) {
