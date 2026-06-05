@@ -340,6 +340,81 @@ Steps:
                 proc.kill()
 
 
+async def generate_pipeline(paper_dir: Path, model: Optional[str], timeout: int = 360) -> dict:
+    """On-demand: auto-generate the ```pipeline animation spec from the paper."""
+    prompt = """Generate an animated-pipeline spec for THIS paper and insert it into workbench.md.
+
+Steps:
+1. Read sections.txt and source.txt (and workbench.md) to understand the paper's core process.
+2. Decide what the pipeline should depict:
+   - Architecture / method papers → the model's inference (or training) pipeline: input → … → output.
+   - Analysis / empirical papers → the experimental / diagnostic flow: intervention → measure → analyze.
+   - If the paper genuinely has NO single pipeline worth diagramming, reply EXACTLY '✓ pipeline skipped' and do NOT edit anything.
+3. Build a JSON spec with 4–7 stages, ordered left→right. Each stage:
+   {"label": "짧은 제목\\n부가설명(선택)", "icon": "<icon>", "caption": "한국어 1–2문장 설명"}
+   - label: VERY short. Use \\n for an optional 2nd line. Korean or short English terms.
+   - icon — pick the closest of: image (이미지 입력), eye (인코더·지각), layers (projection·변환),
+     chip (LLM·핵심 모델), bolt (출력·액션·생성), robot (로봇·에이전트), data (데이터셋),
+     text (텍스트·언어), target (평가·지표), arrow (기타).
+   - caption: Korean, concrete (what this stage does, key detail).
+4. Insert into workbench.md a section placed RIGHT BEFORE '## 섹션별 리뷰':
+
+   ## 파이프라인
+
+   ```pipeline
+   {"title": "<모델명 또는 핵심> 파이프라인", "stages": [ … ]}
+   ```
+
+   If a '## 파이프라인' section already exists, REPLACE its body.
+5. The fenced block MUST be valid JSON — double quotes, no trailing commas, no comments, no markdown inside strings.
+6. Touch ONLY the 파이프라인 section. Reply EXACTLY '✓ pipeline done'."""
+
+    system_ctx = (
+        f"You are inside {paper_dir}, a paper-review workspace. Generate the "
+        "pipeline spec only. Use the Edit tool on workbench.md. Output minimal chat."
+    )
+    cmd = [
+        "claude", "-p", prompt, "--continue",
+        "--append-system-prompt", system_ctx,
+        "--output-format", "stream-json",
+        "--verbose",
+        "--max-turns", "20",
+        "--permission-mode", "acceptEdits",
+    ]
+    if model:
+        cmd += ["--model", model]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        limit=16 * 1024 * 1024, cwd=str(paper_dir),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+    )
+    start = time.time()
+    try:
+        assert proc.stdout is not None
+        while True:
+            if time.time() - start > timeout:
+                proc.terminate()
+                return {"ok": False, "error": "timeout"}
+            try:
+                line = await asyncio.wait_for(proc.stdout.readline(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            if not line:
+                break
+        await proc.wait()
+        wb = (paper_dir / "workbench.md")
+        created = bool(wb.exists() and re.search(r"```pipeline\s*\n", wb.read_text(encoding="utf-8")))
+        return {"ok": proc.returncode == 0, "code": proc.returncode, "created": created}
+    finally:
+        if proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                proc.kill()
+
+
 def _build_section_prompt(heading: str, line_range: str, paper_dir: Path) -> str:
     slug = paper_dir.name
     range_hint = f"It corresponds to lines {line_range} of {slug}_source.txt." if line_range else ""

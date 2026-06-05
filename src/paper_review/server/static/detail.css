@@ -887,6 +887,29 @@
   .pipe-cap-body { min-width: 0; }
   .pipe-cap-label { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; letter-spacing: .01em; }
   .pipe-cap-text { font-size: 13px; line-height: 1.62; color: var(--text-primary); }
+  /* Auto-generate-pipeline prompt card (shown when no pipeline exists yet) */
+  .pipe-gen {
+    display: flex; align-items: center; gap: 14px; margin: 18px 0;
+    padding: 15px 18px; border-radius: 14px;
+    border: 1px dashed color-mix(in srgb, var(--accent) 42%, var(--border-default));
+    background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+  }
+  .pipe-gen-ico {
+    flex: 0 0 auto; width: 42px; height: 42px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent);
+  }
+  .pipe-gen-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .pipe-gen-title { font-size: 13px; font-weight: 650; color: var(--text-primary); }
+  .pipe-gen-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .pipe-gen-btn {
+    flex: 0 0 auto; font: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 8px 15px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--accent); color: #fff; cursor: pointer; transition: filter .12s;
+  }
+  .pipe-gen-btn:hover { filter: brightness(1.07); }
+  .pipe-gen-btn.busy, .pipe-gen-btn:disabled { opacity: .65; cursor: default; }
+
   .pipe-gif {
     font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .03em;
     padding: 5px 9px; border-radius: 7px; cursor: pointer;

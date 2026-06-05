@@ -436,6 +436,43 @@
     }
   }
 
+  // If the workbench has no pipeline yet, offer one-click auto-generation.
+  function injectPipelineGenButton(wb) {
+    if (wb.querySelector(".pipe-player") || wb.querySelector(".pipe-gen")) return;
+    const anchor = [...wb.querySelectorAll("h2")].find(h => /섹션별\s*리뷰/.test(h.textContent)) || null;
+    const card = document.createElement("div");
+    card.className = "pipe-gen";
+    card.innerHTML =
+      '<span class="pipe-gen-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="6" height="6" rx="1.5"/><rect x="15.5" y="6" width="6" height="6" rx="1.5"/><rect x="9" y="14.5" width="6" height="6" rx="1.5"/><path d="M8.5 9h7M12 12v2.5"/></svg></span>' +
+      '<span class="pipe-gen-body"><span class="pipe-gen-title">파이프라인 다이어그램</span>' +
+      '<span class="pipe-gen-sub">이 논문의 핵심 과정을 애니메이션 파이프라인으로 자동 생성합니다.</span></span>' +
+      '<button class="pipe-gen-btn" id="pipe-gen-btn">자동 생성</button>';
+    if (anchor) wb.insertBefore(card, anchor); else wb.appendChild(card);
+    card.querySelector("#pipe-gen-btn").addEventListener("click", genPipeline);
+  }
+  async function genPipeline(e) {
+    const btn = e.currentTarget, orig = btn.textContent;
+    btn.textContent = "생성 중… (논문 분석, ~1–3분)"; btn.disabled = true; btn.classList.add("busy");
+    try {
+      const r = await fetch(`/paper/${slug}/generate-pipeline`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelPicker.value }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || ("HTTP " + r.status));
+      if (j.created === false) {
+        btn.textContent = orig; btn.disabled = false; btn.classList.remove("busy");
+        UIDialog.alert("이 논문은 단일 파이프라인 다이어그램이 적합하지 않다고 판단했어요.");
+        return;
+      }
+      firstRender = true;       // skip the edit-diff flash on this reload
+      loadWorkbench();          // the new ```pipeline renders as the animated player
+    } catch (err) {
+      btn.textContent = orig; btn.disabled = false; btn.classList.remove("busy");
+      UIDialog.alert("파이프라인 생성 실패: " + (err && err.message ? err.message : err));
+    }
+  }
+
   // Render ```mermaid fences into SVG pipeline diagrams.
   let _mermaidReady = false;
   function _initMermaid() {
@@ -493,6 +530,7 @@
     annotateBlocksByLabel(wb);
     wrapHeroCard(wb);
     renderPipelinePlayers(wb);
+    injectPipelineGenButton(wb);
     renderMermaid(wb);
 
     // KaTeX
