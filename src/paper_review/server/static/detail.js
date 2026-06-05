@@ -108,7 +108,14 @@
   // ──────────────── Authorship edit-diff ────────────────
   // Highlight the words the user changed vs Claude's per-section baseline.
   function _tokenize(s) { return s.match(/\s+|[^\s]+/g) || []; }
-  function _markable(t) { return /[\p{L}\p{N}]/u.test(t) && !/^[|>#*_`~\-=]+$/.test(t); }
+  function _markable(t) {
+    // Never mark tokens that carry inline HTML (e.g. a color <span> the user
+    // added). Wrapping `<span style="color: #e64980">` in <mark> shreds the tag
+    // nesting and bleeds the blue highlight across un-edited text.
+    return /[\p{L}\p{N}]/u.test(t)
+        && !/^[|>#*_`~\-=]+$/.test(t)
+        && !/[<>"]/.test(t);
+  }
   function _lcsFlags(a, b) {           // → boolean[] over b: true if unchanged (in LCS)
     const n = a.length, m = b.length;
     const flags = new Array(m).fill(false);
@@ -125,10 +132,14 @@
     }
     return flags;
   }
+  // Collapse escaping/whitespace differences the WYSIWYG editor introduces on
+  // save (e.g. "정식화한다\." vs "정식화한다.", "$\\in$" vs "$\in$") so they
+  // don't read as edits. Compare on normalized tokens, render the originals.
+  function _normTok(t) { return t.replace(/\\([!-/:-@\[-`{-~])/g, "$1"); }
   function wordDiffMark(baseText, curText) {
-    const baseWords = _tokenize(baseText).filter(t => /\S/.test(t));
+    const baseWords = _tokenize(baseText).filter(t => /\S/.test(t)).map(_normTok);
     const cur = _tokenize(curText);
-    const flags = _lcsFlags(baseWords, cur.filter(t => /\S/.test(t)));
+    const flags = _lcsFlags(baseWords, cur.filter(t => /\S/.test(t)).map(_normTok));
     let wi = 0, open = false, out = "";
     const close = () => { if (open) { out += "</mark>"; open = false; } };
     for (const tok of cur) {
@@ -151,7 +162,14 @@
       const baseBody = base.replace(/^###\s+.*(?:\r?\n|$)/, "");
       const nl = chunk.indexOf("\n");
       if (nl < 0) return chunk;
-      return chunk.slice(0, nl + 1) + wordDiffMark(baseBody, chunk.slice(nl + 1));
+      const body2 = chunk.slice(nl + 1);
+      // The chunk runs to the next ### — but a following ## (Q&A / Wrap-up / 메타)
+      // can get lumped in. Only diff up to that H2; leave the rest untouched.
+      const h2 = body2.search(/^##\s/m);
+      const head = chunk.slice(0, nl + 1);
+      if (h2 >= 0)
+        return head + wordDiffMark(baseBody, body2.slice(0, h2)) + body2.slice(h2);
+      return head + wordDiffMark(baseBody, body2);
     }).join("");
   }
 
