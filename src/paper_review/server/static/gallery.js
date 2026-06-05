@@ -176,6 +176,7 @@
     const cmp = {
       created: (a, b) => (b.created_at || 0) - (a.created_at || 0),
       edited: (a, b) => (b.updated_at || 0) - (a.updated_at || 0),
+      published: (a, b) => (b.published_ym || 0) - (a.published_ym || 0) || (b.created_at || 0) - (a.created_at || 0),
       rating: (a, b) => (b.rating || 0) - (a.rating || 0) || (b.updated_at || 0) - (a.updated_at || 0),
     }[sortBy] || ((a, b) => (b.created_at || 0) - (a.created_at || 0));
     filtered.sort(cmp);

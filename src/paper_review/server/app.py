@@ -84,6 +84,25 @@ def _mark_viewed(slug: str) -> None:
         pass
 
 
+def _published_ym(slug: str, paper_dir: Path) -> int:
+    """Approx publication date as a sortable int YYYYMM (e.g. 202406).
+    arXiv IDs encode YYMM (2406.09246 → 2024-06); fall back to paper.json year."""
+    import re as _re
+    m = _re.match(r"^(\d{2})(\d{2})\.\d{4,5}", slug)
+    if m:
+        mm = int(m.group(2))
+        return (2000 + int(m.group(1))) * 100 + (mm if 1 <= mm <= 12 else 1)
+    pj = list(paper_dir.glob("*_paper.json"))
+    if pj:
+        try:
+            yr = json.loads(pj[0].read_text()).get("metadata", {}).get("year")
+            if yr:
+                return int(yr) * 100
+        except Exception:
+            pass
+    return 0
+
+
 def _list_papers() -> list[dict]:
     if not SERVICE_ROOT.exists():
         return []
@@ -127,6 +146,7 @@ def _list_papers() -> list[dict]:
             "rating": rating,
             "updated_at": int(wb.stat().st_mtime),
             "created_at": int(getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime),
+            "published_ym": _published_ym(d.name, d),
             "last_viewed": int(views.get(d.name, 0)),
         })
     return rows
