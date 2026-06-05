@@ -775,6 +775,66 @@
   .wb-hero > p { margin: 0; font-size: 15px; line-height: 1.7; color: var(--text-primary); }
   .wb-hero > p + p { margin-top: 10px; }
 
+  /* Animated pipeline player — ▶ play to watch data flow stage by stage. */
+  .pipe-player {
+    margin: 18px 0; padding: 14px 16px 12px; border-radius: 12px;
+    border: 1px solid var(--border-default); background: var(--bg-surface);
+  }
+  .pipe-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .pipe-title { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+  .pipe-controls { margin-left: auto; display: flex; align-items: center; gap: 5px; }
+  .pipe-btn {
+    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-default); border-radius: 7px; background: var(--bg-elevated);
+    color: var(--text-primary); cursor: pointer; font-size: 13px; line-height: 1;
+    transition: background .12s, border-color .12s;
+  }
+  .pipe-btn:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+  .pipe-play { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pipe-step-ind { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-left: 4px; }
+  .pipe-stages {
+    position: relative; display: flex; align-items: center; gap: 0;
+    overflow-x: auto; scroll-behavior: smooth; padding: 10px 4px 6px;
+    scrollbar-width: none;
+  }
+  .pipe-stages::-webkit-scrollbar { display: none; }
+  .pipe-stage {
+    flex: 0 0 auto; min-width: 116px; max-width: 168px; padding: 11px 13px;
+    border-radius: 10px; border: 1.5px solid var(--border-default); background: var(--bg-elevated);
+    text-align: center; font-size: 12.5px; line-height: 1.35; color: var(--text-muted);
+    white-space: pre-line; transition: border-color .35s, color .35s, box-shadow .35s,
+      transform .35s, background .35s;
+  }
+  .pipe-stage.done { border-color: color-mix(in srgb, var(--accent) 38%, var(--border-default)); color: var(--text-secondary); }
+  .pipe-stage.active {
+    border-color: var(--accent); color: var(--text-primary); transform: translateY(-2px);
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  .pipe-arrow {
+    flex: 0 0 26px; height: 2px; background: var(--border-default); position: relative;
+    transition: background .3s;
+  }
+  .pipe-arrow::after {
+    content: ""; position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+    border-style: solid; border-width: 5px 0 5px 7px;
+    border-color: transparent transparent transparent var(--border-default); transition: border-color .3s;
+  }
+  .pipe-arrow.lit { background: var(--accent); }
+  .pipe-arrow.lit::after { border-left-color: var(--accent); }
+  .pipe-packet {
+    position: absolute; width: 13px; height: 13px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 12px 1px var(--accent); opacity: 0; z-index: 5; pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: left .55s cubic-bezier(.5, 0, .25, 1), top .25s, opacity .3s;
+  }
+  .pipe-caption {
+    margin-top: 12px; padding: 11px 13px; border-radius: 8px; background: var(--bg-elevated);
+    border-left: 3px solid var(--accent); font-size: 13px; line-height: 1.6; color: var(--text-primary);
+    min-height: 1.6em;
+  }
+  .pipe-caption .lbl { font-weight: 600; color: var(--accent); margin-right: 7px; }
+
   /* Mermaid pipeline diagram block */
   .wb-mermaid {
     margin: 18px 0; padding: 14px; border-radius: 10px;

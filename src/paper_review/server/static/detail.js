@@ -190,6 +190,94 @@
     }
   }
 
+  // Animated pipeline player. Reads a ```pipeline JSON fence:
+  //   { "title": "...", "stages": [{ "label": "...", "caption": "..." }, ...] }
+  // ▶ play walks the stages: each lights up in turn, a data packet glides along,
+  // the view follows, and the caption explains the step.
+  function buildPipelinePlayer(spec) {
+    const stages = Array.isArray(spec.stages) ? spec.stages : [];
+    const root = document.createElement("div");
+    root.className = "pipe-player";
+    root.innerHTML =
+      '<div class="pipe-head"><span class="pipe-title"></span>' +
+      '<div class="pipe-controls">' +
+      '<button class="pipe-btn" data-act="restart" title="처음부터">↺</button>' +
+      '<button class="pipe-btn" data-act="prev" title="이전">‹</button>' +
+      '<button class="pipe-btn pipe-play" data-act="play" title="재생">▶</button>' +
+      '<button class="pipe-btn" data-act="next" title="다음">›</button>' +
+      '<span class="pipe-step-ind"></span></div></div>' +
+      '<div class="pipe-stages"></div><div class="pipe-caption"></div>';
+    root.querySelector(".pipe-title").textContent = spec.title || "파이프라인";
+    const stagesEl = root.querySelector(".pipe-stages");
+    const stageEls = [];
+    stages.forEach((s, i) => {
+      if (i > 0) { const a = document.createElement("div"); a.className = "pipe-arrow"; stagesEl.appendChild(a); }
+      const el = document.createElement("div");
+      el.className = "pipe-stage";
+      el.textContent = s.label || ("단계 " + (i + 1));
+      stagesEl.appendChild(el); stageEls.push(el);
+    });
+    const packet = document.createElement("div");
+    packet.className = "pipe-packet";
+    stagesEl.appendChild(packet);
+    const arrowEls = [...stagesEl.querySelectorAll(".pipe-arrow")];
+    const capEl = root.querySelector(".pipe-caption");
+    const indEl = root.querySelector(".pipe-step-ind");
+    const playBtn = root.querySelector(".pipe-play");
+
+    let step = 0, playing = false, timer = null;
+    function setStep(i) {
+      i = Math.max(0, Math.min(stages.length - 1, i));
+      step = i;
+      stageEls.forEach((el, k) => { el.classList.toggle("active", k === i); el.classList.toggle("done", k < i); });
+      arrowEls.forEach((a, k) => a.classList.toggle("lit", k < i));
+      const s = stages[i] || {};
+      capEl.innerHTML = '<span class="lbl">' + escapeHtml((s.label || "").replace(/\n/g, " ")) +
+        "</span>" + escapeHtml(s.caption || "");
+      indEl.textContent = (i + 1) + " / " + stages.length;
+      const el = stageEls[i];
+      const target = Math.max(0, el.offsetLeft - stagesEl.clientWidth / 2 + el.offsetWidth / 2);
+      stagesEl.scrollLeft = target;
+      packet.style.left = (el.offsetLeft + el.offsetWidth / 2 - stagesEl.scrollLeft) + "px";
+      packet.style.top = (el.offsetTop + el.offsetHeight / 2) + "px";
+      packet.style.opacity = "1";
+    }
+    function stop() { playing = false; playBtn.textContent = "▶"; if (timer) { clearTimeout(timer); timer = null; } }
+    function advance() {
+      if (step < stages.length - 1) { setStep(step + 1); timer = setTimeout(advance, 1700); }
+      else stop();
+    }
+    function play() {
+      if (playing) { stop(); return; }
+      if (step >= stages.length - 1) setStep(0);
+      playing = true; playBtn.textContent = "⏸"; timer = setTimeout(advance, 650);
+    }
+    root.addEventListener("click", e => {
+      const act = e.target.closest("[data-act]") && e.target.closest("[data-act]").dataset.act;
+      if (!act) return;
+      if (act === "play") play();
+      else if (act === "next") { stop(); setStep(step + 1); }
+      else if (act === "prev") { stop(); setStep(step - 1); }
+      else if (act === "restart") { stop(); setStep(0); }
+    });
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (stages.length) setStep(0); }));
+    return root;
+  }
+  function renderPipelinePlayers(wb) {
+    for (const code of [...wb.querySelectorAll("code.language-pipeline")]) {
+      const pre = code.closest("pre") || code;
+      let spec;
+      try { spec = JSON.parse(code.textContent); }
+      catch (e) {
+        const err = document.createElement("div");
+        err.className = "wb-mermaid err";
+        err.textContent = "파이프라인 스펙 JSON 파싱 실패: " + (e && e.message ? e.message : e);
+        pre.replaceWith(err); continue;
+      }
+      pre.replaceWith(buildPipelinePlayer(spec));
+    }
+  }
+
   // Render ```mermaid fences into SVG pipeline diagrams.
   let _mermaidReady = false;
   function _initMermaid() {
@@ -246,6 +334,7 @@
     // Mark workbench blocks by label so view toggle (summary/detail) can hide
     annotateBlocksByLabel(wb);
     wrapHeroCard(wb);
+    renderPipelinePlayers(wb);
     renderMermaid(wb);
 
     // KaTeX
