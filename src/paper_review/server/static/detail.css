@@ -242,8 +242,12 @@
   .gutter:hover, .layout.dragging .gutter { background: var(--accent); }
   .gutter:hover::before, .layout.dragging .gutter::before { opacity: 0; }
   .pane { overflow: auto; }
-  .pane.pdf { padding: 0; }
-  .pane.pdf iframe { width: 100%; height: 100%; border: 0; background: var(--bg-subtle); }
+  /* The PDF iframe scrolls itself — the pane must not add a second scrollbar. */
+  .pane.pdf { padding: 0; overflow: hidden; }
+  /* display:block removes the inline baseline descender gap (~4px) that
+     otherwise pushed the iframe's line box past the pane and produced a
+     redundant 4px scrollbar right next to the iframe's own one. */
+  .pane.pdf iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--bg-subtle); }
   .wb-stack {
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
