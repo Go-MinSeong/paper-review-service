@@ -777,6 +777,10 @@
   }
   .view-toggle button:hover { background: var(--bg-hover); color: var(--text-primary); }
   .view-toggle button.active { background: var(--accent); color: white; }
+  /* Icon-only pane toggles (Source PDF / Review) — center the SVG and give
+     it a square-ish hit area instead of text padding. */
+  .pane-toggle button { display: inline-flex; align-items: center; justify-content: center; padding: 5px 9px; }
+  .pane-toggle button svg { display: block; }
 
   /* Workbench view modes.
      요약(summary): drop the verbatim/reference blocks — the English excerpt

@@ -41,20 +41,24 @@
 
     <span class="topbar-div"></span>
 
-    <div class="view-toggle" id="view-toggle" title="요약 / 상세 토글">
-      <button data-view="summary">요약</button>
-      <button data-view="detail" class="active">상세</button>
+    <div class="view-toggle" id="view-toggle" title="Summary / Detail view">
+      <button data-view="summary">Summary</button>
+      <button data-view="detail" class="active">Detail</button>
     </div>
-    <div class="view-toggle pane-toggle" id="pane-toggle" title="원본 PDF / 정리본 패널 열기·닫기">
-      <button data-pane="pdf" title="논문 원본 PDF">원본</button>
-      <button data-pane="wb" title="정리본 (리뷰)">정리본</button>
+    <div class="view-toggle pane-toggle" id="pane-toggle" title="Show / hide panes — Source PDF · Review">
+      <button data-pane="pdf" title="Source PDF" aria-label="Source PDF">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+      </button>
+      <button data-pane="wb" title="Review" aria-label="Review">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="13" y2="17"/></svg>
+      </button>
     </div>
 
     <span class="topbar-div"></span>
 
-    <button class="btn" id="btn-analyze" title="미완료 섹션 자동 분석">Analyze</button>
-    <button class="btn" id="btn-edit" title="마크다운 편집">Edit</button>
-    <button class="btn btn-primary" id="btn-publish" title="Velog 초안으로 내보내기">Publish</button>
+    <button class="btn" id="btn-analyze" title="Analyze incomplete sections">Analyze</button>
+    <button class="btn" id="btn-edit" title="Edit markdown">Edit</button>
+    <button class="btn btn-primary" id="btn-publish" title="Export as Velog draft">Publish</button>
 
     <span class="topbar-div"></span>
 
