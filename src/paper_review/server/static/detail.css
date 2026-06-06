@@ -372,6 +372,14 @@
   .tui-host .toastui-editor-main .toastui-editor-ww-container,
   .tui-host .toastui-editor-main .toastui-editor-md-container { font-family: var(--font-text); }
   .tui-host .toastui-editor-contents { font-size: 15px; line-height: 1.75; }
+  /* Plain-textarea fallback editor (when Toast UI can't parse the doc) */
+  .tui-host textarea.edit-fallback {
+    width: 100%; height: 100%; box-sizing: border-box; resize: none;
+    border: 0; outline: 0; padding: 16px 18px;
+    background: var(--bg-canvas); color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; line-height: 1.7; tab-size: 2;
+  }
   .save-warn {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(20px);

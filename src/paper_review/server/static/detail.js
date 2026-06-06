@@ -1018,6 +1018,8 @@
   let editing = false;
   let tuiEditor = null;
   let savedFrontmatter = "";   // preserved verbatim across an edit
+  let savedBodyLen = 0;        // original body length — guards against wipe-on-save
+  let editFallbackTA = null;   // plain-textarea editor when Toast UI parser crashes
   let suppressSSEReload = false;
 
   btnEdit.addEventListener('click', toggleEdit);
@@ -1037,6 +1039,7 @@
     const fm = md.match(/^(---\n[\s\S]*?\n---\n)([\s\S]*)$/);
     savedFrontmatter = fm ? fm[1] : "";
     const body = fm ? fm[2] : md;
+    savedBodyLen = body.trim().length;
     suppressSSEReload = true;
 
     wbPane.classList.add('editing');
@@ -1090,11 +1093,39 @@
         useCustomInputBox: true,
       }]];
     }
-    tuiEditor = new toastui.Editor(editorOpts);
+    // Toast UI's markdown parser crashes on some content (e.g. a malformed
+    // table) with "Cannot read properties of null". When that happens the host
+    // is left empty — the whole pane looks wiped. Detect it and fall back to a
+    // plain-textarea raw-markdown editor so editing always works (no blank, no
+    // accidental wipe).
+    const host = document.getElementById('tui-host');
+    try {
+      tuiEditor = new toastui.Editor(editorOpts);
+    } catch (e) {
+      tuiEditor = null;
+    }
+    const rendered = !!host.querySelector('.toastui-editor-defaultUI, .ProseMirror');
+    if (!tuiEditor || !rendered) {
+      try { if (tuiEditor) tuiEditor.destroy(); } catch {}
+      tuiEditor = null;
+      host.innerHTML = '';
+      const ta = document.createElement('textarea');
+      ta.className = 'edit-fallback';
+      ta.value = body;
+      ta.spellcheck = false;
+      host.appendChild(ta);
+      editFallbackTA = ta;
+      const hint = wrap.querySelector('.edit-toolbar .hint');
+      if (hint) hint.textContent = '이 문서는 WYSIWYG 편집기가 처리하지 못해 원본 마크다운(텍스트) 모드로 엽니다 · Cmd/Ctrl+S 저장 · Esc 취소';
+      ta.focus();
+    }
 
     document.getElementById('edit-cancel').onclick = cancelEdit;
     document.getElementById('edit-save').onclick = saveEdit;
-    document.getElementById('edit-figure').onclick = () => openFigures();
+    document.getElementById('edit-figure').onclick = () => {
+      if (editFallbackTA) { UIDialog.alert('이 문서는 단순 텍스트 편집 모드라 figure 삽입은 지원되지 않아요. (마크다운으로 직접 추가)'); return; }
+      openFigures();
+    };
   }
 
   // Convert an HTML <table> (from figures.json) into a GFM markdown table.
@@ -1189,8 +1220,18 @@
   }
 
   async function saveEdit() {
-    if (!editing || !tuiEditor) return;
-    const newBody = tuiEditor.getMarkdown();
+    if (!editing || (!tuiEditor && !editFallbackTA)) return;
+    const newBody = editFallbackTA ? editFallbackTA.value : tuiEditor.getMarkdown();
+    // Guard: if the editor came up blank/broken, saving would wipe the body.
+    // Refuse to save an empty or drastically-shrunk body without confirmation.
+    const newLen = newBody.trim().length;
+    if (savedBodyLen > 200 && newLen < savedBodyLen * 0.5) {
+      const ok = await UIDialog.confirm(
+        `본문이 ${savedBodyLen.toLocaleString()}자 → ${newLen.toLocaleString()}자로 크게 줄었습니다.\n` +
+        `편집기가 내용을 제대로 못 불러왔을 수 있어요. 이대로 저장하면 본문이 손실됩니다.\n\n정말 저장할까요?`,
+        { danger: true, okLabel: '그래도 저장', cancelLabel: '취소' });
+      if (!ok) return;
+    }
     const fullText = savedFrontmatter + newBody;
     try {
       const res = await fetch(`/paper/${slug}/workbench.md`, {
@@ -1209,6 +1250,7 @@
 
   function exitEdit() {
     if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
+    editFallbackTA = null;
     editing = false;
     suppressSSEReload = false;
     btnEdit.textContent = 'Edit';
