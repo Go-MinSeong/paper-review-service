@@ -23,9 +23,10 @@ class Section:
 
 @dataclass
 class QnaItem:
-    from_section: str = ""          # e.g. "1 Introduction"
+    from_section: str = ""          # e.g. "1 Introduction"  (format A: "### Q from §…")
     questions: list[str] = field(default_factory=list)
     answer: str = ""                # 사용자 답변 (placeholder if empty)
+    heading: str = ""               # format B: "### Q1. <question>" — question lives in the header
 
 
 @dataclass
@@ -179,58 +180,87 @@ def _deemph_lines(block: str) -> str:
     return "\n".join(out).strip()
 
 
+def _answer_is_real(ans: str) -> bool:
+    ans = ans.strip()
+    return bool(
+        ans
+        and ans != "<empty>"
+        and not ans.startswith("(")
+        and "미진행" not in ans
+        and "여기에 본인 답변" not in ans
+        and "답변하면" not in ans          # the "## Q&A" intro placeholder line
+    )
+
+
 def _extract_qna(text: str) -> list[QnaItem]:
-    """Parse ## Q&A section into [QnaItem]."""
+    """Parse the ## Q&A section into [QnaItem], tolerating both layouts:
+
+      Format A — Claude-generated:   ### Q from §<section>
+                                     1. question …
+                                     답변: <user answer>
+      Format B — hand-written:       ### Q1. <question text>
+                                     <answer paragraphs / bullets>
+
+    Format B was silently dropped because the splitter only matched
+    "### Q from §"; its questions then never reached publish.
+    """
     m = re.search(r"^##\s+Q&A\s*\n(.+?)(?=^##\s|\Z)", text,
                   flags=re.DOTALL | re.MULTILINE)
     if not m:
         return []
     body = m.group(1)
-    # Split by ### Q from §...
-    chunks = re.split(r"(?=^###\s+Q\s+from\s+§)", body, flags=re.MULTILINE)
+    # Split at every "### Q…" header (covers both formats).
+    chunks = re.split(r"(?=^###\s+Q)", body, flags=re.MULTILINE)
     out: list[QnaItem] = []
     for chunk in chunks:
-        if not chunk.strip() or not chunk.lstrip().startswith("### Q from §"):
+        if not chunk.lstrip().startswith("### Q"):
             continue
-        head = re.match(r"^###\s+Q\s+from\s+§(.+?)\s*$", chunk, flags=re.MULTILINE)
-        if not head:
+        # Format A: "### Q from §<section>"
+        head_a = re.match(r"^###\s+Q\s+from\s+§(.+?)\s*$", chunk, flags=re.MULTILINE)
+        if head_a:
+            item = QnaItem(from_section=head_a.group(1).strip())
+            qs = re.findall(r"^\s*\d+\.\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
+            item.questions = [q for q in qs if q.strip()]
+            # Match the user's answer regardless of how it was serialized:
+            #   "_답변:_ …" / "*답변: …*" / "**답변:** …" / "답변: …"
+            a_match = re.search(
+                r"^[ \t>]*[*_]{0,2}\s*답변\s*[*_]{0,2}\s*:?\s*[*_]{0,2}"
+                r"(.*?)(?=^[ \t]*###\s|\Z)",
+                chunk, flags=re.DOTALL | re.MULTILINE,
+            )
+            if a_match:
+                ans = _deemph_lines(a_match.group(1))
+                if _answer_is_real(ans):
+                    item.answer = ans
+            out.append(item)
             continue
-        item = QnaItem(from_section=head.group(1).strip())
-        qs = re.findall(r"^\s*\d+\.\s+(.+?)\s*$", chunk, flags=re.MULTILINE)
-        item.questions = [q for q in qs if q.strip()]
-        # Match the user's answer regardless of how it was serialized:
-        #   "_답변:_ ..."        (skill placeholder, underscore + colon-marker)
-        #   "*답변: ...*"         (WYSIWYG re-serializes each line italic)
-        #   "**답변:** ..." / "답변: ..."  (bold / bare variants)
-        # The WYSIWYG editor also wraps EACH answer line in its own *...* italic,
-        # so we de-emphasize line by line after dropping the label.
-        a_match = re.search(
-            r"^[ \t>]*[*_]{0,2}\s*답변\s*[*_]{0,2}\s*:?\s*[*_]{0,2}"
-            r"(.*?)(?=^[ \t]*###\s|\Z)",
-            chunk, flags=re.DOTALL | re.MULTILINE,
-        )
-        if a_match:
-            ans = _deemph_lines(a_match.group(1))
-            if (
-                ans
-                and ans != "<empty>"
-                and not ans.startswith("(")
-                and "미진행" not in ans
-                and "여기에 본인 답변" not in ans
-            ):
+        # Format B: "### Q1. <question>" / "### Q. <question>" — the question is
+        # the header text and the answer is the body beneath it.
+        head_b = re.match(r"^###\s+(Q[0-9]*[.)]?\s*\S.*?)\s*$", chunk, flags=re.MULTILINE)
+        if head_b:
+            heading = head_b.group(1).strip()
+            after = chunk.split("\n", 1)[1] if "\n" in chunk else ""
+            ans = after.strip()
+            item = QnaItem(heading=heading)
+            if _answer_is_real(ans):
                 item.answer = ans
-        out.append(item)
+            # Keep only if it carries a real answer (unanswered hand-written
+            # prompts shouldn't reach the published post).
+            if item.answer:
+                out.append(item)
     return out
 
 
 def _extract_dash_field(body: str, label: str) -> str:
-    m = re.search(rf"-[ \t]+\*\*{re.escape(label)}\*\*:[ \t]*(.*?)(?=\n-[ \t]+\*\*|\Z)",
+    # Accept -, * or + bullets: the WYSIWYG editor re-serializes `- ` list
+    # markers as `* `, which silently broke Wrap-up field extraction.
+    m = re.search(rf"[-*+][ \t]+\*\*{re.escape(label)}\*\*:[ \t]*(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
                   body, flags=re.DOTALL)
     return m.group(1).strip() if m else ""
 
 
 def _extract_followups(body: str) -> list[str]:
-    m = re.search(r"-[ \t]+\*\*후속으로 읽을 논문\*\*:[ \t]*\n(.*?)(?=\n-[ \t]+\*\*|\Z)",
+    m = re.search(r"[-*+][ \t]+\*\*후속으로 읽을 논문\*\*:[ \t]*\n(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
                   body, flags=re.DOTALL)
     if not m:
         return []

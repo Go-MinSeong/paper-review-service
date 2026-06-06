@@ -322,13 +322,24 @@ def _render_sections(wb: Workbench) -> list[str]:
 def _render_qna(qna: list[QnaItem]) -> list[str]:
     if not qna:
         return []
-    has_any = any(it.questions or it.answer for it in qna)
+    has_any = any(it.questions or it.answer or it.heading for it in qna)
     if not has_any:
         return []
     parts = ["## Q & A — 토론", ""]
     for item in qna:
-        if not item.questions and not item.answer:
+        if not (item.questions or item.answer or item.heading):
             continue
+        # Format B: the question lives in the header. Render it as a bold
+        # question line, then the (often multi-paragraph) answer as normal
+        # markdown — not a blockquote, since these answers are long.
+        if item.heading:
+            parts.append(f"### {_clean_heading(item.heading)}")
+            parts.append("")
+            if item.answer:
+                parts.append(_clean(item.answer))
+                parts.append("")
+            continue
+        # Format A
         if item.from_section:
             parts.append(f"### §{item.from_section}")
             parts.append("")
