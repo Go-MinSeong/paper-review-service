@@ -43,11 +43,20 @@ class Workbench:
     pipelines: list = field(default_factory=list)   # parsed ```pipeline specs
 
 
+# A new ingested (sub)section always starts with a `<!-- section_id: … -->`
+# marker, so it must terminate every field — otherwise a section whose
+# heading was demoted to bold (e.g. an OCR'd figure-label pseudo-section like
+# `**DATASET**`) gets absorbed into the *preceding* field. That field is then
+# wrapped in `> ` at publish, producing a runaway blockquote in Obsidian that
+# swallows several unrelated paragraphs (the review page renders raw markdown
+# without the `>`, so it looks fine there). The marker never appears inside a
+# real field, so this boundary is a no-op for well-formed sections.
+_NEXT_SECTION = r"(?:\*\*[^\n*]+\*\*\s*)?<!--\s*section_id:"
 _BLOCK_PATTERNS = {
-    "raw_excerpt":         r"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|\Z)",
-    "summary":             r"\*\*요약\*\*\s*\n(.+?)(?=\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|\Z)",
-    "claude_translation":  r"\*\*Claude 1차 번역\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|\Z)",
-    "claude_notes":        r"\*\*Claude Reader's Notes\*\*\s*\n(.+?)\Z",
+    "raw_excerpt":         rf"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "summary":             rf"\*\*요약\*\*\s*\n(.+?)(?=\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "claude_translation":  rf"\*\*Claude 1차 번역\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "claude_notes":        rf"\*\*Claude Reader's Notes\*\*\s*\n(.+?)(?={_NEXT_SECTION}|\Z)",
 }
 
 
