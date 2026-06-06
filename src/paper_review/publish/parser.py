@@ -109,6 +109,49 @@ def _extract_bullets(body: str) -> list[str]:
     return [it for it in items if it.strip() and not it.startswith("_")]
 
 
+_SID_RE = re.compile(r"<!--\s*section_id:\s*(\S+)(?:\s*\|\s*lines:\s*(\S+))?\s*-->")
+
+
+def _title_above(before: str) -> str:
+    """The heading line directly above a section_id marker — a `### …` or a
+    demoted `**Bold**` title. Returns '' when the nearest non-blank line isn't
+    a heading (so the caller can fall back)."""
+    for ln in reversed(before.rstrip("\n").split("\n")):
+        s = ln.strip()
+        if s == "" or s == "<br>":
+            continue
+        bm = re.match(r"^\*\*([^*\n]+?)\*\*$", s)
+        if bm:
+            return bm.group(1).strip()
+        hm = re.match(r"^#{2,3}\s+(.+)$", s)
+        if hm:
+            return hm.group(1).strip()
+        return ""
+    return ""
+
+
+def _fallback_title(sid: str) -> str:
+    s = (sid or "").strip()
+    if not s or re.search(r"http|url|^\d{4}-", s):
+        return "부록 · 보충 자료"
+    return s.replace("-", " ").strip()
+
+
+def _section_from_segment(heading: str, seg: str) -> Section:
+    meta_m = _SID_RE.search(seg)
+    sec = Section(
+        heading=heading,
+        section_id=meta_m.group(1) if meta_m else "",
+        line_range=(meta_m.group(2) or "") if meta_m else "",
+    )
+    for field_name, pat in _BLOCK_PATTERNS.items():
+        m = re.search(pat, seg, flags=re.DOTALL)
+        if m:
+            setattr(sec, field_name, m.group(1).strip())
+    sec.done = bool(sec.claude_translation or sec.user_answer)
+    return sec
+
+
 def _extract_sections(text: str) -> list[Section]:
     # The review block runs until the next NON-numbered H2 (Q&A / Wrap-up / 메타).
     # A stray numbered "## 6. …" section heading (some sections get written at H2
@@ -130,23 +173,24 @@ def _extract_sections(text: str) -> list[Section]:
             continue
         heading = head_m.group(1)
 
-        sec_id = ""
-        lines_str = ""
-        meta_m = re.search(r"<!--\s*section_id:\s*(\S+)(?:\s*\|\s*lines:\s*(\S+))?\s*-->", chunk)
-        if meta_m:
-            sec_id = meta_m.group(1)
-            lines_str = meta_m.group(2) or ""
-
-        sec = Section(heading=heading, section_id=sec_id, line_range=lines_str)
-
-        for field_name, pat in _BLOCK_PATTERNS.items():
-            m = re.search(pat, chunk, flags=re.DOTALL)
-            if m:
-                value = m.group(1).strip()
-                setattr(sec, field_name, value)
-
-        sec.done = bool(sec.claude_translation or sec.user_answer)
-        out.append(sec)
+        # Every ingested block carries a `<!-- section_id -->` marker. A chunk
+        # usually has exactly one (the section). When a block's own heading was
+        # demoted to bold (figure-label dumps, appendix), it has no `###` of its
+        # own and gets swept into this chunk — so the chunk holds EXTRA markers.
+        # Split on each marker: the first is this section; every extra one is a
+        # merged block we publish as its own section instead of dropping it.
+        markers = list(_SID_RE.finditer(chunk))
+        if len(markers) <= 1:
+            out.append(_section_from_segment(heading, chunk))
+            continue
+        # Main section = chunk up to the 2nd marker (fields can't bleed into the
+        # merged block).
+        out.append(_section_from_segment(heading, chunk[: markers[1].start()]))
+        for mi in range(1, len(markers)):
+            seg_start = markers[mi].start()
+            seg_end = markers[mi + 1].start() if mi + 1 < len(markers) else len(chunk)
+            title = _title_above(chunk[:seg_start]) or _fallback_title(markers[mi].group(1))
+            out.append(_section_from_segment(title, chunk[seg_start:seg_end]))
 
     return out
 
