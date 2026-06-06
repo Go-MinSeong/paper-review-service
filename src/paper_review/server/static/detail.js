@@ -514,10 +514,8 @@
     const res = await fetch(`/paper/${slug}/workbench.md`);
     const md = await res.text();
     const stripped = stripFrontmatter(md);
-    let baseline = {};
-    try { baseline = await (await fetch(`/paper/${slug}/baseline.json`)).json(); } catch (_) {}
 
-    const html = marked.parse(injectEditMarks(stripped, baseline));
+    const html = marked.parse(stripped);   // edit-diff highlight removed by request
     const wb = document.getElementById("wb");
     wb.innerHTML = html;
 
@@ -785,18 +783,33 @@
   const gutter = document.getElementById("gutter");
   const SPLIT_KEY = "pr-split";
   const DEFAULT_SPLIT = "42%";
-  const savedSplit = localStorage.getItem(SPLIT_KEY);
-  if (savedSplit) layoutEl.style.setProperty("--split", savedSplit);
   if (gutter) {
     const pdfPane = document.querySelector(".pane.pdf");
+    const MIN_PDF = 200, MIN_WB = 300, GUT = 6;   // keep both panes usable
     let dragging = false;
+    // Clamp a desired PDF width (px) so neither pane collapses to nothing —
+    // accounts for the (open) nav column. Returns --split as % of the layout.
+    const clampToPct = (pdfPx) => {
+      const lr = layoutEl.getBoundingClientRect();
+      const navW = pdfPane.getBoundingClientRect().left - lr.left; // 0 when nav closed
+      const avail = lr.width - navW - GUT;
+      const hi = Math.max(MIN_PDF, avail - MIN_WB);
+      pdfPx = Math.max(MIN_PDF, Math.min(hi, pdfPx));
+      return (pdfPx / lr.width) * 100;
+    };
+    // Apply the saved split, re-clamped to the current viewport.
+    const savedSplit = localStorage.getItem(SPLIT_KEY);
+    if (savedSplit) {
+      const lr = layoutEl.getBoundingClientRect();
+      layoutEl.style.setProperty("--split",
+        clampToPct((parseFloat(savedSplit) || 42) / 100 * lr.width).toFixed(1) + "%");
+    }
     const onMove = (e) => {
       if (!dragging) return;
       const lr = layoutEl.getBoundingClientRect();
-      const navW = pdfPane.getBoundingClientRect().left - lr.left; // 0 when nav closed
-      let pct = ((e.clientX - lr.left - navW) / lr.width) * 100;
-      pct = Math.max(18, Math.min(78, pct));
-      layoutEl.style.setProperty("--split", pct.toFixed(1) + "%");
+      const navW = pdfPane.getBoundingClientRect().left - lr.left;
+      layoutEl.style.setProperty("--split",
+        clampToPct(e.clientX - lr.left - navW).toFixed(1) + "%");
     };
     const stop = () => {
       if (!dragging) return;
