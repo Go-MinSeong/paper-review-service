@@ -1232,9 +1232,22 @@
     closeFigures();
   }
 
+  // Toast UI escapes emphasis markers flush against raw HTML spans on save:
+  //   **<span>…</span>**  →  \*\*<span>…</span>\*\*  (renders as literal **).
+  // Un-escape emphasis runs immediately adjacent to a span boundary so bold/
+  // italic survive the WYSIWYG round-trip. Genuine literal \* in prose isn't
+  // span-flush, so it's left alone.
+  function unescapeEmphAroundSpans(md) {
+    return md
+      .replace(/((?:\\[*_~])+)(?=<span\b)/g, m => m.replace(/\\/g, ''))
+      .replace(/(<\/span>)((?:\\[*_~])+)/g, (_, s, e) => s + e.replace(/\\/g, ''));
+  }
+
   async function saveEdit() {
     if (!editing || (!tuiEditor && !editFallbackTA)) return;
-    const newBody = editFallbackTA ? editFallbackTA.value : tuiEditor.getMarkdown();
+    const newBody = editFallbackTA
+      ? editFallbackTA.value
+      : unescapeEmphAroundSpans(tuiEditor.getMarkdown());
     // Guard: if the editor came up blank/broken, saving would wipe the body.
     // Refuse to save an empty or drastically-shrunk body without confirmation.
     const newLen = newBody.trim().length;

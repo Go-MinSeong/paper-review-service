@@ -25,6 +25,11 @@ def workbench_to_draft(
     draft = _materialize_figures(
         draft, paper_dir=paper_dir, draft_md=draft_md, vault_root=vault_root
     )
+    # Un-escape emphasis markers the WYSIWYG editor escaped against raw HTML
+    # spans (`\*\*<span>…</span>\*\*` → `**<span>…</span>**`) so bold/italic
+    # actually render — must run BEFORE _merge_color_runs so the healed markers
+    # can participate in the color-triple fold.
+    draft = _unescape_emph_around_spans(draft)
     # Heal Toast-UI-fragmented color spans so Velog keeps the color (see below).
     draft = _merge_color_runs(draft)
     draft_md.write_text(draft)
@@ -428,6 +433,37 @@ _COLOR_WS = re.compile(
     r"(?P<sep>\s*)" + _OPEN.format(c=r"(?P=c)"),
     re.S,
 )
+# Emphasis wrapping a single colored span — `**<span C>text</span>**`. Velog
+# frequently DROPS the color on this "emphasis outside the span" form, so move
+# the markers INSIDE: `<span C>**text**</span>`, which Velog renders reliably
+# (same fix the triple-merge applies, for the simple non-fragmented case).
+_EMPH_WRAPS_SPAN = re.compile(
+    r"(?P<e>" + _EMPH + r")"
+    + _OPEN.format(c=r"(?P<c>[^\";]+?)") + r"(?P<t>" + _CONTENT + r")</span>"
+    r"(?P=e)",
+    re.S,
+)
+
+
+# Toast UI's WYSIWYG markdown serializer escapes emphasis markers that sit
+# flush against raw HTML — our color <span>s. A bold-colored run authored as
+#   **<span style="color: #e64980">text</span>**
+# round-trips through the editor as
+#   \*\*<span style="color: #e64980">text</span>\*\*
+# which Velog (and marked.js in the review pane) render as LITERAL asterisks
+# instead of bold — the "bold가 안 먹는다" symptom. Genuine literal `\*` in
+# prose is never flush against a span boundary, so we only un-escape emphasis
+# runs immediately adjacent to a `<span>`/`</span>`.
+_ESC_EMPH_BEFORE_SPAN = re.compile(r"((?:\\[*_~])+)(?=<span\b)")
+_ESC_EMPH_AFTER_SPAN = re.compile(r"(</span>)((?:\\[*_~])+)")
+
+
+def _unescape_emph_around_spans(text: str) -> str:
+    text = _ESC_EMPH_BEFORE_SPAN.sub(lambda m: m.group(1).replace("\\", ""), text)
+    text = _ESC_EMPH_AFTER_SPAN.sub(
+        lambda m: m.group(1) + m.group(2).replace("\\", ""), text
+    )
+    return text
 
 
 def _merge_color_runs(text: str) -> str:
@@ -442,6 +478,11 @@ def _merge_color_runs(text: str) -> str:
         text = _COLOR_WS.sub(
             lambda m: f'<span style="color: {m.group("c")}">'
             f'{m.group("a")}{m.group("sep")}',
+            text,
+        )
+        text = _EMPH_WRAPS_SPAN.sub(
+            lambda m: f'<span style="color: {m.group("c")}">'
+            f'{m.group("e")}{m.group("t")}{m.group("e")}</span>',
             text,
         )
     return text
