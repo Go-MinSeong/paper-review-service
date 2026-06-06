@@ -51,7 +51,7 @@
   }
 
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
   body {
     font-family: var(--font-text);
     color: var(--text-primary);
@@ -60,6 +60,11 @@
     font-size: 14px;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Fixed app shell: the page itself never scrolls. The topbar + .layout
+       exactly fill the viewport and all scrolling happens inside the panes.
+       This also absorbs sub-pixel topbar/viewport rounding so no phantom
+       full-page scrollbar can appear. Overridden for print/capture below. */
+    overflow: hidden;
   }
 
   /* ─── Topbar ─────────────────────────────────────────────────────── */
@@ -173,7 +178,18 @@
     position: relative;
     display: grid;
     grid-template-columns: var(--nav-w) max(160px, var(--split)) 6px minmax(0, 1fr);
+    /* Single explicit row with a 0 floor. Without this, the implicit `auto`
+       row + minmax(0,1fr) column + a very tall pane (#wb scrollHeight ~23000)
+       drives a grid intrinsic-sizing feedback loop that inflates the layout's
+       scrollHeight to ~15000px even though every pane box is clamped to the
+       viewport — producing a phantom full-page vertical scrollbar that drags
+       into empty space. minmax(0,1fr) pins the row to the container height. */
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 0;
     height: calc(100vh - 49px);
+    /* Clip at the shell level: the page (body/html) must never scroll. All
+       scrolling happens inside the panes (#wb, .pane.pdf) via overflow:auto. */
+    overflow: hidden;
     /* NB: no transition on grid-template-columns — Chromium freezes a
        var()/max()-driven track list mid-interpolation, breaking the
        draggable split. Nav open/close therefore snaps instead of sliding. */
@@ -202,6 +218,11 @@
     border-right: 0;
     min-width: 0;
   }
+  /* When collapsed to a 0-width track, drop the list from layout entirely.
+     Otherwise `.nav-label { overflow-wrap: anywhere }` wraps every label
+     character-by-character against a ~0px width, ballooning the list to
+     thousands of px tall and doing pointless layout work each frame. */
+  .layout[data-nav="closed"] .nav-list { display: none; }
   /* Draggable divider between the PDF and workbench panes */
   .gutter {
     position: relative;
@@ -1087,14 +1108,14 @@
       --accent: #0066cc; --accent-hover: #0071e3;
     }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    html, body { height: auto !important; background: #fff !important; }
+    html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
 
     /* Hide everything that isn't the review body */
     .topbar, .nav, .nav-reopen, .pane.pdf, .gutter, .chat,
     .a-toast, .modal, .lightbox, .edit-toolbar, .view-toggle { display: none !important; }
 
     /* Collapse the app shell down to a single flowing column */
-    .layout { display: block !important; height: auto !important; }
+    .layout { display: block !important; height: auto !important; overflow: visible !important; }
     .wb-stack { display: block !important; height: auto !important; }
     .pane { overflow: visible !important; height: auto !important; }
     .pane.wb {
