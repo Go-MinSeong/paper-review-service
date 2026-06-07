@@ -1100,27 +1100,24 @@
   .wb img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0;
             border: 1px solid var(--border-subtle); }
 
-  /* Resizable figure/table images — Word-style corner drag handle. */
-  .wb .imgrz { position: relative; display: inline-block; margin: 12px 0;
-               max-width: 100%; vertical-align: top; line-height: 0; }
-  .wb .imgrz img { margin: 0; display: block; }
-  .wb .imgrz-handle {
-    position: absolute; right: 7px; bottom: 7px;
-    width: 14px; height: 14px; border-radius: 3px;
-    background: var(--accent); border: 2px solid var(--bg-canvas);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
-    cursor: nwse-resize; opacity: 0; transition: opacity .12s;
-    touch-action: none;
+  /* WYSIWYG-editor image resize: a single shared corner handle (body-level,
+     position:fixed) that follows the hovered image inside the ProseMirror
+     canvas, since ProseMirror owns its own DOM. */
+  .ww-imgrz-handle {
+    position: fixed; z-index: 200; display: none;
+    width: 16px; height: 16px; border-radius: 3px;
+    background: var(--accent); border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+    cursor: nwse-resize; touch-action: none;
   }
-  .wb .imgrz:hover .imgrz-handle,
-  .wb .imgrz.rz-active .imgrz-handle { opacity: 1; }
-  .wb .imgrz.rz-active { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
-  .wb .imgrz.rz-active .imgrz-handle::after {
-    content: attr(data-w); position: absolute; right: 20px; bottom: -3px;
+  .ww-imgrz-handle.rz-active::after {
+    content: attr(data-w); position: absolute; right: 22px; bottom: 0;
     background: var(--bg-elevated); color: var(--text-primary);
     font: 500 11px/1.4 var(--font-text); padding: 1px 7px; border-radius: 5px;
     white-space: nowrap; border: 1px solid var(--border-default);
   }
+  /* Editor images shouldn't overflow their column while being sized. */
+  #tui-host .ProseMirror img { max-width: 100%; }
 
   /* ─── Print / PDF export ──────────────────────────────────────────
      Isolate the review (workbench) content so the browser's "Save as PDF"

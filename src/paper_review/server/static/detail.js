@@ -1035,6 +1035,12 @@
   let savedBodyLen = 0;        // original body length — guards against wipe-on-save
   let editFallbackTA = null;   // plain-textarea editor when Toast UI parser crashes
   let suppressSSEReload = false;
+  // WYSIWYG image drag-resize state
+  let wwResizeHandle = null;   // shared corner handle (follows the hovered image)
+  let wwResizeTarget = null;   // the <img> currently under the handle
+  let wwDragging = false;
+  let wwImgObserver = null;
+  let wwPendingWidths = {};    // src -> width(px) | null, chosen this edit session
 
   btnEdit.addEventListener('click', toggleEdit);
 
@@ -1134,6 +1140,12 @@
       ta.focus();
     }
 
+    // Drag-to-resize for images inside the WYSIWYG editor.
+    if (tuiEditor && !editFallbackTA) {
+      wwPendingWidths = {};
+      setTimeout(() => setupWysiwygImageResize(), 300);
+    }
+
     document.getElementById('edit-cancel').onclick = cancelEdit;
     document.getElementById('edit-save').onclick = saveEdit;
     document.getElementById('edit-figure').onclick = () => {
@@ -1159,89 +1171,144 @@
     return out.join("\n");
   }
 
-  // ── Resizable figures/tables ───────────────────────────────────────────
-  // Inserted images carry their width in the markdown alt as the Obsidian
-  // pipe syntax `![alt|420](url)`. We strip it for display, apply the width,
-  // and add a Word-style drag handle that rewrites the alt on release. The
-  // `|width` survives publish: Obsidian renders it natively, and the Velog
-  // exporter turns it into <img width="…">.
+  // ── Figure/table image sizing ──────────────────────────────────────────
+  // Images carry their width in the markdown alt as the Obsidian pipe syntax
+  // `![alt|420](url)`. In the READ view we just strip it from the visible alt
+  // and apply the width — resizing itself is a WYSIWYG-editor action (see
+  // setupWysiwygImageResize). The `|width` survives publish: Obsidian renders
+  // it natively and the Velog exporter turns it into <img width="…">.
   function setupResizableImages(wb) {
     wb.querySelectorAll("img").forEach(img => {
       if (img.dataset.rzInit) return;
       img.dataset.rzInit = "1";
-      // Apply a stored width and clean the visible alt.
       const alt = img.getAttribute("alt") || "";
       const m = alt.match(/^(.*?)\s*\|\s*(\d+)\s*$/);
       if (m) {
         img.setAttribute("alt", m[1].trim());
         img.style.width = parseInt(m[2], 10) + "px";
       }
-      // Wrap so the handle can sit at the image's corner.
-      const wrap = document.createElement("span");
-      wrap.className = "imgrz";
-      img.replaceWith(wrap);
-      wrap.appendChild(img);
-      const handle = document.createElement("span");
-      handle.className = "imgrz-handle";
-      handle.title = "드래그: 크기 조절 · 더블클릭: 원본 크기";
-      wrap.appendChild(handle);
-      handle.addEventListener("mousedown", e => startImgResize(e, wb, img, wrap, handle));
-      handle.addEventListener("dblclick", e => {
-        e.preventDefault(); e.stopPropagation();
-        img.style.width = "";
-        persistImageWidth(img.getAttribute("src"), null);
-      });
     });
   }
 
-  function startImgResize(e, wb, img, wrap, handle) {
+  // ── WYSIWYG (Toast UI) image drag-resize ───────────────────────────────
+  // ProseMirror owns the editor DOM, so we don't inject per-image handles into
+  // it. Instead a single shared corner handle follows the hovered image; the
+  // chosen width is applied as an inline style (visual) and remembered in
+  // wwPendingWidths. Toast UI preserves the image alt verbatim, so at save time
+  // we bake the width into the markdown alt as `![caption|W](src)` — the same
+  // format the read view, Obsidian and the Velog exporter all understand.
+  function wwApplyStoredWidths(pm) {
+    pm.querySelectorAll("img").forEach(img => {
+      const src = img.getAttribute("src");
+      let w = null;
+      if (src in wwPendingWidths) w = wwPendingWidths[src];
+      else { const m = (img.getAttribute("alt") || "").match(/\|\s*(\d+)\s*$/); if (m) w = +m[1]; }
+      img.style.width = w ? w + "px" : "";
+      img.style.maxWidth = "100%";
+    });
+  }
+
+  function wwProseMirror() {
+    const host = document.getElementById("tui-host");
+    // Toast UI keeps BOTH a markdown and a WYSIWYG ProseMirror in the DOM —
+    // images only live in the WYSIWYG one.
+    return host && (host.querySelector(".toastui-editor-ww-container .ProseMirror")
+                    || host.querySelector(".ProseMirror"));
+  }
+
+  function setupWysiwygImageResize() {
+    const pm = wwProseMirror();
+    if (!pm || !pm.querySelector("img")) {
+      // WYSIWYG canvas/images not ready yet — retry briefly.
+      if ((setupWysiwygImageResize._tries = (setupWysiwygImageResize._tries || 0) + 1) <= 12) {
+        setTimeout(setupWysiwygImageResize, 250);
+      }
+      return;
+    }
+    setupWysiwygImageResize._tries = 0;
+    if (!wwResizeHandle) {
+      wwResizeHandle = document.createElement("div");
+      wwResizeHandle.className = "ww-imgrz-handle";
+      wwResizeHandle.title = "드래그: 크기 조절 · 더블클릭: 원본 크기";
+      document.body.appendChild(wwResizeHandle);
+      wwResizeHandle.addEventListener("mousedown", wwHandleDown);
+      wwResizeHandle.addEventListener("dblclick", wwHandleDbl);
+    }
+    wwApplyStoredWidths(pm);
+    if (wwImgObserver) wwImgObserver.disconnect();
+    // Re-apply widths whenever ProseMirror re-renders image nodes.
+    wwImgObserver = new MutationObserver(() => wwApplyStoredWidths(pm));
+    wwImgObserver.observe(pm, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "alt"] });
+    // Show the handle at the corner of whichever image is hovered.
+    pm.addEventListener("mouseover", e => {
+      if (wwDragging) return;
+      const img = e.target.closest && e.target.closest("img");
+      if (img && pm.contains(img)) wwPositionHandle(img);
+    });
+    pm.addEventListener("scroll", () => { if (!wwDragging) wwHideHandle(); }, true);
+  }
+
+  function wwPositionHandle(img) {
+    if (!wwResizeHandle) return;
+    wwResizeTarget = img;
+    const r = img.getBoundingClientRect();
+    wwResizeHandle.style.left = (r.right - 9) + "px";
+    wwResizeHandle.style.top = (r.bottom - 9) + "px";
+    wwResizeHandle.style.display = "block";
+  }
+  function wwHideHandle() {
+    if (wwResizeHandle) wwResizeHandle.style.display = "none";
+    wwResizeTarget = null;
+  }
+
+  function wwHandleDown(e) {
     e.preventDefault(); e.stopPropagation();
+    const img = wwResizeTarget;
+    if (!img) return;
+    wwDragging = true;
+    const pm = wwProseMirror();
     const startX = e.clientX;
     const startW = img.getBoundingClientRect().width;
-    const maxW = Math.max(120, (wb.clientWidth || 800) - 48);
-    wrap.classList.add("rz-active");
+    const maxW = Math.max(120, (pm ? pm.clientWidth : 800) - 24);
     document.body.style.cursor = "nwse-resize";
+    wwResizeHandle.classList.add("rz-active");
     let w = Math.round(startW);
     const onMove = ev => {
       w = Math.round(Math.max(80, Math.min(maxW, startW + (ev.clientX - startX))));
       img.style.width = w + "px";
-      handle.setAttribute("data-w", w + "px");
+      img.style.maxWidth = "100%";
+      wwResizeHandle.setAttribute("data-w", w + "px");
+      wwPositionHandle(img);
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
-      wrap.classList.remove("rz-active");
-      persistImageWidth(img.getAttribute("src"), w);
+      wwResizeHandle.classList.remove("rz-active");
+      wwDragging = false;
+      wwPendingWidths[img.getAttribute("src")] = w;
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
+  function wwHandleDbl(e) {
+    e.preventDefault(); e.stopPropagation();
+    const img = wwResizeTarget;
+    if (!img) return;
+    img.style.width = "";
+    wwPendingWidths[img.getAttribute("src")] = null;
+    wwPositionHandle(img);
+  }
 
-  // Rewrite the matching markdown image's alt to `alt|width` (or strip it when
-  // width is null) and save. Matched by the exact src URL so the right image
-  // is updated regardless of caption text.
-  async function persistImageWidth(src, width) {
-    if (!src) return;
-    try {
-      const md = await (await fetch(`/paper/${slug}/workbench.md`)).text();
-      const esc = src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`(!\\[)([^\\]]*?)(\\]\\(${esc}\\))`, "g");
-      let found = false;
-      const out = md.replace(re, (_full, p1, altText, p3) => {
-        found = true;
-        const base = altText.replace(/\s*\|\s*\d+\s*$/, "").trim();
-        return p1 + (width ? `${base}|${width}` : base) + p3;
-      });
-      if (!found) return;
-      suppressSSEReload = true;
-      await fetch(`/paper/${slug}/workbench.md`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: out }),
-      });
-      setTimeout(() => { suppressSSEReload = false; }, 1500);
-    } catch (err) { /* non-fatal: width just won't persist */ }
+  // Bake this session's drag-resize widths into the markdown alts at save time.
+  function applyPendingImageWidths(md) {
+    if (!wwPendingWidths || !Object.keys(wwPendingWidths).length) return md;
+    return md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (full, alt, src) => {
+      if (!(src in wwPendingWidths)) return full;
+      const w = wwPendingWidths[src];
+      const base = alt.replace(/\s*\|\s*\d+\s*$/, "").trim();
+      return `![${w ? base + "|" + w : base}](${src})`;
+    });
   }
 
   // Rasterize an HTML <table> to a PNG data URL via html2canvas. Math in cells
@@ -1333,7 +1400,7 @@
     if (!editing || (!tuiEditor && !editFallbackTA)) return;
     const newBody = editFallbackTA
       ? editFallbackTA.value
-      : unescapeEmphAroundSpans(tuiEditor.getMarkdown());
+      : unescapeEmphAroundSpans(applyPendingImageWidths(tuiEditor.getMarkdown()));
     // Guard: if the editor came up blank/broken, saving would wipe the body.
     // Refuse to save an empty or drastically-shrunk body without confirmation.
     const newLen = newBody.trim().length;
@@ -1361,6 +1428,10 @@
   function cancelEdit() { if (editing) exitEdit(); }
 
   function exitEdit() {
+    // Tear down WYSIWYG image-resize affordances.
+    if (wwImgObserver) { try { wwImgObserver.disconnect(); } catch {} wwImgObserver = null; }
+    if (wwResizeHandle) { wwResizeHandle.remove(); wwResizeHandle = null; }
+    wwResizeTarget = null; wwDragging = false; wwPendingWidths = {};
     if (tuiEditor) { try { tuiEditor.destroy(); } catch {} tuiEditor = null; }
     editFallbackTA = null;
     editing = false;
