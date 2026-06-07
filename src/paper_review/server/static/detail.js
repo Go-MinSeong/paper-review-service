@@ -533,6 +533,7 @@
     renderPipelinePlayers(wb);
     injectPipelineGenButton(wb);
     renderMermaid(wb);
+    setupResizableImages(wb);
 
     // KaTeX
     if (window.renderMathInElement) {
@@ -1156,6 +1157,91 @@
     const out = [ln(fill(data[0])), ln(Array(cols).fill("---"))];
     data.slice(1).forEach(r => out.push(ln(fill(r))));
     return out.join("\n");
+  }
+
+  // ── Resizable figures/tables ───────────────────────────────────────────
+  // Inserted images carry their width in the markdown alt as the Obsidian
+  // pipe syntax `![alt|420](url)`. We strip it for display, apply the width,
+  // and add a Word-style drag handle that rewrites the alt on release. The
+  // `|width` survives publish: Obsidian renders it natively, and the Velog
+  // exporter turns it into <img width="…">.
+  function setupResizableImages(wb) {
+    wb.querySelectorAll("img").forEach(img => {
+      if (img.dataset.rzInit) return;
+      img.dataset.rzInit = "1";
+      // Apply a stored width and clean the visible alt.
+      const alt = img.getAttribute("alt") || "";
+      const m = alt.match(/^(.*?)\s*\|\s*(\d+)\s*$/);
+      if (m) {
+        img.setAttribute("alt", m[1].trim());
+        img.style.width = parseInt(m[2], 10) + "px";
+      }
+      // Wrap so the handle can sit at the image's corner.
+      const wrap = document.createElement("span");
+      wrap.className = "imgrz";
+      img.replaceWith(wrap);
+      wrap.appendChild(img);
+      const handle = document.createElement("span");
+      handle.className = "imgrz-handle";
+      handle.title = "드래그: 크기 조절 · 더블클릭: 원본 크기";
+      wrap.appendChild(handle);
+      handle.addEventListener("mousedown", e => startImgResize(e, wb, img, wrap, handle));
+      handle.addEventListener("dblclick", e => {
+        e.preventDefault(); e.stopPropagation();
+        img.style.width = "";
+        persistImageWidth(img.getAttribute("src"), null);
+      });
+    });
+  }
+
+  function startImgResize(e, wb, img, wrap, handle) {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startW = img.getBoundingClientRect().width;
+    const maxW = Math.max(120, (wb.clientWidth || 800) - 48);
+    wrap.classList.add("rz-active");
+    document.body.style.cursor = "nwse-resize";
+    let w = Math.round(startW);
+    const onMove = ev => {
+      w = Math.round(Math.max(80, Math.min(maxW, startW + (ev.clientX - startX))));
+      img.style.width = w + "px";
+      handle.setAttribute("data-w", w + "px");
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      wrap.classList.remove("rz-active");
+      persistImageWidth(img.getAttribute("src"), w);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
+  // Rewrite the matching markdown image's alt to `alt|width` (or strip it when
+  // width is null) and save. Matched by the exact src URL so the right image
+  // is updated regardless of caption text.
+  async function persistImageWidth(src, width) {
+    if (!src) return;
+    try {
+      const md = await (await fetch(`/paper/${slug}/workbench.md`)).text();
+      const esc = src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`(!\\[)([^\\]]*?)(\\]\\(${esc}\\))`, "g");
+      let found = false;
+      const out = md.replace(re, (_full, p1, altText, p3) => {
+        found = true;
+        const base = altText.replace(/\s*\|\s*\d+\s*$/, "").trim();
+        return p1 + (width ? `${base}|${width}` : base) + p3;
+      });
+      if (!found) return;
+      suppressSSEReload = true;
+      await fetch(`/paper/${slug}/workbench.md`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: out }),
+      });
+      setTimeout(() => { suppressSSEReload = false; }, 1500);
+    } catch (err) { /* non-fatal: width just won't persist */ }
   }
 
   // Rasterize an HTML <table> to a PNG data URL via html2canvas. Math in cells
