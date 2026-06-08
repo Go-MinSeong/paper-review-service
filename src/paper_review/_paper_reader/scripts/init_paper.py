@@ -58,13 +58,39 @@ def run_fetch_arxiv(args_list, out_dir):
     return json.loads(proc.stdout)
 
 
+# Metric / unit tokens that mark a number-led line as DATA, not a heading
+# (case-sensitive so "AP" doesn't match "Application"): "40.6 AP", "5.2 GFLOPs",
+# "50 APval", "... 10 epochs".
+_METRIC_RE = re.compile(r"\b(?:[mM]?AP\w*|AR\w*|G?FLOPs?|TFLOPs?|params?|epochs?|fps|mIoU|IoU)\b")
+
+
+def _is_real_numbered_heading(top, rest):
+    """Reject the many number-led NON-headings that the loose numeric rule used
+    to promote to sections: metric sentences ("40.6 AP …"), GFLOPs/param values,
+    table values ("50 APval"), references ("2024. Accessed …"), contribution
+    bullets ("1. A DFL-free … architecture") and wrapped sentence fragments."""
+    rest = rest.strip()
+    if not rest or not rest[0].isupper():
+        return False                      # headings start with a capital word
+    if top == 0 or top > 20:
+        return False                      # real top-level sections are 1..~20; 40.6/2024/50 are values/years
+    if rest.endswith("-") or rest.endswith(","):
+        return False                      # hyphenated continuation / mid-sentence clause
+    if re.match(r"^(A|An|The)\s", rest):
+        return False                      # article-led → contribution bullet / sentence, not a title
+    if _METRIC_RE.search(rest):
+        return False                      # carries a metric/unit → a result line, not a heading
+    return True
+
+
 def find_section_boundaries(text):
     """Identify section headings in extracted PDF text. Returns list of
     (line_index, label) tuples, plus the line count of the file.
 
     Heuristics tuned for ML papers:
     - Roman numeral sections: 'I. INTRODUCTION', 'II. RELATED WORK', ...
-    - Numbered sections: '1 Introduction', '2.1 Method', ...
+    - Numbered sections: '1 Introduction', '2.1 Method', ... (with guards that
+      reject number-led data/sentences — see _is_real_numbered_heading)
     - All-caps short lines that look like headings ('ABSTRACT', 'REFERENCES')
     """
     lines = text.split("\n")
@@ -78,12 +104,18 @@ def find_section_boundaries(text):
             hits.append((i, s))
             continue
         # Numbered (e.g. "1 Introduction", "3.2 Method", "1. Introduction",
-        # "3.2. Method") - optional trailing dot covers CVPR/ICCV style
-        if re.match(r"^\d+(\.\d+)*\.?\s+[A-Z][A-Za-z]", s) and len(s) < 80:
-            hits.append((i, s))
+        # "3.2. Method") - optional trailing dot covers CVPR/ICCV style.
+        m = re.match(r"^(\d+)(?:\.\d+)*\.?\s+(\S.*)$", s)
+        if m and len(s) < 80:
+            if _is_real_numbered_heading(int(m.group(1)), m.group(2)):
+                hits.append((i, s))
             continue
-        # All caps (e.g. "ABSTRACT", "ACKNOWLEDGEMENTS", "REFERENCES", "APPENDIX")
+        # All caps (e.g. "ABSTRACT", "ACKNOWLEDGEMENTS", "REFERENCES", "APPENDIX").
+        # Skip a single short ALL-CAPS token (e.g. a brand like "DEEPX") — real
+        # all-caps headings are longer words.
         if re.match(r"^[A-Z][A-Z\s]{3,40}$", s) and len(s) > 4:
+            if " " not in s and len(s) < 7:
+                continue
             hits.append((i, s))
             continue
     return hits, len(lines)
