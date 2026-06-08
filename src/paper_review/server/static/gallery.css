@@ -512,6 +512,18 @@
     flex: 1; height: 4px; border-radius: 999px; background: var(--border-default);
   }
   .progress .seg.done { background: var(--status-review_done); }
+  /* Live background-analysis: amber filled segments + a sweeping shimmer so the
+     progress reads as actively moving, plus a card glow + animated footer. */
+  .progress.analyzing { position: relative; overflow: hidden; border-radius: 999px; }
+  .progress.analyzing .seg.done { background: var(--status-in_progress); }
+  .progress.analyzing::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(245,158,11,.45), transparent);
+    animation: progress-shimmer 1.4s linear infinite;
+  }
+  @keyframes progress-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  .card.analyzing { box-shadow: 0 0 0 2px rgba(245,158,11,.55), 0 4px 16px rgba(245,158,11,.18); }
+  .card-foot .frac.analyzing { color: var(--status-in_progress); font-weight: 600; }
   .card-foot {
     display: flex; align-items: center; gap: 8px;
     font-size: 11px; color: var(--text-muted);

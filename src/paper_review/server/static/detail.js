@@ -1514,12 +1514,13 @@
     try {
       preview = await (await fetch(`/paper/${slug}/analyze/preview`)).json();
     } catch {}
-    let msg = '자동 분석을 시작합니다.';
+    const bg = '\n\n백그라운드로 진행됩니다 — 목록으로 가서 다른 작업을 하셔도 진행률이 표시됩니다.';
+    let msg = '자동 분석을 시작합니다.' + bg;
     if (preview && preview.pending_sections >= 0) {
       const min = Math.max(1, Math.round(preview.estimated_seconds / 60));
       const cost = preview.estimated_cost_usd;
       const pre = preview.needs_prelude ? ' (TL;DR+contribution+사전지식 자동 생성 포함)' : '';
-      msg = `${preview.pending_sections}개 섹션 분석${pre}\n예상 시간: ~${min}분 · 예상 비용: ~$${cost.toFixed(2)}\n진행할까요?`;
+      msg = `${preview.pending_sections}개 섹션 분석${pre}\n예상 시간: ~${min}분 · 예상 비용: ~$${cost.toFixed(2)}${bg}\n\n진행할까요?`;
     }
     if (!await UIDialog.confirm(msg, { title: '자동 분석', okLabel: '시작' })) return;
     try {
@@ -1986,4 +1987,14 @@
   loadWorkbench();
   loadFigures();
   if (!CAPTURE) connectSSE();
+  // If a background analysis is already running for this paper (started here and
+  // navigated away, or still going), resume the live progress toast on load.
+  if (!CAPTURE) {
+    (async () => {
+      try {
+        const s = await (await fetch(`/paper/${slug}/analyze/status`)).json();
+        if (s.status === 'running') { updateAnalyzeButton(s); pollAnalyze(); }
+      } catch {}
+    })();
+  }
 })();

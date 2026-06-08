@@ -212,33 +212,41 @@
       const charName = CHARACTERS[ci];
       const total = Math.max(p.sections_total || 0, 1);
       const done = p.sections_done || 0;
-      const segs = Math.min(total, 14);
-      const doneSegs = Math.round((done / total) * segs);
-      const bars = Array.from({length: segs}, (_, i) =>
-        `<span class="seg${i < doneSegs ? ' done' : ''}"></span>`).join('');
       const isActive = activeJobs.has(p.slug);
       const activeMeta = activeJobs.get(p.slug);
+      // While a background analysis runs, the progress bar tracks the live job
+      // (current/total); otherwise it shows the workbench done count.
+      const live = isActive && activeMeta && activeMeta.total > 0;
+      const dispDone = live ? activeMeta.current : done;
+      const dispTotal = live ? activeMeta.total : total;
+      const pct = Math.round((dispDone / Math.max(dispTotal, 1)) * 100);
+      const segs = Math.min(dispTotal, 14);
+      const doneSegs = Math.round((dispDone / Math.max(dispTotal, 1)) * segs);
+      const bars = Array.from({length: segs}, (_, i) =>
+        `<span class="seg${i < doneSegs ? ' done' : ''}"></span>`).join('');
       const tags = p.tags || [];
       const tagsHTML = tags.length
         ? `<div class="card-tags">${tags.slice(0, 3).map(t => `<span class="t" style="--tagc:${tagColor(t)}">${escapeHtml(t)}</span>`).join('')}${tags.length > 3 ? `<span class="t more">+${tags.length - 3}</span>` : ''}</div>`
         : '';
       const isToRead = p.status === 'to_read';
       return `
-        <a class="card" href="/paper/${p.slug}" data-slug="${p.slug}">
+        <a class="card${live ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
             <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
-            ${isActive ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total}</span>` : ''}
+            ${live ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
             ${starsHTML(p.rating, p.slug)}
           </div>
           <div class="card-body">
             <div class="card-title">${escapeHtml(title)}</div>
             ${subTitle ? `<div class="card-sub">${escapeHtml(subTitle)}</div>` : ''}
-            ${total > 0 ? `<div class="progress">${bars}</div>` : ''}
+            ${dispTotal > 0 ? `<div class="progress${live ? ' analyzing' : ''}">${bars}</div>` : ''}
             <div class="card-foot">
-              ${isToRead ? '<span class="frac">reading list</span>' : `<span class="frac">${done}/${total} sections</span>`}
+              ${isToRead ? '<span class="frac">reading list</span>'
+                : live ? `<span class="frac analyzing">⟳ 분석 ${dispDone}/${dispTotal} · ${pct}%</span>`
+                : `<span class="frac">${done}/${total} sections</span>`}
               ${p.category ? `<span class="sep">·</span><span class="cat">${escapeHtml(p.category)}</span>` : ''}
               ${p.figures_count > 0 ? `<span class="sep">·</span><span>${p.figures_count} figs</span>` : ''}
               ${(p.updated_at || p.last_viewed) ? `<span class="sep">·</span><span class="act">${(p.last_viewed || 0) > (p.updated_at || 0) ? 'viewed' : 'edited'} ${relTime(Math.max(p.last_viewed || 0, p.updated_at || 0))}</span>` : ''}
@@ -371,12 +379,21 @@
       const r = await fetch('/papers/active-jobs');
       const list = await r.json();
       const next = new Map(list.map(j => [j.slug, j]));
+      // A job that disappeared just finished — bake its progress into the
+      // static done count so the bar lands on the final value (no full reload).
+      let finalized = false;
+      for (const [slug, prev] of activeJobs) {
+        if (!next.has(slug)) {
+          const p = papers.find(x => x.slug === slug);
+          if (p && prev.total) { p.sections_done = Math.max(p.sections_done || 0, prev.current); finalized = true; }
+        }
+      }
       // Only re-render if set changed
       const same = next.size === activeJobs.size &&
         [...next.keys()].every(k => activeJobs.has(k) &&
           activeJobs.get(k).current === next.get(k).current);
       activeJobs = next;
-      if (!same) renderCards();
+      if (!same || finalized) renderCards();
     } catch {}
   }
   pollActiveJobs();
