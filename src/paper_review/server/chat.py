@@ -59,7 +59,7 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
 
         system_ctx = (
             f"You are operating inside {paper_dir}, the paper-review service workspace "
-            "(see ~/.paper-reviews/DESIGN.md). The paper-review skill at "
+            "(see ~/Projects/paper-review-service/DESIGN.md). The paper-review skill at "
             "~/.claude/skills/paper-review/SKILL.md is implicitly active for every "
             "message in this session — do not require the user to type /paper-review "
             "to activate it. "

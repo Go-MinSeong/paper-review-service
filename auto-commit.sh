@@ -5,7 +5,7 @@
 # Safe to run anytime: exits 0 quickly if there's nothing to commit.
 set -uo pipefail
 
-REPO="$HOME/.paper-reviews"
+REPO="$HOME/Projects/paper-review-service"
 cd "$REPO" 2>/dev/null || exit 0
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 

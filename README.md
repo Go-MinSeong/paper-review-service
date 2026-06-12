@@ -33,8 +33,8 @@ arXiv/PDF ──► ingest ──► review (with Claude) ──► publish ─�
 Requires Python ≥ 3.10 and [`uv`](https://github.com/astral-sh/uv). macOS for the menubar app.
 
 ```bash
-git clone https://github.com/Go-MinSeong/paper-review-service.git ~/.paper-reviews
-cd ~/.paper-reviews
+git clone https://github.com/Go-MinSeong/paper-review-service.git ~/Projects/paper-review-service
+cd ~/Projects/paper-review-service
 uv venv && uv pip install -e .
 bash install-skills.sh        # symlink the 3 skills into ~/.claude/skills/
 ```
@@ -67,7 +67,7 @@ matching. Without them, publish still works (structural pass only).
 
 ## Architecture
 
-Per-paper runtime state lives in `~/.paper-reviews/<slug>/` (git-ignored):
+Per-paper runtime state lives in `~/Projects/paper-review-service/<slug>/` (git-ignored):
 `workbench.md` (source of truth), `paper.json`, `source.txt`, `viewer.html`, figures, original PDF.
 
 The package (`src/paper_review/`):

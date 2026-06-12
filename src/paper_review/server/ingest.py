@@ -241,7 +241,7 @@ async def _auto_tag(job: IngestJob) -> None:
 
 
 def _detect_slug_post_hoc(job: IngestJob) -> None:
-    """Fallback: scan ~/.paper-reviews/* for folders modified after job start."""
+    """Fallback: scan ~/Projects/paper-review-service/* for folders modified after job start."""
     if not SERVICE_ROOT.exists():
         return
     candidates = []

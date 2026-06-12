@@ -23,7 +23,7 @@ def main() -> None:
 @main.command()
 @click.argument("source")
 @click.option("--out-dir", type=click.Path(path_type=Path),
-              help="Override service root for this paper (default: ~/.paper-reviews/<slug>/).")
+              help="Override service root for this paper (default: ~/Projects/paper-review-service/<slug>/).")
 @click.option("--no-figures", is_flag=True, help="Skip figure extraction.")
 @click.option("--no-install-agents", is_flag=True,
               help="Skip installing paper-translator / github-investigator subagents.")
