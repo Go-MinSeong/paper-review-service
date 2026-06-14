@@ -80,11 +80,17 @@
   }
   .topbar a { color: var(--text-secondary); text-decoration: none; transition: color .15s; }
   .topbar a:hover { color: var(--text-primary); }
+  /* Right-side controls never shrink — the long title is the only thing that
+     gives way, so the model picker / toggles / buttons stay intact. */
+  .topbar > * { flex-shrink: 0; }
   .topbar .title {
     font-size: 14px; font-weight: 600; color: var(--text-primary);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     flex: 0 1 auto;
+    min-width: 0;                               /* allow it to shrink → ellipsis */
+    max-width: clamp(140px, 34vw, 460px);       /* cap the left space */
   }
+  .topbar .spacer { flex: 1 1 auto; min-width: 0; }
   .topbar .status {
     font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
     color: white; letter-spacing: .02em;
