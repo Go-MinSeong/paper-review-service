@@ -596,6 +596,45 @@
   }
   .field input[type=text]:focus { border-color: var(--accent); }
   .field .hint { font-size: 11.5px; color: var(--text-muted); }
+
+  /* ─── Chip-based tag input (create + edit) ───────────────────────────── */
+  .taginput {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 7px 9px; border-radius: 8px; min-height: 42px; cursor: text;
+    border: 1px solid var(--border-default); background: var(--bg-surface);
+    transition: border-color .12s;
+  }
+  .taginput:focus-within { border-color: var(--accent); }
+  .taginput .taginput-field {
+    flex: 1 1 90px; min-width: 90px; border: 0; outline: 0; background: transparent;
+    font: inherit; font-size: 13px; color: var(--text-primary); padding: 3px 2px;
+  }
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 3px 4px 3px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 500; line-height: 1.5;
+    background: color-mix(in srgb, var(--tagc, var(--text-muted)) 15%, transparent);
+    color: var(--tagc, var(--text-secondary));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tagc, transparent) 30%, transparent);
+  }
+  .tag-chip .tc-x {
+    border: 0; background: transparent; cursor: pointer; color: inherit;
+    font-size: 15px; line-height: 1; padding: 0 3px; border-radius: 999px;
+    opacity: .6; transition: opacity .1s, background .1s;
+  }
+  .tag-chip .tc-x:hover { opacity: 1; background: color-mix(in srgb, var(--tagc) 28%, transparent); }
+  .tagsugg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 9px; }
+  .tagsugg-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
+  .tagsugg-item {
+    font: inherit; font-size: 11.5px; cursor: pointer;
+    padding: 3px 9px; border-radius: 999px; color: var(--tagc, var(--text-secondary));
+    background: transparent; opacity: .78;
+    border: 1px dashed color-mix(in srgb, var(--tagc, var(--border-default)) 50%, transparent);
+    transition: opacity .12s, background .12s;
+  }
+  .tagsugg-item::before { content: "+ "; opacity: .55; }
+  .tagsugg-item:hover { opacity: 1; background: color-mix(in srgb, var(--tagc, var(--text-muted)) 15%, transparent); }
+  .modal-content.modal-narrow { max-width: 440px; }
   .drop {
     border: 2px dashed var(--border-default); border-radius: 10px;
     padding: 32px 16px; text-align: center; color: var(--text-secondary);

@@ -103,14 +103,30 @@
         </div>
       </div>
       <div class="field">
-        <label>태그 (쉼표 또는 Enter로 구분)</label>
-        <input type="text" id="new-tags" placeholder="e.g. CV, diffusion, to-read">
-        <div class="hint" id="tags-hint"></div>
+        <label>태그</label>
+        <div id="new-tags-mount"></div>
+        <div class="hint">Enter·쉼표로 추가 · 계층은 "CV/segmentation" · 아래에서 기존 태그 클릭</div>
       </div>
       <div class="progress-box" id="prog-box" style="display:none"></div>
       <div class="modal-actions">
         <button class="btn-secondary" data-close>취소</button>
         <button class="btn-primary" id="btn-submit">등록</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag edit modal (chip-based) -->
+  <div class="modal" id="modal-tags">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content modal-narrow">
+      <h2 id="modal-tags-title">태그 편집</h2>
+      <div class="field">
+        <div id="edit-tags-mount"></div>
+        <div class="hint">Enter·쉼표로 추가 · Backspace로 마지막 삭제 · 계층은 "CV/segmentation" · 아래에서 기존 태그 클릭</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" data-close>취소</button>
+        <button class="btn-primary" id="btn-tags-save">저장</button>
       </div>
     </div>
   </div>

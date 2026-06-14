@@ -256,20 +256,92 @@
         </a>`;
     }).join('');
   }
-  // Tag edit (event-delegated)
-  grid.addEventListener('click', async (e) => {
-    const tbtn = e.target.closest('.card-tagedit');
-    if (!tbtn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const slug = tbtn.dataset.tagedit;
-    const paper = papers.find(p => p.slug === slug);
-    const cur = (paper?.tags || []).join(', ');
-    const next = await UIDialog.prompt('쉼표로 구분 · 계층은 "CV/segmentation" 처럼', {
-      title: '태그 편집', value: cur, placeholder: '예: VLM, benchmark, CV/segmentation', okLabel: '저장',
+  // ── Reusable chip-based tag input ──────────────────────────────────────
+  // Renders tags as removable colored chips + an inline field; suggests
+  // existing tags (click or autocomplete) to keep the vocabulary consistent.
+  function makeTagInput(mountEl, initial) {
+    const seen = new Set();
+    const tags = [];
+    (initial || []).forEach(t => {
+      t = (t || '').trim();
+      if (t && !seen.has(t)) { seen.add(t); tags.push(t); }
     });
-    if (next === null) return;
-    const tags = next.split(',').map(t => t.trim()).filter(Boolean);
+    const allTags = [...new Set(papers.flatMap(p => p.tags || []))]
+      .filter(Boolean).sort((a, b) => a.localeCompare(b));
+
+    mountEl.classList.add('taginput-wrap');
+    mountEl.innerHTML =
+      '<div class="taginput"><input class="taginput-field" type="text" autocomplete="off" placeholder="태그 입력 후 Enter…"></div>' +
+      '<div class="tagsugg"></div>';
+    const box = mountEl.querySelector('.taginput');
+    const field = mountEl.querySelector('.taginput-field');
+    const sugg = mountEl.querySelector('.tagsugg');
+
+    const add = (name) => {
+      name = (name || '').trim().replace(/^#/, '');
+      field.value = '';
+      if (name && !seen.has(name)) { seen.add(name); tags.push(name); renderChips(); }
+      renderSugg(); field.focus();
+    };
+    const remove = (name) => {
+      const i = tags.indexOf(name);
+      if (i >= 0) { tags.splice(i, 1); seen.delete(name); renderChips(); renderSugg(); }
+    };
+    function renderChips() {
+      box.querySelectorAll('.tag-chip').forEach(n => n.remove());
+      tags.forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.style.setProperty('--tagc', tagColor(t));
+        chip.innerHTML = `<span class="tc-name">${escapeHtml(t)}</span><button type="button" class="tc-x" title="삭제">×</button>`;
+        chip.querySelector('.tc-x').addEventListener('click', () => remove(t));
+        box.insertBefore(chip, field);
+      });
+    }
+    function renderSugg() {
+      const q = field.value.trim().toLowerCase();
+      let list = allTags.filter(t => !seen.has(t));
+      if (q) list = list.filter(t => t.toLowerCase().includes(q));
+      list = list.slice(0, 12);
+      sugg.innerHTML = list.length
+        ? '<span class="tagsugg-label">기존 태그</span>' + list.map(t =>
+            `<button type="button" class="tagsugg-item" style="--tagc:${tagColor(t)}" data-t="${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')
+        : '';
+      sugg.querySelectorAll('.tagsugg-item').forEach(b => b.addEventListener('click', () => add(b.dataset.t)));
+    }
+    field.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(field.value); }
+      else if (e.key === 'Backspace' && !field.value && tags.length) { remove(tags[tags.length - 1]); }
+    });
+    field.addEventListener('input', renderSugg);
+    box.addEventListener('mousedown', e => { if (e.target === box) { e.preventDefault(); field.focus(); } });
+    renderChips(); renderSugg();
+    return { getTags: () => [...tags], focus: () => field.focus() };
+  }
+
+  // ── Tag edit modal (chip-based) ────────────────────────────────────────
+  const tagsModal = document.getElementById('modal-tags');
+  const editTagsMount = document.getElementById('edit-tags-mount');
+  let tagEditState = null; // { slug, paper, input }
+  function openTagEditor(slug) {
+    const paper = papers.find(p => p.slug === slug);
+    if (!paper) return;
+    const titleEl = document.getElementById('modal-tags-title');
+    if (titleEl) titleEl.textContent = `태그 편집 — ${paper.title_ko || paper.title_en || slug}`.slice(0, 60);
+    const input = makeTagInput(editTagsMount, paper.tags || []);
+    tagEditState = { slug, paper, input };
+    tagsModal.setAttribute('open', '');
+    setTimeout(() => input.focus(), 80);
+  }
+  function closeTagEditor() { tagsModal.removeAttribute('open'); tagEditState = null; }
+  tagsModal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeTagEditor));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && tagsModal.hasAttribute('open')) closeTagEditor();
+  });
+  document.getElementById('btn-tags-save').addEventListener('click', async () => {
+    if (!tagEditState) return;
+    const { slug, paper, input } = tagEditState;
+    const tags = input.getTags();
     try {
       const r = await fetch(`/paper/${encodeURIComponent(slug)}/tags`, {
         method: 'PATCH',
@@ -277,13 +349,20 @@
         body: JSON.stringify({ tags }),
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
-      if (paper) paper.tags = tags;
-      renderTagTree();
-      renderCards();
-      updateClearTags();
+      paper.tags = tags;
+      closeTagEditor();
+      renderTagTree(); renderCards(); updateClearTags();
     } catch (err) {
       UIDialog.alert('태그 저장 실패: ' + (err.message || err), { title: '오류' });
     }
+  });
+  // Tag edit launcher (event-delegated on the grid)
+  grid.addEventListener('click', (e) => {
+    const tbtn = e.target.closest('.card-tagedit');
+    if (!tbtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openTagEditor(tbtn.dataset.tagedit);
   });
   // Star rating (event-delegated) — click a star to set, click the current to clear
   grid.addEventListener('click', async (e) => {
@@ -548,7 +627,9 @@
   let activeTab = 'arxiv';
   let busy = false;
 
+  let newTagInput = null;
   btnNew.addEventListener('click', () => {
+    newTagInput = makeTagInput(document.getElementById('new-tags-mount'), []);  // fresh, empty
     modal.setAttribute('open', '');
     setTimeout(() => arxivInput.focus(), 100);
   });
@@ -599,8 +680,7 @@
   async function submit() {
     if (busy) return;
     const mode = document.querySelector('input[name=mode]:checked')?.value || 'analyze';
-    const tagsInput = document.getElementById('new-tags');
-    const tags = (tagsInput?.value || '').split(',').map(t => t.trim()).filter(Boolean);
+    const tags = newTagInput ? newTagInput.getTags() : [];
 
     if (mode === 'save') {
       busy = true;
