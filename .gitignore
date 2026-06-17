@@ -12,6 +12,10 @@
 !docs/
 !docs/**
 
+# ...and the Claude Code skills (install-skills.sh source of truth)
+!skills/
+!skills/**
+
 # Standard Python
 __pycache__/
 *.py[cod]
