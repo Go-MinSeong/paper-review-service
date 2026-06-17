@@ -78,20 +78,20 @@
   <div class="modal" id="modal-new">
     <div class="modal-bg" data-close></div>
     <div class="modal-content">
-      <h2>새 paper 등록</h2>
+      <h2>새 콘텐츠 등록</h2>
       <div class="modal-mode" id="modal-mode">
         <label><input type="radio" name="mode" value="analyze" checked> 즉시 ingest (본문·figures 추출)</label>
         <label><input type="radio" name="mode" value="save"> Reading list 저장만 (PDF 아카이빙)</label>
       </div>
       <div class="modal-tabs">
-        <button class="modal-tab active" data-tab="arxiv">arXiv</button>
+        <button class="modal-tab active" data-tab="arxiv">링크</button>
         <button class="modal-tab" data-tab="pdf">PDF 업로드</button>
       </div>
       <div id="tab-arxiv">
         <div class="field">
-          <label>arXiv URL 또는 ID</label>
-          <input type="text" id="arxiv-input" placeholder="2410.24164 or https://arxiv.org/abs/...">
-          <div class="hint">arxiv.org에서 직접 받고 본문·figures 추출</div>
+          <label>링크 붙여넣기 — 논문(arXiv) · 블로그 · 웹 글</label>
+          <input type="text" id="arxiv-input" placeholder="https://… 또는 arXiv ID (예: 2410.24164)">
+          <div class="hint">종류(논문·블로그·웹글)를 자동 감지해 본문·figures를 추출합니다. 블로그·웹 글은 "즉시 ingest"를 선택하세요 (Reading list 저장은 arXiv·PDF 전용).</div>
         </div>
       </div>
       <div id="tab-pdf" style="display:none">
