@@ -49,8 +49,23 @@ Also requires the [Claude Code](https://claude.com/claude-code) CLI on your PATH
 
 ## Usage
 
+### No-terminal launch (macOS, recommended for non-developers)
+
+After the one-time install above, build a double-clickable launcher once:
+
 ```bash
-# Menubar app (recommended) — ◫ icon, click → Open Gallery
+bash install-launcher.sh --apps     # creates paper-review.app (and copies to ~/Applications)
+```
+
+Then **just double-click `paper-review.app`** — no Terminal, no commands. A ◫
+icon appears in the menubar; click it → **Open Gallery**. From the gallery you
+add content by pasting a link (paper / blog / web), review it in the chat dock,
+and publish — all in the browser. Drag the app to the Dock to keep it handy.
+
+### Commands (for development)
+
+```bash
+# Menubar app — ◫ icon, click → Open Gallery
 paper-review menubar
 
 # Or run the server directly
