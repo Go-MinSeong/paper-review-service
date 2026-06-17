@@ -24,7 +24,7 @@
 <script src="https://uicdn.toast.com/editor-plugin-color-syntax/latest/toastui-editor-plugin-color-syntax.min.js"></script>
 <link rel="stylesheet" href="/static/detail.css">
 </head>
-<body data-slug="__SLUG__" data-pdf-name="__PDF_NAME__" data-has-pdf="__HAS_PDF__" data-has-viewer="__HAS_VIEWER__" data-status="__STATUS__" data-rating="__RATING__">
+<body data-slug="__SLUG__" data-pdf-name="__PDF_NAME__" data-has-pdf="__HAS_PDF__" data-has-viewer="__HAS_VIEWER__" data-content-type="__CONTENT_TYPE__" data-status="__STATUS__" data-rating="__RATING__">
   <div class="topbar">
     <a href="/" class="back" title="목록으로">←</a>
     <span class="title">__TITLE__</span>
@@ -87,7 +87,7 @@
       <ul class="nav-list" id="nav-list"></ul>
     </aside>
     <section class="pane pdf">
-      <iframe src="/paper/__SLUG__/pdf#toolbar=0" title="PDF"></iframe>
+      <iframe src="__SOURCE_SRC__#toolbar=0" title="원문"></iframe>
     </section>
     <div class="gutter" id="gutter" title="드래그하여 좌/우 너비 조절 · 더블클릭 초기화" role="separator" aria-orientation="vertical"></div>
     <div class="wb-stack">

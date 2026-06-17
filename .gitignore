@@ -47,3 +47,6 @@ src/paper_review/server/static/characters/venom2.jpg
 src/paper_review/server/static/characters/agumon.jpg
 src/paper_review/server/static/characters/shinchan.jpg
 src/paper_review/server/static/characters/shinchan2.jpg
+
+# dev scratch (plans, review memos, temp analysis)
+dev/

@@ -10,6 +10,39 @@ from pathlib import Path
 
 from .parser import QnaItem, Section, Workbench, parse
 
+# ── Per-content-type labels ──────────────────────────────────────────────
+# The workbench structure is identical across types (review skills fill the
+# same blocks); only the surface wording differs. One label set per content_type
+# keeps publish a single code path instead of three template files.
+_LABELS = {
+    "paper": {
+        "primary_tag": "paper-review",
+        "info_heading": "논문 정보",
+        "contrib_heading": "핵심 contribution",
+        "followups_heading": "후속으로 읽을 논문",
+        "fallback_title": "Paper Review",
+    },
+    "blog": {
+        "primary_tag": "tech-review",
+        "info_heading": "글 정보",
+        "contrib_heading": "핵심 주장",
+        "followups_heading": "더 읽어볼 자료",
+        "fallback_title": "Blog Review",
+    },
+    "article": {
+        "primary_tag": "web-review",
+        "info_heading": "글 정보",
+        "contrib_heading": "핵심 포인트",
+        "followups_heading": "더 읽어볼 자료",
+        "fallback_title": "Article Review",
+    },
+}
+
+
+def _labels(wb: Workbench) -> dict:
+    ct = (wb.frontmatter.get("content_type") or "paper").strip().lower()
+    return _LABELS.get(ct, _LABELS["paper"])
+
 
 def workbench_to_draft(
     workbench_md: Path,
@@ -49,8 +82,12 @@ _MD_IMG = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 _FIG_BY_ID = re.compile(r"^/paper/[^/]+/fig/([^/?#]+)$")
 _FIG_BY_FILE = re.compile(r"^(?:/paper/[^/]+/)?figures/([^?#]+)$")
 _MIME_EXT = {
-    "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg",
-    "image/gif": "gif", "image/webp": "webp", "image/svg+xml": "svg",
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
 }
 
 
@@ -96,8 +133,9 @@ def _materialize_figures(
                 fig = fig_index.get(mi.group(1))
                 if not (fig and fig.get("data_uri")):
                     return m.group(0)
-                dm = re.match(r"data:(image/[\w.+-]+);base64,(.*)",
-                              fig["data_uri"], re.DOTALL)
+                dm = re.match(
+                    r"data:(image/[\w.+-]+);base64,(.*)", fig["data_uri"], re.DOTALL
+                )
                 if not dm:
                     return m.group(0)
                 raw = base64.b64decode(dm.group(2))
@@ -118,29 +156,31 @@ def _materialize_figures(
 
 
 def render(wb: Workbench, *, paper_dir: Path) -> str:
-    fm = _render_frontmatter(wb)
-    body = _render_body(wb, paper_dir=paper_dir)
+    labels = _labels(wb)
+    fm = _render_frontmatter(wb, labels)
+    body = _render_body(wb, paper_dir=paper_dir, labels=labels)
     return fm + "\n" + body
 
 
-def _post_title(wb: Workbench) -> str:
-    """Velog 노트 제목 — 논문 원제 사용, 너무 길면 70자에서 축약."""
+def _post_title(wb: Workbench, labels: dict) -> str:
+    """Velog 노트 제목 — 원제 사용, 너무 길면 70자에서 축약."""
     title_en = wb.frontmatter.get("title_en", "").strip()
     if title_en:
         if len(title_en) <= 70:
             return title_en
         return title_en[:67].rstrip() + "…"
-    return wb.frontmatter.get("title_ko", "").strip() or "Paper Review"
+    return wb.frontmatter.get("title_ko", "").strip() or labels["fallback_title"]
 
 
-def _render_frontmatter(wb: Workbench) -> str:
-    title = _post_title(wb)
+def _render_frontmatter(wb: Workbench, labels: dict) -> str:
+    title = _post_title(wb, labels)
     paper_url = wb.frontmatter.get("paper_url", "")
-    category = wb.frontmatter.get("category") or "paper-review"
+    primary = labels["primary_tag"]
+    category = wb.frontmatter.get("category") or primary
     started = wb.frontmatter.get("review_started", date.today().isoformat())
 
-    tags = ["paper-review"]
-    if category and category.lower() not in {"paper-review", "", "other"}:
+    tags = [primary]
+    if category and category.lower() not in {primary, "", "other"}:
         tags.append(category.lower())
 
     lines = [
@@ -148,8 +188,9 @@ def _render_frontmatter(wb: Workbench) -> str:
         f'title: "{_yaml_q(title)}"',
         f"tags: [{', '.join(tags)}]",
         "draft: true",
-        "confirm: false",   # velog publish approval gate — flip to true to publish
+        "confirm: false",  # velog publish approval gate — flip to true to publish
         "is_private: false",
+        f"content_type: {(wb.frontmatter.get('content_type') or 'paper').strip()}",
         f'paper_title: "{_yaml_q(wb.frontmatter.get("title_en", ""))}"',
         f"paper_url: {paper_url}",
         f'category: "{category}"',
@@ -160,7 +201,7 @@ def _render_frontmatter(wb: Workbench) -> str:
     return "\n".join(lines)
 
 
-def _render_body(wb: Workbench, *, paper_dir: Path) -> str:
+def _render_body(wb: Workbench, *, paper_dir: Path, labels: dict) -> str:
     parts: list[str] = []
 
     title = wb.frontmatter.get("title_ko") or wb.frontmatter.get("title_en", "")
@@ -171,11 +212,11 @@ def _render_body(wb: Workbench, *, paper_dir: Path) -> str:
     if wb.tldr and not _is_placeholder(wb.tldr):
         parts += ["## TL;DR", "", _clean(wb.tldr), ""]
 
-    parts += _render_paper_info(wb)
+    parts += _render_paper_info(wb, labels)
 
     real_contribs = [c for c in wb.contributions if c.strip()]
     if real_contribs:
-        parts += ["## 핵심 contribution", ""]
+        parts += [f"## {labels['contrib_heading']}", ""]
         for i, c in enumerate(real_contribs, 1):
             parts.append(f"{i}. {_clean(c)}")
         parts.append("")
@@ -202,7 +243,7 @@ def _render_body(wb: Workbench, *, paper_dir: Path) -> str:
             parts.append(f"**한계 / 약점**: {_clean(wb.wrap_weakness)}")
             parts.append("")
         if wb.wrap_followups:
-            parts.append("**후속으로 읽을 논문**:")
+            parts.append(f"**{labels['followups_heading']}**:")
             for f in wb.wrap_followups:
                 if f.strip():
                     parts.append(f"- {_clean(f)}")
@@ -242,7 +283,8 @@ def _render_pipelines(wb: Workbench, *, paper_dir: Path) -> list[str]:
         else:
             flow = " → ".join(
                 (s.get("label", "").replace("\n", " ").split("(")[0].strip())
-                for s in stages if s.get("label")
+                for s in stages
+                if s.get("label")
             )
             if flow:
                 out += [f"**{flow}**", ""]
@@ -254,13 +296,13 @@ def _render_pipelines(wb: Workbench, *, paper_dir: Path) -> list[str]:
     return out
 
 
-def _render_paper_info(wb: Workbench) -> list[str]:
+def _render_paper_info(wb: Workbench, labels: dict) -> list[str]:
     title_en = wb.frontmatter.get("title_en", "")
     paper_url = wb.frontmatter.get("paper_url", "")
     category = wb.frontmatter.get("category", "")
     if not (title_en or paper_url):
         return []
-    out = ["## 논문 정보", ""]
+    out = [f"## {labels['info_heading']}", ""]
     if title_en:
         out.append(f"- **원제**: {title_en}")
     if paper_url:
@@ -280,8 +322,12 @@ def _render_sections(wb: Workbench) -> list[str]:
         # heading and notes from the post.
         if not any(
             v and not _is_placeholder(v)
-            for v in (sec.user_answer, sec.summary,
-                      sec.claude_translation, sec.claude_notes)
+            for v in (
+                sec.user_answer,
+                sec.summary,
+                sec.claude_translation,
+                sec.claude_notes,
+            )
         ):
             continue
 
@@ -357,7 +403,7 @@ def _is_placeholder(text: str) -> bool:
     stripped = text.strip()
     return (
         not stripped
-        or stripped.startswith(("_(", "*("))   # italic marker, either delimiter
+        or stripped.startswith(("_(", "*("))  # italic marker, either delimiter
         or "미진행" in stripped
         or "여기에 본인 답변" in stripped
         or stripped == "<empty>"
@@ -432,10 +478,14 @@ _OPEN = r'<span style="color:\s*{c}\s*">'
 _CONTENT = r"(?:(?!</span>).)*?"
 _COLOR_TRIPLE = re.compile(
     _OPEN.format(c=r"(?P<c>[^\";]+?)") + r"(?P<a>" + _CONTENT + r")</span>"
-    r"(?P<e>" + _EMPH + r")"
-    + _OPEN.format(c=r"(?P=c)") + r"(?P<b>" + _CONTENT + r")</span>"
-    r"(?P=e)"
-    + _OPEN.format(c=r"(?P=c)"),
+    r"(?P<e>"
+    + _EMPH
+    + r")"
+    + _OPEN.format(c=r"(?P=c)")
+    + r"(?P<b>"
+    + _CONTENT
+    + r")</span>"
+    r"(?P=e)" + _OPEN.format(c=r"(?P=c)"),
     re.S,
 )
 # Adjacent same-color spans separated only by whitespace → one span.
@@ -449,8 +499,13 @@ _COLOR_WS = re.compile(
 # the markers INSIDE: `<span C>**text**</span>`, which Velog renders reliably
 # (same fix the triple-merge applies, for the simple non-fragmented case).
 _EMPH_WRAPS_SPAN = re.compile(
-    r"(?P<e>" + _EMPH + r")"
-    + _OPEN.format(c=r"(?P<c>[^\";]+?)") + r"(?P<t>" + _CONTENT + r")</span>"
+    r"(?P<e>"
+    + _EMPH
+    + r")"
+    + _OPEN.format(c=r"(?P<c>[^\";]+?)")
+    + r"(?P<t>"
+    + _CONTENT
+    + r")</span>"
     r"(?P=e)",
     re.S,
 )

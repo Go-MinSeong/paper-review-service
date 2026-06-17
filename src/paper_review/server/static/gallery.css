@@ -459,6 +459,15 @@
   .card-thumb .badge.s-in_progress { background: rgba(245,158,11,.85); }
   .card-thumb .badge.s-review_done { background: rgba(16,185,129,.85); }
   .card-thumb .badge.s-exported    { background: rgba(99,102,241,.85); }
+  .card-thumb .type-badge {
+    position: absolute; bottom: 10px; left: 10px; z-index: 2;
+    font-size: 10px; font-weight: 600; padding: 3px 8px;
+    border-radius: 999px; color: white; letter-spacing: .03em;
+    text-transform: uppercase; backdrop-filter: blur(8px);
+    background: rgba(0,0,0,.45);
+  }
+  .card-thumb .type-badge.t-blog    { background: rgba(236,72,153,.85); }
+  .card-thumb .type-badge.t-article { background: rgba(14,165,165,.85); }
   .card-del {
     position: absolute; top: 8px; left: 8px; z-index: 3;
     width: 26px; height: 26px; border-radius: 7px;

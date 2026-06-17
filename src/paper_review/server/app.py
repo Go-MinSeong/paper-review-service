@@ -134,6 +134,7 @@ def _list_papers() -> list[dict]:
         rows.append({
             "slug": d.name,
             "status": meta.get("status", read_status(wb)),
+            "content_type": meta.get("content_type", "paper"),
             "title_en": meta.get("title_en", ""),
             "title_ko": meta.get("title_ko", ""),
             "paper_url": meta.get("paper_url", ""),
@@ -209,17 +210,22 @@ def paper_detail(slug: str) -> HTMLResponse:
     d = _paper_dir(slug)
     meta = _read_frontmatter(d / "workbench.md")
     title = meta.get("title_ko") or meta.get("title_en") or slug
+    content_type = meta.get("content_type", "paper")
     has_pdf = (d / "original.pdf").exists() or any(d.glob("*.pdf"))
     pdf_name = "original.pdf" if (d / "original.pdf").exists() else next(
         (f.name for f in d.glob("*.pdf")), ""
     )
     has_viewer = (d / "viewer.html").exists()
+    # Left pane source: PDF for papers, rendered original text for web content.
+    source_src = f"/paper/{slug}/pdf" if has_pdf else f"/paper/{slug}/source"
     html = _render_template(
         "detail",
         SLUG=slug,
         TITLE=title,
         STATUS=meta.get("status", "?"),
         RATING=str(meta.get("rating") or "0"),
+        CONTENT_TYPE=content_type,
+        SOURCE_SRC=source_src,
         PDF_NAME=pdf_name,
         HAS_PDF="true" if has_pdf else "false",
         HAS_VIEWER="true" if has_viewer else "false",
@@ -271,6 +277,28 @@ def paper_viewer(slug: str) -> HTMLResponse:
     if not v.exists():
         raise HTTPException(404)
     return HTMLResponse(v.read_text())
+
+@app.get("/paper/{slug}/source.md", response_class=PlainTextResponse)
+def paper_source_md(slug: str) -> PlainTextResponse:
+    """Raw original body (markdown for web content / plain text for papers)."""
+    d = _paper_dir(slug)
+    src = next(iter(d.glob("*_source.txt")), None)
+    if not src or not src.exists():
+        raise HTTPException(404, "no source")
+    return PlainTextResponse(src.read_text(), media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/paper/{slug}/source", response_class=HTMLResponse)
+def paper_source(slug: str) -> HTMLResponse:
+    """Rendered original body — the left-pane 'PDF replacement' for web content."""
+    d = _paper_dir(slug)
+    if not next(iter(d.glob("*_source.txt")), None):
+        raise HTTPException(404, "no source")
+    meta = _read_frontmatter(d / "workbench.md")
+    title = meta.get("title_ko") or meta.get("title_en") or slug
+    html = _render_template("source", SLUG=slug, TITLE=title)
+    return HTMLResponse(html)
+
 
 @app.get("/paper/{slug}/figures/{name}")
 def paper_figure(slug: str, name: str) -> FileResponse:

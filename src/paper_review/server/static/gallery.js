@@ -234,6 +234,7 @@
           <div class="card-thumb char-bg-${ci}">
             <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
+            ${p.content_type && p.content_type !== 'paper' ? `<span class="type-badge t-${escapeHtml(p.content_type)}">${escapeHtml(p.content_type)}</span>` : ''}
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}

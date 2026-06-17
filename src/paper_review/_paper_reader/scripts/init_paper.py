@@ -202,6 +202,7 @@ def main():
             "venue": "",
             "year": int(fetched.get("published", "")[:4]) if fetched.get("published", "")[:4].isdigit() else None,
             "category": "",
+            "content_type": "paper",
             "arxiv_id": arxiv_id,
             "url": f"https://arxiv.org/abs/{arxiv_id}" if arxiv_id else "",
             "github_url": "",

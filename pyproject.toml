@@ -13,6 +13,7 @@ dependencies = [
     "pillow>=10.0",
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
+    "trafilatura>=2.0",
     "pypdf>=4.0",
     "pypdfium2>=4.0",
     "python-multipart>=0.0.9",

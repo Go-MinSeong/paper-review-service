@@ -38,13 +38,15 @@ def render_initial(paper_dir: Path, slug: str) -> str:
 
     title_en = meta.get("title", "(untitled)")
     title_ko = meta.get("title_ko", "")
-    paper_url = meta.get("url", "")
+    paper_url = meta.get("url", "") or meta.get("source_url", "")
     category = meta.get("category", "")
+    content_type = meta.get("content_type", "paper")
     today = date.today().isoformat()
 
     fm = [
         "---",
         f"slug: {slug}",
+        f"content_type: {content_type}",
         f'title_en: "{_escape_yaml(title_en)}"',
         f'title_ko: "{_escape_yaml(title_ko)}"',
         f"paper_url: {paper_url}",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -20,18 +21,55 @@ def main() -> None:
     """Local paper review service — ingest, review with Claude, publish to Velog."""
 
 
+_ARXIV_RE = re.compile(
+    r"(?:arxiv\.org|^\d{4}\.\d{4,5}(?:v\d+)?$|^[a-z\-]+/\d{7}$)", re.I
+)
+
+
+def _source_kind(source: str) -> str:
+    """Classify an init SOURCE → 'pdf' | 'arxiv' | 'web'."""
+    if source.lower().endswith(".pdf"):
+        return "pdf"
+    if _ARXIV_RE.search(source):
+        return "arxiv"
+    if source.lower().startswith(("http://", "https://")):
+        return "web"
+    return "arxiv"  # bare token → assume arxiv id (legacy behavior)
+
+
 @main.command()
 @click.argument("source")
-@click.option("--out-dir", type=click.Path(path_type=Path),
-              help="Override service root for this paper (default: ~/Projects/paper-review-service/<slug>/).")
-@click.option("--no-figures", is_flag=True, help="Skip figure extraction.")
-@click.option("--no-install-agents", is_flag=True,
-              help="Skip installing paper-translator / github-investigator subagents.")
-@click.option("--force", "-f", is_flag=True, help="Overwrite existing folder without prompt.")
-def init(source: str, out_dir: Path | None, no_figures: bool,
-         no_install_agents: bool, force: bool) -> None:
-    """Ingest a paper. SOURCE = arxiv ID, arxiv URL, or local PDF path."""
-    is_pdf = source.lower().endswith(".pdf")
+@click.option(
+    "--out-dir",
+    type=click.Path(path_type=Path),
+    help="Override service root for this item (default: ~/Projects/paper-review-service/<slug>/).",
+)
+@click.option("--no-figures", is_flag=True, help="Skip figure/image extraction.")
+@click.option(
+    "--content-type",
+    type=click.Choice(["blog", "article", "auto"]),
+    default="auto",
+    help="Web content type (web sources only; default auto-detect).",
+)
+@click.option(
+    "--no-install-agents",
+    is_flag=True,
+    help="Skip installing paper-translator / github-investigator subagents.",
+)
+@click.option(
+    "--force", "-f", is_flag=True, help="Overwrite existing folder without prompt."
+)
+def init(
+    source: str,
+    out_dir: Path | None,
+    no_figures: bool,
+    content_type: str,
+    no_install_agents: bool,
+    force: bool,
+) -> None:
+    """Ingest content. SOURCE = arxiv ID/URL, local PDF path, or web page URL."""
+    kind = _source_kind(source)
+    is_pdf = kind == "pdf"
     if is_pdf and not Path(source).exists():
         raise click.ClickException(f"PDF not found: {source}")
 
@@ -41,8 +79,14 @@ def init(source: str, out_dir: Path | None, no_figures: bool,
         shutil.rmtree(staging)
     staging.mkdir()
 
-    click.secho("→ init_paper.py …", fg="cyan")
-    paper = runner.init_paper(source, staging, is_pdf=is_pdf)
+    if kind == "web":
+        click.secho("→ fetch_web.py …", fg="cyan")
+        paper = runner.init_web(
+            source, staging, content_type=content_type, no_images=no_figures
+        )
+    else:
+        click.secho("→ init_paper.py …", fg="cyan")
+        paper = runner.init_paper(source, staging, is_pdf=is_pdf)
     slug = paper["metadata"].get("slug") or runner._find_slug(staging)
 
     final_dir = out_dir or (SERVICE_ROOT / slug)
@@ -71,7 +115,10 @@ def init(source: str, out_dir: Path | None, no_figures: bool,
         if figs_path:
             click.secho(f"   figures.json: {figs_path.name}", dim=True)
         else:
-            click.secho("   (no figures extracted — paper may be non-arXiv or ar5iv missing)", fg="yellow")
+            click.secho(
+                "   (no figures extracted — paper may be non-arXiv or ar5iv missing)",
+                fg="yellow",
+            )
 
     click.secho("→ writing workbench.md skeleton …", fg="cyan")
     (final_dir / "workbench.md").write_text(render_initial(final_dir, slug))
@@ -79,7 +126,9 @@ def init(source: str, out_dir: Path | None, no_figures: bool,
     click.secho("→ build_html.py (viewer) …", fg="cyan")
     try:
         runner.build_viewer(
-            paper_json, final_dir / "viewer.html", skip_validate=True,
+            paper_json,
+            final_dir / "viewer.html",
+            skip_validate=True,
         )
     except RuntimeError as e:
         click.secho(f"   viewer build failed (will retry later): {e}", fg="yellow")
@@ -142,22 +191,24 @@ def serve(host: str, port: int) -> None:
     try:
         import uvicorn
     except ImportError:
-        raise click.ClickException(
-            "uvicorn not installed. Run: uv pip install -e ."
-        )
+        raise click.ClickException("uvicorn not installed. Run: uv pip install -e .")
     click.secho(f"→ paper-review serve on http://{host}:{port}", fg="cyan")
     uvicorn.run("paper_review.server.app:app", host=host, port=port, reload=False)
 
 
 @main.command()
 @click.option("--port", default=DEFAULT_PORT, type=int)
-@click.option("--auto-open/--no-auto-open", default=False,
-              help="Open the gallery in browser when the server starts.")
+@click.option(
+    "--auto-open/--no-auto-open",
+    default=False,
+    help="Open the gallery in browser when the server starts.",
+)
 def menubar(port: int, auto_open: bool) -> None:
     """Run the macOS menubar app (server + click-to-open gallery)."""
     if sys.platform != "darwin":
         raise click.ClickException("menubar mode is macOS-only.")
     from .menubar import PaperReviewMenubarApp
+
     PaperReviewMenubarApp(port=port, auto_open=auto_open).run()
 
 

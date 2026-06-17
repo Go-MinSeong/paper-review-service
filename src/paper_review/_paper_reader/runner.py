@@ -36,6 +36,26 @@ def init_paper(
     return json.loads(paper_path.read_text())
 
 
+def init_web(
+    url: str,
+    out_dir: Path,
+    *,
+    content_type: str = "auto",
+    no_images: bool = False,
+) -> dict:
+    """Run fetch_web.py (web page → same source/sections/paper/figures layout).
+    Returns parsed paper.json after init."""
+    args = [url, "--out-dir", str(out_dir), "--content-type", content_type]
+    if no_images:
+        args.append("--no-images")
+    res = _run("fetch_web.py", *args)
+    if res.returncode != 0:
+        raise RuntimeError(f"fetch_web failed:\n{res.stderr}")
+    slug = _find_slug(out_dir)
+    paper_path = out_dir / f"{slug}_paper.json"
+    return json.loads(paper_path.read_text())
+
+
 def fetch_figures(
     arxiv_id: str,
     out_dir: Path,
