@@ -36,13 +36,29 @@ arXiv/PDF ──► ingest ──► review (with Claude) ──► publish ─�
 
 ## Install
 
+### Easiest (macOS, no commands)
+
+1. Download this repo: green **Code** button → **Download ZIP** → unzip.
+2. Double-click **`setup.command`** inside the folder. It installs everything
+   and builds the launcher app. (First time, Gatekeeper may block it —
+   right-click `setup.command` → **Open** → **Open**.)
+3. Double-click **`paper-review.app`** to start.
+
+`setup.command` installs [`uv`](https://github.com/astral-sh/uv) if missing,
+sets up the environment, links the skills, and builds the launcher.
+You still need the [Claude Code](https://claude.com/claude-code) CLI installed
+and signed in for the review/chat step — `setup.command` tells you if it's missing.
+
+### Manual (developers)
+
 Requires Python ≥ 3.10 and [`uv`](https://github.com/astral-sh/uv). macOS for the menubar app.
 
 ```bash
 git clone https://github.com/Go-MinSeong/paper-review-service.git ~/Projects/paper-review-service
 cd ~/Projects/paper-review-service
 uv venv && uv pip install -e .
-bash install-skills.sh        # symlink the 3 skills into ~/.claude/skills/
+bash install-skills.sh        # symlink skills into ~/.claude/skills/
+bash install-launcher.sh      # optional: build the double-click launcher app
 ```
 
 Also requires the [Claude Code](https://claude.com/claude-code) CLI on your PATH (used for analysis and chat).

@@ -37,9 +37,14 @@ echo "✓ built $APP"
 
 if [[ "${1:-}" == "--apps" ]]; then
   dest="$HOME/Applications/paper-review.app"
-  rm -rf "$dest"
-  cp -R "$APP" "$dest"
-  echo "✓ copied to $dest"
+  # Non-fatal: ~/Applications may be missing or not user-writable. The repo
+  # app already works; the copy is just for convenience.
+  if mkdir -p "$HOME/Applications" 2>/dev/null && rm -rf "$dest" 2>/dev/null \
+     && cp -R "$APP" "$dest" 2>/dev/null; then
+    echo "✓ copied to $dest"
+  else
+    echo "! couldn't copy to ~/Applications (not writable) — drag $APP there yourself."
+  fi
 fi
 
 echo ""
