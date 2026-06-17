@@ -20,7 +20,12 @@ from .. import SERVICE_ROOT
 from ..workbench import read_status
 from pydantic import BaseModel
 
-from .analyze import AnalyzeBody, cancel as cancel_analysis, get_status as get_analysis_status, start_analysis
+from .analyze import (
+    AnalyzeBody,
+    cancel as cancel_analysis,
+    get_status as get_analysis_status,
+    start_analysis,
+)
 from .chat import ChatBody, chat_route
 from .ingest import StartIngestBody, get_job, start_arxiv_job, start_pdf_job
 from .save import SaveBody, save_paper, save_pdf_paper
@@ -52,6 +57,7 @@ def _render_template(name: str, **subs: str) -> str:
         text = text.replace(f"__{key}__", val)
     return text
 
+
 def _paper_dir(slug: str) -> Path:
     safe = slug.strip()
     if not safe or "/" in safe or safe.startswith("."):
@@ -76,6 +82,7 @@ def _load_views() -> dict:
 
 def _mark_viewed(slug: str) -> None:
     import time
+
     views = _load_views()
     views[slug] = int(time.time())
     try:
@@ -88,6 +95,7 @@ def _published_ym(slug: str, paper_dir: Path) -> int:
     """Approx publication date as a sortable int YYYYMM (e.g. 202406).
     arXiv IDs encode YYMM (2406.09246 → 2024-06); fall back to paper.json year."""
     import re as _re
+
     m = _re.match(r"^(\d{2})(\d{2})\.\d{4,5}", slug)
     if m:
         mm = int(m.group(2))
@@ -108,7 +116,9 @@ def _list_papers() -> list[dict]:
         return []
     views = _load_views()
     rows: list[dict] = []
-    for d in sorted(SERVICE_ROOT.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+    for d in sorted(
+        SERVICE_ROOT.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True
+    ):
         if not d.is_dir() or d.name.startswith((".", "_")):
             continue
         wb = d / "workbench.md"
@@ -127,36 +137,47 @@ def _list_papers() -> list[dict]:
         if fig_files:
             try:
                 data = json.loads(fig_files[0].read_text())
-                fig_count = len(data) if isinstance(data, list) else len(data.get("figures", []))
+                fig_count = (
+                    len(data)
+                    if isinstance(data, list)
+                    else len(data.get("figures", []))
+                )
             except Exception:
                 pass
         from .tags import _parse_tags_value
-        rows.append({
-            "slug": d.name,
-            "status": meta.get("status", read_status(wb)),
-            "content_type": meta.get("content_type", "paper"),
-            "title_en": meta.get("title_en", ""),
-            "title_ko": meta.get("title_ko", ""),
-            "paper_url": meta.get("paper_url", ""),
-            "category": meta.get("category", ""),
-            "review_started": meta.get("review_started", ""),
-            "sections_total": total,
-            "sections_done": done,
-            "figures_count": fig_count,
-            "tags": _parse_tags_value(meta.get("tags", "")),
-            "rating": rating,
-            "updated_at": int(wb.stat().st_mtime),
-            "created_at": int(getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime),
-            "published_ym": _published_ym(d.name, d),
-            "last_viewed": int(views.get(d.name, 0)),
-        })
+
+        rows.append(
+            {
+                "slug": d.name,
+                "status": meta.get("status", read_status(wb)),
+                "content_type": meta.get("content_type", "paper"),
+                "title_en": meta.get("title_en", ""),
+                "title_ko": meta.get("title_ko", ""),
+                "paper_url": meta.get("paper_url", ""),
+                "category": meta.get("category", ""),
+                "review_started": meta.get("review_started", ""),
+                "sections_total": total,
+                "sections_done": done,
+                "figures_count": fig_count,
+                "tags": _parse_tags_value(meta.get("tags", "")),
+                "rating": rating,
+                "updated_at": int(wb.stat().st_mtime),
+                "created_at": int(
+                    getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime
+                ),
+                "published_ym": _published_ym(d.name, d),
+                "last_viewed": int(views.get(d.name, 0)),
+            }
+        )
     return rows
+
 
 def _sections_block(workbench_md: str) -> "str | None":
     """The body between '## 섹션별 리뷰' and the next known H2 (Q&A/Wrap-up/메타/
     정리). Bounding by an explicit H2 avoids breaking when a section's translated
     body contains a line starting with '## '."""
     import re
+
     start_m = re.search(r"##\s+섹션별 리뷰\s*\n", workbench_md)
     if not start_m:
         return None
@@ -168,6 +189,7 @@ def _sections_block(workbench_md: str) -> "str | None":
 
 def _section_progress(workbench_md: str) -> tuple[int, int]:
     import re
+
     body = _sections_block(workbench_md)
     if body is None:
         return 0, 0
@@ -181,6 +203,7 @@ def _section_progress(workbench_md: str) -> tuple[int, int]:
         if "(미진행" not in chunk:
             done += 1
     return total, done
+
 
 def _read_frontmatter(workbench_md: Path) -> dict:
     text = workbench_md.read_text()
@@ -197,6 +220,7 @@ def _read_frontmatter(workbench_md: Path) -> dict:
         out[k.strip()] = v.strip().strip('"')
     return out
 
+
 @app.get("/", response_class=HTMLResponse)
 def gallery() -> HTMLResponse:
     rows = _list_papers()
@@ -212,8 +236,10 @@ def paper_detail(slug: str) -> HTMLResponse:
     title = meta.get("title_ko") or meta.get("title_en") or slug
     content_type = meta.get("content_type", "paper")
     has_pdf = (d / "original.pdf").exists() or any(d.glob("*.pdf"))
-    pdf_name = "original.pdf" if (d / "original.pdf").exists() else next(
-        (f.name for f in d.glob("*.pdf")), ""
+    pdf_name = (
+        "original.pdf"
+        if (d / "original.pdf").exists()
+        else next((f.name for f in d.glob("*.pdf")), "")
     )
     has_viewer = (d / "viewer.html").exists()
     # Left pane source: PDF for papers, rendered original text for web content.
@@ -232,6 +258,7 @@ def paper_detail(slug: str) -> HTMLResponse:
     )
     return HTMLResponse(html)
 
+
 @app.get("/paper/{slug}/workbench.md", response_class=PlainTextResponse)
 def workbench_raw(slug: str) -> PlainTextResponse:
     wb = _paper_dir(slug) / "workbench.md"
@@ -239,9 +266,11 @@ def workbench_raw(slug: str) -> PlainTextResponse:
         raise HTTPException(404)
     return PlainTextResponse(wb.read_text(), media_type="text/markdown; charset=utf-8")
 
+
 class WorkbenchPut(BaseModel):
     text: str
     expected_mtime: float | None = None  # for optimistic concurrency
+
 
 @app.put("/paper/{slug}/workbench.md")
 def workbench_put(slug: str, body: WorkbenchPut):
@@ -254,11 +283,15 @@ def workbench_put(slug: str, body: WorkbenchPut):
         if abs(current - body.expected_mtime) > 1.0:
             raise HTTPException(
                 409,
-                detail={"error": "modified", "current_mtime": current,
-                        "expected_mtime": body.expected_mtime},
+                detail={
+                    "error": "modified",
+                    "current_mtime": current,
+                    "expected_mtime": body.expected_mtime,
+                },
             )
     wb.write_text(body.text)
     return {"ok": True, "mtime": wb.stat().st_mtime, "size": len(body.text)}
+
 
 @app.get("/paper/{slug}/pdf")
 def paper_pdf(slug: str) -> FileResponse:
@@ -271,12 +304,14 @@ def paper_pdf(slug: str) -> FileResponse:
         pdf = candidates[0]
     return FileResponse(pdf, media_type="application/pdf")
 
+
 @app.get("/paper/{slug}/viewer.html", response_class=HTMLResponse)
 def paper_viewer(slug: str) -> HTMLResponse:
     v = _paper_dir(slug) / "viewer.html"
     if not v.exists():
         raise HTTPException(404)
     return HTMLResponse(v.read_text())
+
 
 @app.get("/paper/{slug}/source.md", response_class=PlainTextResponse)
 def paper_source_md(slug: str) -> PlainTextResponse:
@@ -309,6 +344,7 @@ def paper_figure(slug: str, name: str) -> FileResponse:
         raise HTTPException(404)
     return FileResponse(p)
 
+
 @app.get("/paper/{slug}/fig/{fig_id}")
 def paper_fig_by_id(slug: str, fig_id: str):
     """Serve a single figure by id, decoding its base64 data_uri to bytes.
@@ -317,6 +353,7 @@ def paper_fig_by_id(slug: str, fig_id: str):
     import base64
     import re as _re
     from fastapi.responses import Response
+
     d = _paper_dir(slug)
     figs = list(d.glob("*_figures.json"))
     if not figs:
@@ -363,7 +400,8 @@ async def set_fig_image(slug: str, fig_id: str, request: Request):
 async def set_pipeline_image(slug: str, request: Request):
     """Store an exported pipeline GIF (data URI) as figure `pipe<n>` so publish
     materializes it like any figure. Body: {"index": 1, "data_uri": "data:image/gif;base64,..."}.
-    Creates the figures.json sidecar / entry if needed (pipelines aren't ar5iv figures)."""
+    Creates the figures.json sidecar / entry if needed (pipelines aren't ar5iv figures).
+    """
     body = await request.json()
     data_uri = (body or {}).get("data_uri", "")
     try:
@@ -380,7 +418,12 @@ async def set_pipeline_image(slug: str, request: Request):
     fig_id = f"pipe{max(1, index)}"
     fig = next((f for f in items if f.get("id") == fig_id), None)
     if fig is None:
-        fig = {"id": fig_id, "label": f"Pipeline {index}", "kind": "image", "source": "pipeline"}
+        fig = {
+            "id": fig_id,
+            "label": f"Pipeline {index}",
+            "kind": "image",
+            "source": "pipeline",
+        }
         items.append(fig)
     fig["data_uri"] = data_uri
     fig["kind"] = "image"
@@ -402,6 +445,7 @@ def paper_figures_json(slug: str) -> JSONResponse:
         return JSONResponse([])
     return JSONResponse(json.loads(figs[0].read_text()))
 
+
 @app.get("/paper/{slug}/meta")
 def paper_meta(slug: str) -> JSONResponse:
     d = _paper_dir(slug)
@@ -410,18 +454,25 @@ def paper_meta(slug: str) -> JSONResponse:
     figs_count = 0
     if figs_files:
         data = json.loads(figs_files[0].read_text())
-        figs_count = len(data) if isinstance(data, list) else len(data.get("figures", []))
-    return JSONResponse({
-        "slug": slug,
-        "frontmatter": meta,
-        "figures_count": figs_count,
-    })
+        figs_count = (
+            len(data) if isinstance(data, list) else len(data.get("figures", []))
+        )
+    return JSONResponse(
+        {
+            "slug": slug,
+            "frontmatter": meta,
+            "figures_count": figs_count,
+        }
+    )
+
 
 app.post("/paper/{slug}/chat")(chat_route(_paper_dir))
+
 
 @app.post("/papers")
 async def papers_create_arxiv(body: StartIngestBody):
     return await start_arxiv_job(body)
+
 
 @app.post("/papers/upload")
 async def papers_create_pdf(file: UploadFile):
@@ -450,10 +501,12 @@ def paper_delete(slug: str):
     """Delete a paper's working directory (irreversible). Cancels any running
     analyze job for it first."""
     import shutil
+
     d = _paper_dir(slug)  # validates existence
     # Best-effort cancel of an in-flight analyze job
     try:
         from .analyze import _jobs as _analyze_jobs
+
         job = _analyze_jobs.get(slug)
         if job and job.status == "running":
             job.cancel_event.set()
@@ -468,6 +521,7 @@ async def papers_promote(slug: str):
     """Promote a to_read paper to full ingest (body + figures + sections).
     Preserves user-added tags / category."""
     from .ingest import _jobs as _ingest_jobs
+
     d = _paper_dir(slug)
     wb = d / "workbench.md"
     if not wb.exists():
@@ -477,6 +531,7 @@ async def papers_promote(slug: str):
         raise HTTPException(400, "paper is already ingested (status != to_read)")
     # Snapshot preserve fields
     from .tags import _parse_tags_value
+
     preserve = {}
     if fm.get("tags"):
         preserve["tags"] = _parse_tags_value(fm["tags"])
@@ -494,6 +549,7 @@ async def papers_promote(slug: str):
         import shutil
         import uuid as _uuid
         from .ingest import start_local_pdf_job, _TMP_UPLOADS
+
         _TMP_UPLOADS.mkdir(parents=True, exist_ok=True)
         tmp = _TMP_UPLOADS / f"{_uuid.uuid4().hex[:8]}_{slug}.pdf"
         shutil.copy(pdf, tmp)
@@ -547,6 +603,7 @@ def mark_viewed(slug: str):
     _mark_viewed(slug)
     return {"ok": True}
 
+
 @app.get("/papers/jobs/{job_id}")
 def papers_job(job_id: str):
     return get_job(job_id)
@@ -556,26 +613,36 @@ def papers_job(job_id: str):
 def papers_active_jobs():
     """List slugs with currently running analyze jobs (for gallery indicator)."""
     from .analyze import _jobs
+
     return [
-        {"slug": j.slug, "current": j.current, "total": j.total,
-         "current_heading": j.current_heading}
-        for j in _jobs.values() if j.status == "running"
+        {
+            "slug": j.slug,
+            "current": j.current,
+            "total": j.total,
+            "current_heading": j.current_heading,
+        }
+        for j in _jobs.values()
+        if j.status == "running"
     ]
+
 
 @app.post("/paper/{slug}/analyze")
 async def paper_analyze(slug: str, body: AnalyzeBody):
     d = _paper_dir(slug)
     return await start_analysis(slug, d, body)
 
+
 @app.get("/paper/{slug}/analyze/status")
 def paper_analyze_status(slug: str):
     _paper_dir(slug)  # validate
     return get_analysis_status(slug)
 
+
 @app.get("/paper/{slug}/analyze/preview")
 def paper_analyze_preview(slug: str):
     """Estimate pending sections + cost/time before triggering analyze."""
     from .analyze import _parse_unfinished_sections, _needs_prelude
+
     d = _paper_dir(slug)
     wb = d / "workbench.md"
     if not wb.exists():
@@ -594,6 +661,7 @@ def paper_analyze_preview(slug: str):
         "estimated_cost_usd": round(est_cost, 2),
     }
 
+
 @app.post("/paper/{slug}/analyze/cancel")
 def paper_analyze_cancel(slug: str):
     _paper_dir(slug)
@@ -608,6 +676,7 @@ class GenQBody(BaseModel):
 async def paper_generate_questions(slug: str, body: GenQBody):
     """Generate probing Q&A questions for the analyzed sections (on demand)."""
     from .analyze import generate_questions
+
     d = _paper_dir(slug)
     return await generate_questions(d, body.model)
 
@@ -616,8 +685,10 @@ async def paper_generate_questions(slug: str, body: GenQBody):
 async def paper_generate_pipeline(slug: str, body: GenQBody):
     """Auto-generate the ```pipeline animation spec from the paper (on demand)."""
     from .analyze import generate_pipeline
+
     d = _paper_dir(slug)
     return await generate_pipeline(d, body.model)
+
 
 @app.post("/paper/{slug}/publish")
 def paper_publish(slug: str):
@@ -638,6 +709,7 @@ def paper_publish(slug: str):
     if new_text != text:
         wb.write_text(new_text)
     return {"ok": True, "draft_path": str(dest), "size": dest.stat().st_size}
+
 
 @app.get("/paper/{slug}/events")
 async def paper_events(slug: str, request: Request) -> StreamingResponse:

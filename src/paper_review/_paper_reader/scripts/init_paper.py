@@ -35,6 +35,7 @@ Output: stdout JSON with the paths and a brief summary:
         "warnings": [...]
     }
 """
+
 import sys
 import os
 import json
@@ -42,15 +43,19 @@ import re
 import argparse
 import subprocess
 
-
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_fetch_arxiv(args_list, out_dir):
     """Call fetch_arxiv.py and return parsed JSON."""
-    cmd = [sys.executable, os.path.join(SCRIPT_DIR, "fetch_arxiv.py")] + args_list + [
-        "--out-dir", out_dir,
-    ]
+    cmd = (
+        [sys.executable, os.path.join(SCRIPT_DIR, "fetch_arxiv.py")]
+        + args_list
+        + [
+            "--out-dir",
+            out_dir,
+        ]
+    )
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)
@@ -61,7 +66,9 @@ def run_fetch_arxiv(args_list, out_dir):
 # Metric / unit tokens that mark a number-led line as DATA, not a heading
 # (case-sensitive so "AP" doesn't match "Application"): "40.6 AP", "5.2 GFLOPs",
 # "50 APval", "... 10 epochs".
-_METRIC_RE = re.compile(r"\b(?:[mM]?AP\w*|AR\w*|G?FLOPs?|TFLOPs?|params?|epochs?|fps|mIoU|IoU)\b")
+_METRIC_RE = re.compile(
+    r"\b(?:[mM]?AP\w*|AR\w*|G?FLOPs?|TFLOPs?|params?|epochs?|fps|mIoU|IoU)\b"
+)
 
 
 def _is_real_numbered_heading(top, rest):
@@ -71,15 +78,17 @@ def _is_real_numbered_heading(top, rest):
     bullets ("1. A DFL-free … architecture") and wrapped sentence fragments."""
     rest = rest.strip()
     if not rest or not rest[0].isupper():
-        return False                      # headings start with a capital word
+        return False  # headings start with a capital word
     if top == 0 or top > 20:
-        return False                      # real top-level sections are 1..~20; 40.6/2024/50 are values/years
+        return (
+            False  # real top-level sections are 1..~20; 40.6/2024/50 are values/years
+        )
     if rest.endswith("-") or rest.endswith(","):
-        return False                      # hyphenated continuation / mid-sentence clause
+        return False  # hyphenated continuation / mid-sentence clause
     if re.match(r"^(A|An|The)\s", rest):
-        return False                      # article-led → contribution bullet / sentence, not a title
+        return False  # article-led → contribution bullet / sentence, not a title
     if _METRIC_RE.search(rest):
-        return False                      # carries a metric/unit → a result line, not a heading
+        return False  # carries a metric/unit → a result line, not a heading
     return True
 
 
@@ -200,7 +209,11 @@ def main():
             "title_ko": "",
             "authors": fetched.get("authors", []),
             "venue": "",
-            "year": int(fetched.get("published", "")[:4]) if fetched.get("published", "")[:4].isdigit() else None,
+            "year": (
+                int(fetched.get("published", "")[:4])
+                if fetched.get("published", "")[:4].isdigit()
+                else None
+            ),
             "category": "",
             "content_type": "paper",
             "arxiv_id": arxiv_id,

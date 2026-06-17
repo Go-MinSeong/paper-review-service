@@ -67,11 +67,16 @@ def fetch_figures(
     """Run fetch_figures.py. Returns path to figures.json if produced."""
     args = [
         arxiv_id,
-        "--out-dir", str(out_dir),
-        "--max-width", str(max_width),
-        "--jpeg-quality", str(jpeg_quality),
-        "--source-text", str(out_dir / f"{slug}_source.txt"),
-        "--sections-index", str(out_dir / f"{slug}_sections.txt"),
+        "--out-dir",
+        str(out_dir),
+        "--max-width",
+        str(max_width),
+        "--jpeg-quality",
+        str(jpeg_quality),
+        "--source-text",
+        str(out_dir / f"{slug}_source.txt"),
+        "--sections-index",
+        str(out_dir / f"{slug}_sections.txt"),
     ]
     res = _run("fetch_figures.py", *args, check=False)
     figs_path = out_dir / f"{slug}_figures.json"
@@ -98,12 +103,17 @@ def add_section(
         raise RuntimeError(f"add_section failed:\n{res.stderr}")
 
 
-def build_viewer(paper_json: Path, out_html: Path, *, skip_validate: bool = False) -> None:
+def build_viewer(
+    paper_json: Path, out_html: Path, *, skip_validate: bool = False
+) -> None:
     """Run build_html.py to produce viewer.html."""
     args = [
-        "--data", str(paper_json),
-        "--template", str(VIEWER_TEMPLATE),
-        "--out", str(out_html),
+        "--data",
+        str(paper_json),
+        "--template",
+        str(VIEWER_TEMPLATE),
+        "--out",
+        str(out_html),
     ]
     if skip_validate:
         args.append("--skip-validate")
@@ -117,6 +127,7 @@ def build_viewer(paper_json: Path, out_html: Path, *, skip_validate: bool = Fals
 def install_subagents() -> list[str]:
     """Copy paper-translator + github-investigator into ~/.claude/agents/."""
     from . import AGENTS_DIR
+
     dest = Path.home() / ".claude" / "agents"
     dest.mkdir(parents=True, exist_ok=True)
     installed: list[str] = []
