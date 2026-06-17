@@ -4,6 +4,12 @@ A local-first service for **collaborative paper review** — ingest a paper, rea
 
 > Built on top of the `paper-reader` translation engine. Connects to a Velog/Obsidian vault only at the publish step.
 
+> 🚧 **Expanding (experimental).** The same review workflow is being extended
+> beyond academic papers to **engineering/release blogs and general web
+> articles** — paste a link and review it section-by-section just like a paper.
+> See [Beyond papers](#beyond-papers-experimental) below. The paper workflow
+> documented here is the stable path.
+
 ## Screenshots
 
 **Gallery** — reading list + dashboard (weekly-activity heatmap, KPIs, status funnel), color-coded hierarchical tags, star ratings, grid/list views.
@@ -58,6 +64,26 @@ paper-review export-draft <slug>     # workbench → Velog draft
 
 Everything else (registering papers, analyzing, tagging, reviewing, publishing) happens in the browser UI.
 
+## Beyond papers (experimental)
+
+The ingest → review → publish pipeline is content-type aware, so the same flow
+now handles web content in addition to papers:
+
+| Type | Examples | Review skill |
+|---|---|---|
+| `paper` | arXiv / PDF (stable) | `paper-review` |
+| `blog` | vLLM / PyTorch / company engineering & release posts | `blog-review` |
+| `article` | news, op-eds, product / tech reviews, general web pages | `article-review` |
+
+```bash
+paper-review init https://some-blog.example/post   # auto-detects blog vs article
+```
+
+The source kind is detected automatically (arXiv ID/URL · PDF · web URL); web
+content is classified as `blog` or `article` and reviewed with a matching
+rubric (claims & tradeoffs for blogs, critical reading for articles). This path
+is still being polished — the paper workflow above is the stable one.
+
 ## Voice samples
 
 `paper-publish` matches your writing tone using markdown samples in
@@ -86,13 +112,17 @@ See [`DESIGN.md`](./DESIGN.md) for the full design rationale and locked decision
 
 ## Skills
 
-Three Claude Code skills live in [`skills/`](./skills/):
+Claude Code skills live in [`skills/`](./skills/). The core paper trio:
 
 | Skill | Role |
 |---|---|
-| `paper-ingest` | arXiv/PDF → workbench skeleton + figures + viewer |
+| `paper-ingest` | arXiv/PDF (or web URL) → workbench skeleton + figures + viewer |
 | `paper-review` | section-by-section interactive review (`/next-section`, `/explain`, `/finalize`) |
 | `paper-publish` | workbench → Velog draft (kimjy99 structure + your voice) |
+
+Plus two experimental review skills for web content — `blog-review` and
+`article-review` — which share the same mechanics as `paper-review` (see
+[Beyond papers](#beyond-papers-experimental)).
 
 `bash install-skills.sh` symlinks them into `~/.claude/skills/` so the repo stays
 the source of truth (edits are live). Pass `--copy` to copy instead of symlink.
