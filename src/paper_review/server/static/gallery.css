@@ -716,6 +716,43 @@
     --text-primary: #1d1d1f; --text-secondary: #333333; --text-muted: #7a7a7a;
     --accent: #0066cc; --accent-hover: #0071e3;
   }
+  /* Brand-referenced themes (getdesign.md) — see ~/Documents/design/themes/ */
+  body[data-theme="stripe"] {
+    --bg-canvas: #ffffff; --bg-surface: #f6f8fb; --bg-elevated: #ffffff;
+    --bg-hover: #eef1f6;
+    --border-default: #e5e7eb; --border-subtle: #f0f2f6;
+    --text-primary: #0a0e27; --text-secondary: #3c4257; --text-muted: #6b7280;
+    --accent: #635bff; --accent-hover: #5851e6;
+  }
+  body[data-theme="figma"] {
+    --bg-canvas: #ffffff; --bg-surface: #f8f8f8; --bg-elevated: #ffffff;
+    --bg-hover: #f0f0f0;
+    --border-default: #ebebeb; --border-subtle: #f3f3f3;
+    --text-primary: #0d0d0d; --text-secondary: #444444; --text-muted: #666666;
+    --accent: #18a0fb; --accent-hover: #0d99e8;
+  }
+  body[data-theme="tesla"] {
+    --bg-canvas: #000000; --bg-surface: #0d0d0d; --bg-elevated: #171717;
+    --bg-hover: #1f1f1f;
+    --border-default: #2a2a2a; --border-subtle: #1a1a1a;
+    --text-primary: #ffffff; --text-secondary: #d0d0d0; --text-muted: #8a8a8a;
+    --accent: #e82127; --accent-hover: #ff3b41;
+  }
+  /* Original themes */
+  body[data-theme="sunset"] {
+    --bg-canvas: #1a1412; --bg-surface: #241b18; --bg-elevated: #2b211d;
+    --bg-hover: #33271f;
+    --border-default: #3d2f28; --border-subtle: #2a201c;
+    --text-primary: #fbeee6; --text-secondary: #e8cdbf; --text-muted: #b08e7e;
+    --accent: #ff7a59; --accent-hover: #ff9676;
+  }
+  body[data-theme="sage"] {
+    --bg-canvas: #f6f8f4; --bg-surface: #eef2ea; --bg-elevated: #ffffff;
+    --bg-hover: #e6ece1;
+    --border-default: #d7e0cf; --border-subtle: #e9efe2;
+    --text-primary: #1f2a1c; --text-secondary: #38452f; --text-muted: #6b7a5e;
+    --accent: #2f7d4f; --accent-hover: #36925c;
+  }
 
   /* Status: to_read */
   .badge.s-to_read { background: rgba(99,102,241,.7); }
@@ -771,3 +808,67 @@
     cursor: pointer;
   }
   .modal-mode input[type=radio] { accent-color: var(--accent); }
+
+  /* ── Settings modal ─────────────────────────────────────────── */
+  .settings-content { max-width: 720px; width: 92vw; }
+  .settings-tabs { display: flex; gap: 4px; margin: 4px 0 16px; border-bottom: 1px solid var(--border-default); }
+  .settings-tab {
+    background: none; border: 0; padding: 8px 14px; cursor: pointer;
+    color: var(--text-muted); font-size: 13px; font-weight: 600;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .settings-tab:hover { color: var(--text-primary); }
+  .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .settings-pane { min-height: 240px; max-height: 60vh; overflow-y: auto; }
+
+  /* Themes */
+  .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .theme-card {
+    border: 1px solid var(--border-default); border-radius: 10px; padding: 10px;
+    cursor: pointer; background: var(--bg-surface); transition: border-color .15s, transform .1s;
+  }
+  .theme-card:hover { transform: translateY(-1px); }
+  .theme-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .theme-swatch { display: flex; height: 40px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-subtle); }
+  .theme-swatch span { flex: 1; }
+  .theme-name { margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+  .theme-sub { font-size: 11px; color: var(--text-muted); }
+
+  /* Skills */
+  .skills-layout { display: grid; grid-template-columns: 200px 1fr; gap: 14px; }
+  .skills-list { list-style: none; margin: 0; padding: 0; max-height: 56vh; overflow-y: auto; }
+  .skills-list li {
+    padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12.5px;
+    color: var(--text-secondary); border: 1px solid transparent;
+  }
+  .skills-list li:hover { background: var(--bg-hover); }
+  .skills-list li.active { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--text-primary); border-color: var(--accent); }
+  .skills-list .sk-name { font-weight: 600; color: var(--text-primary); display: block; }
+  .skills-list .sk-desc { font-size: 11px; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .skill-editor-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); }
+  .skill-editor-head .spacer { flex: 1; }
+  #skill-text {
+    width: 100%; height: 46vh; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; line-height: 1.5; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-primary);
+  }
+  .skill-editor-empty { color: var(--text-muted); padding: 24px 8px; }
+  .btn-mini {
+    background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .btn-mini:hover { background: var(--accent-hover); }
+  .btn-mini.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-default); }
+
+  /* Illustrations */
+  .illust-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .illust-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+  .illust-item { position: relative; border: 1px solid var(--border-default); border-radius: 10px; overflow: hidden; background: var(--bg-surface); }
+  .illust-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .illust-item .illust-name { font-size: 10.5px; color: var(--text-muted); padding: 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .illust-del {
+    position: absolute; top: 6px; right: 6px; border: 0; cursor: pointer;
+    background: rgba(0,0,0,.55); color: #fff; border-radius: 999px; width: 24px; height: 24px;
+    font-size: 13px; line-height: 1;
+  }
+  .illust-del:hover { background: rgba(220,38,38,.9); }

@@ -54,3 +54,6 @@ src/paper_review/server/static/characters/shinchan2.jpg
 
 # dev scratch (plans, review memos, temp analysis)
 dev/
+
+# illustration soft-delete trash (runtime)
+src/paper_review/server/static/characters/_trash/

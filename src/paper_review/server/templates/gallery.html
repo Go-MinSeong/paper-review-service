@@ -49,6 +49,7 @@
 
       <div class="sidebar-foot">
         <button class="theme-toggle" id="theme-toggle" title="Toggle theme">☼</button>
+        <button class="theme-toggle" id="settings-btn" title="설정">⚙</button>
         <span class="foot-count"><span id="hero-count">__COUNT__</span> papers</span>
       </div>
     </aside>
@@ -127,6 +128,46 @@
       <div class="modal-actions">
         <button class="btn-secondary" data-close>취소</button>
         <button class="btn-primary" id="btn-tags-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-settings">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content settings-content">
+      <h2>설정</h2>
+      <div class="settings-tabs">
+        <button class="settings-tab active" data-stab="themes">테마</button>
+        <button class="settings-tab" data-stab="skills">스킬</button>
+        <button class="settings-tab" data-stab="illust">일러스트</button>
+      </div>
+      <div class="settings-pane" id="spane-themes">
+        <div class="theme-grid" id="theme-grid"></div>
+      </div>
+      <div class="settings-pane" id="spane-skills" hidden>
+        <div class="skills-layout">
+          <ul class="skills-list" id="skills-list"></ul>
+          <div class="skill-editor" id="skill-editor">
+            <div class="skill-editor-empty" id="skill-editor-empty">왼쪽에서 스킬을 선택하세요.</div>
+            <div class="skill-editor-body" id="skill-editor-body" hidden>
+              <div class="skill-editor-head">
+                <span id="skill-editor-name"></span>
+                <span class="spacer"></span>
+                <button class="btn-mini" id="skill-save">저장</button>
+              </div>
+              <textarea id="skill-text" spellcheck="false"></textarea>
+              <div class="hint">SKILL.md 원본을 편집합니다. 잘못 수정하면 스킬 동작이 바뀔 수 있고, Claude Code 세션 재시작 후 반영됩니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-pane" id="spane-illust" hidden>
+        <div class="illust-bar">
+          <button class="btn-mini" id="illust-upload-btn">+ 이미지 추가</button>
+          <input type="file" id="illust-file" accept="image/*" multiple style="display:none">
+          <span class="hint" id="illust-hint">카드 썸네일에 쓰이는 일러스트. 삭제 시 _trash로 이동(복구 가능).</span>
+        </div>
+        <div class="illust-grid" id="illust-grid"></div>
       </div>
     </div>
   </div>

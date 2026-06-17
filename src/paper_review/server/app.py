@@ -566,6 +566,44 @@ async def papers_promote(slug: str):
     return job_resp
 
 
+@app.get("/skills")
+def skills_list():
+    from .settings import list_skills
+    return list_skills()
+
+
+@app.get("/skills/{name}", response_class=PlainTextResponse)
+def skill_get(name: str) -> PlainTextResponse:
+    from .settings import read_skill
+    return PlainTextResponse(read_skill(name), media_type="text/markdown; charset=utf-8")
+
+
+@app.put("/skills/{name}")
+async def skill_put(name: str, request: Request):
+    from .settings import write_skill
+    write_skill(name, (await request.body()).decode("utf-8"))
+    return {"ok": True}
+
+
+@app.get("/illustrations")
+def illustrations_list():
+    from .settings import list_illustrations
+    return list_illustrations()
+
+
+@app.post("/illustrations")
+async def illustrations_add(file: UploadFile):
+    from .settings import save_illustration
+    return {"name": await save_illustration(file)}
+
+
+@app.delete("/illustrations/{name}")
+def illustrations_delete(name: str):
+    from .settings import trash_illustration
+    trash_illustration(name)
+    return {"ok": True}
+
+
 @app.get("/tags")
 def get_tags():
     return list_all_tags()

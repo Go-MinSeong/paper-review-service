@@ -113,9 +113,13 @@
     for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 10;
     return h;
   }
-  const CHARACTERS = [
-    "fennec", "penguin", "dolphin", "badger", "redpanda", "corgi", "calcifer",
-    "squirtle", "soot", "venom", "venom2", "agumon", "shinchan", "shinchan2",
+  // Full filenames (with extension). Refreshed from /illustrations at load so
+  // added/removed illustrations show up on cards. The hardcoded list is the
+  // fallback if the fetch fails.
+  let CHARACTERS = [
+    "fennec.jpg", "penguin.jpg", "dolphin.jpg", "badger.jpg", "redpanda.jpg",
+    "corgi.jpg", "calcifer.jpg", "squirtle.jpg", "soot.jpg", "venom.jpg",
+    "venom2.jpg", "agumon.jpg", "shinchan.jpg", "shinchan2.jpg",
   ];
   function hashChar(s) {
     // djb2 — better spread than a per-step modulo (slugs are mostly digits)
@@ -232,7 +236,7 @@
       return `
         <a class="card${live ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
-            <img class="card-illust" src="/static/characters/${charName}.jpg" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
+            <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             ${p.content_type && p.content_type !== 'paper' ? `<span class="type-badge t-${escapeHtml(p.content_type)}">${escapeHtml(p.content_type)}</span>` : ''}
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
@@ -480,12 +484,16 @@
   if (!CAPTURE) setInterval(pollActiveJobs, 3000);
 
   // ─── Theme toggle
+  // Dark-ish themes (for the toggle glyph + auto handling).
+  const DARK_THEMES = new Set(['dark', 'tesla', 'sunset']);
   function applyTheme(t) {
-    if (t === 'dark' || t === 'light') document.body.dataset.theme = t;
+    if (t && t !== 'auto') document.body.dataset.theme = t;
     else delete document.body.dataset.theme;
     const tb = document.getElementById('theme-toggle');
-    const isDark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    const isDark = DARK_THEMES.has(t) || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     if (tb) tb.textContent = isDark ? '☾' : '☼';
+    document.querySelectorAll('#theme-grid .theme-card').forEach(c =>
+      c.classList.toggle('active', c.dataset.theme === (t || 'auto')));
   }
   const savedTheme = localStorage.getItem('pr-theme') || 'auto';
   applyTheme(savedTheme);
@@ -846,4 +854,136 @@
       busy = false;
     }, 200);
   }
+
+  // ─── Settings modal ───────────────────────────────────────────
+  (function initSettings() {
+    const sModal = document.getElementById('modal-settings');
+    const sBtn = document.getElementById('settings-btn');
+    if (!sModal || !sBtn) return;
+
+    sBtn.addEventListener('click', () => { sModal.setAttribute('open', ''); renderThemes(); });
+    sModal.querySelectorAll('[data-close]').forEach(el =>
+      el.addEventListener('click', () => sModal.removeAttribute('open')));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && sModal.hasAttribute('open')) sModal.removeAttribute('open');
+    });
+
+    const stabs = sModal.querySelectorAll('.settings-tab');
+    stabs.forEach(t => t.addEventListener('click', () => {
+      stabs.forEach(o => o.classList.toggle('active', o === t));
+      const id = t.dataset.stab;
+      document.getElementById('spane-themes').hidden = id !== 'themes';
+      document.getElementById('spane-skills').hidden = id !== 'skills';
+      document.getElementById('spane-illust').hidden = id !== 'illust';
+      if (id === 'skills') loadSkills();
+      if (id === 'illust') loadIllust();
+    }));
+
+    // — Themes —
+    const THEMES = [
+      { id: 'auto', name: '시스템', sub: 'OS 설정', sw: ['#ffffff', '#0066cc', '#010102'] },
+      { id: 'light', name: 'Light', sub: 'Apple', sw: ['#ffffff', '#f5f5f7', '#0066cc'] },
+      { id: 'dark', name: 'Dark', sub: 'Linear', sw: ['#010102', '#141516', '#5e6ad2'] },
+      { id: 'stripe', name: 'Stripe', sub: 'getdesign.md', sw: ['#ffffff', '#f6f8fb', '#635bff'] },
+      { id: 'figma', name: 'Figma', sub: 'getdesign.md', sw: ['#ffffff', '#f8f8f8', '#18a0fb'] },
+      { id: 'tesla', name: 'Tesla', sub: 'getdesign.md', sw: ['#000000', '#171717', '#e82127'] },
+      { id: 'sunset', name: 'Sunset', sub: 'original', sw: ['#1a1412', '#2b211d', '#ff7a59'] },
+      { id: 'sage', name: 'Sage', sub: 'original', sw: ['#f6f8f4', '#eef2ea', '#2f7d4f'] },
+    ];
+    function renderThemes() {
+      const grid = document.getElementById('theme-grid');
+      const cur = localStorage.getItem('pr-theme') || 'auto';
+      grid.innerHTML = THEMES.map(t => `
+        <div class="theme-card${t.id === cur ? ' active' : ''}" data-theme="${t.id}">
+          <div class="theme-swatch">${t.sw.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+          <div class="theme-name">${t.name}</div>
+          <div class="theme-sub">${t.sub}</div>
+        </div>`).join('');
+      grid.querySelectorAll('.theme-card').forEach(c => c.addEventListener('click', () => {
+        const id = c.dataset.theme;
+        localStorage.setItem('pr-theme', id);
+        applyTheme(id);
+      }));
+    }
+
+    // — Skills —
+    async function loadSkills() {
+      const list = document.getElementById('skills-list');
+      list.innerHTML = '<li>불러오는 중…</li>';
+      let skills;
+      try { skills = await fetch('/skills').then(r => r.json()); }
+      catch (e) { list.innerHTML = '<li>로드 실패</li>'; return; }
+      list.innerHTML = skills.map(s =>
+        `<li data-skill="${escapeHtml(s.name)}"><span class="sk-name">${escapeHtml(s.name)}</span>` +
+        `<span class="sk-desc">${escapeHtml(s.description || '')}</span></li>`).join('');
+      list.querySelectorAll('li[data-skill]').forEach(li =>
+        li.addEventListener('click', () => openSkill(li.dataset.skill, list)));
+    }
+    async function openSkill(name, list) {
+      list.querySelectorAll('li').forEach(o => o.classList.toggle('active', o.dataset.skill === name));
+      const body = document.getElementById('skill-editor-body');
+      const ta = document.getElementById('skill-text');
+      document.getElementById('skill-editor-empty').hidden = true;
+      body.hidden = false;
+      document.getElementById('skill-editor-name').textContent = name;
+      ta.value = '불러오는 중…';
+      ta.value = await fetch(`/skills/${encodeURIComponent(name)}`).then(r => r.text());
+      const save = document.getElementById('skill-save');
+      save.onclick = async () => {
+        save.textContent = '저장 중…'; save.disabled = true;
+        try {
+          const r = await fetch(`/skills/${encodeURIComponent(name)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: ta.value,
+          });
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          save.textContent = '저장됨 ✓';
+        } catch (e) { save.textContent = '실패'; }
+        setTimeout(() => { save.textContent = '저장'; save.disabled = false; }, 1300);
+      };
+    }
+
+    // — Illustrations —
+    async function loadIllust() {
+      const grid = document.getElementById('illust-grid');
+      grid.innerHTML = '불러오는 중…';
+      let items;
+      try { items = await fetch('/illustrations').then(r => r.json()); }
+      catch (e) { grid.innerHTML = '로드 실패'; return; }
+      grid.innerHTML = items.map(f => `
+        <div class="illust-item">
+          <button class="illust-del" data-del="${encodeURIComponent(f)}" title="_trash로 이동">×</button>
+          <img src="/static/characters/${encodeURIComponent(f)}" alt="" loading="lazy">
+          <div class="illust-name">${escapeHtml(f)}</div>
+        </div>`).join('') || '<div class="hint">일러스트가 없습니다.</div>';
+      grid.querySelectorAll('.illust-del').forEach(b => b.addEventListener('click', async () => {
+        const f = decodeURIComponent(b.dataset.del);
+        if (!confirm(`${f} 을(를) _trash로 이동할까요? (복구 가능)`)) return;
+        const r = await fetch(`/illustrations/${encodeURIComponent(f)}`, { method: 'DELETE' });
+        if (r.ok) { await refreshCharacters(); loadIllust(); } else alert('삭제 실패');
+      }));
+      const fileInput = document.getElementById('illust-file');
+      const upBtn = document.getElementById('illust-upload-btn');
+      upBtn.onclick = () => fileInput.click();
+      fileInput.onchange = async () => {
+        const files = [...fileInput.files];
+        if (!files.length) return;
+        upBtn.textContent = '업로드 중…';
+        for (const f of files) {
+          const fd = new FormData(); fd.append('file', f);
+          await fetch('/illustrations', { method: 'POST', body: fd });
+        }
+        fileInput.value = ''; upBtn.textContent = '+ 이미지 추가';
+        await refreshCharacters(); loadIllust();
+      };
+    }
+  })();
+
+  // Refresh the card-illustration pool from the server, then re-render cards.
+  async function refreshCharacters() {
+    try {
+      const items = await fetch('/illustrations').then(r => r.json());
+      if (Array.isArray(items) && items.length) { CHARACTERS = items; renderCards(); }
+    } catch (e) { /* keep fallback list */ }
+  }
+  refreshCharacters();
 })();
