@@ -591,6 +591,12 @@ def illustrations_list():
     return list_illustrations()
 
 
+@app.get("/illustration-groups")
+def illustration_groups_route():
+    from .settings import illustration_groups
+    return illustration_groups()
+
+
 @app.post("/illustrations")
 async def illustrations_add(file: UploadFile):
     from .settings import save_illustration

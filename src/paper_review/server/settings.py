@@ -9,6 +9,7 @@ All paths are whitelisted to those directories — no traversal, no escapes.
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 from pathlib import Path
@@ -20,6 +21,7 @@ _REPO_ROOT = _SERVER_DIR.parents[2]  # server → paper_review → src → repo
 SKILLS_DIR = _REPO_ROOT / "skills"
 CHARS_DIR = _SERVER_DIR / "static" / "characters"
 TRASH_DIR = CHARS_DIR / "_trash"
+GROUPS_FILE = _SERVER_DIR / "illustration_groups.json"
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
@@ -91,6 +93,27 @@ def list_illustrations() -> list[str]:
         for p in CHARS_DIR.iterdir()
         if p.is_file() and not p.name.startswith(".") and p.suffix.lower() in _IMG_EXTS
     )
+
+
+def illustration_groups() -> dict:
+    """Groups + tag→group map, filtered to illustrations that actually exist.
+    Returns {"groups": {name: [files]}, "tag_groups": {tag: group}}."""
+    try:
+        data = json.loads(GROUPS_FILE.read_text())
+    except Exception:
+        return {"groups": {}, "tag_groups": {}}
+    have = set(list_illustrations())
+    groups = {
+        g: [f for f in files if f in have]
+        for g, files in (data.get("groups") or {}).items()
+    }
+    groups = {g: files for g, files in groups.items() if files}
+    tag_groups = {
+        str(k).lower(): v
+        for k, v in (data.get("tag_groups") or {}).items()
+        if v in groups
+    }
+    return {"groups": groups, "tag_groups": tag_groups}
 
 
 async def save_illustration(file: UploadFile) -> str:

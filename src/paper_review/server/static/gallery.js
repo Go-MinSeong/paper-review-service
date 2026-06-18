@@ -121,11 +121,34 @@
     "corgi.jpg", "calcifer.jpg", "squirtle.jpg", "soot.jpg", "venom.jpg",
     "venom2.jpg", "agumon.jpg", "shinchan.jpg", "shinchan2.jpg",
   ];
-  function hashChar(s) {
+  function hashStr(s) {
     // djb2 — better spread than a per-step modulo (slugs are mostly digits)
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-    return Math.abs(h) % CHARACTERS.length;
+    return Math.abs(h);
+  }
+  function hashChar(s) { return hashStr(s) % CHARACTERS.length; }
+
+  // Illustration grouping: papers with similar tags draw from the same group,
+  // so the gallery looks thematically consistent. Loaded from /illustration-groups.
+  let ILLUST_GROUPS = {};   // { groupName: [file, ...] }
+  let TAG_GROUPS = {};      // { tag(lowercase): groupName }
+  function groupForTags(tags) {
+    for (const t of (tags || [])) {
+      // try the full tag and each "/"-separated segment (e.g. CV/segmentation)
+      for (const cand of [t, ...String(t).split('/')]) {
+        const g = TAG_GROUPS[cand.trim().toLowerCase()];
+        if (g && ILLUST_GROUPS[g] && ILLUST_GROUPS[g].length) return g;
+      }
+    }
+    return null;
+  }
+  // Pick a card illustration: prefer the tag-mapped group, else the global pool.
+  function pickIllust(p) {
+    const g = groupForTags(p.tags);
+    const pool = g ? ILLUST_GROUPS[g] : CHARACTERS;
+    if (!pool || !pool.length) return CHARACTERS[hashChar((p.title_en || p.slug) + p.slug)];
+    return pool[hashStr((p.title_en || p.title_ko || p.slug) + p.slug) % pool.length];
   }
   function initials(s) {
     const tokens = s.replace(/[:\-]/g, ' ').split(/\s+/).filter(Boolean);
@@ -212,8 +235,8 @@
     grid.innerHTML = filtered.map(p => {
       const title = p.title_ko || p.title_en || p.slug;
       const subTitle = (p.title_ko && p.title_en) ? p.title_en : '';
-      const ci = hashChar((p.title_en || p.title_ko || p.slug) + p.slug);
-      const charName = CHARACTERS[ci];
+      const charName = pickIllust(p);
+      const ci = hashStr(charName) % 14;  // thumb background tint (char-bg-0..13)
       const total = Math.max(p.sections_total || 0, 1);
       const done = p.sections_done || 0;
       const isActive = activeJobs.has(p.slug);
@@ -978,12 +1001,18 @@
     }
   })();
 
-  // Refresh the card-illustration pool from the server, then re-render cards.
+  // Refresh the card-illustration pool + groups from the server, re-render cards.
   async function refreshCharacters() {
     try {
       const items = await fetch('/illustrations').then(r => r.json());
-      if (Array.isArray(items) && items.length) { CHARACTERS = items; renderCards(); }
+      if (Array.isArray(items) && items.length) CHARACTERS = items;
     } catch (e) { /* keep fallback list */ }
+    try {
+      const g = await fetch('/illustration-groups').then(r => r.json());
+      ILLUST_GROUPS = g.groups || {};
+      TAG_GROUPS = g.tag_groups || {};
+    } catch (e) { /* no grouping → global hash fallback */ }
+    renderCards();
   }
   refreshCharacters();
 })();
