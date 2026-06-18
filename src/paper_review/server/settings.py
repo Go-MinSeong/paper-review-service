@@ -95,19 +95,29 @@ def list_illustrations() -> list[str]:
     )
 
 
+def _base_name(filename: str) -> str:
+    """corgi-2.jpg / corgi.jpg → 'corgi' (strip extension and a -N variant suffix)."""
+    stem = Path(filename).stem
+    return re.sub(r"-\d+$", "", stem)
+
+
 def illustration_groups() -> dict:
-    """Groups + tag→group map, filtered to illustrations that actually exist.
-    Returns {"groups": {name: [files]}, "tag_groups": {tag: group}}."""
+    """Groups + tag→group map. Group config lists character BASE NAMES; expand
+    each to every existing file whose base name matches (base.jpg + base-N.jpg),
+    so new variants join automatically. Returns
+    {"groups": {name: [files]}, "tag_groups": {tag: group}}."""
     try:
         data = json.loads(GROUPS_FILE.read_text())
     except Exception:
         return {"groups": {}, "tag_groups": {}}
-    have = set(list_illustrations())
-    groups = {
-        g: [f for f in files if f in have]
-        for g, files in (data.get("groups") or {}).items()
-    }
-    groups = {g: files for g, files in groups.items() if files}
+    files_by_base: dict[str, list[str]] = {}
+    for f in list_illustrations():
+        files_by_base.setdefault(_base_name(f), []).append(f)
+    groups: dict[str, list[str]] = {}
+    for g, bases in (data.get("groups") or {}).items():
+        files = [f for b in bases for f in files_by_base.get(b, [])]
+        if files:
+            groups[g] = sorted(files)
     tag_groups = {
         str(k).lower(): v
         for k, v in (data.get("tag_groups") or {}).items()
@@ -116,14 +126,13 @@ def illustration_groups() -> dict:
     return {"groups": groups, "tag_groups": tag_groups}
 
 
-async def save_illustration(file: UploadFile) -> str:
+async def save_illustration(file: UploadFile, name: str = "") -> str:
     ext = Path(file.filename or "").suffix.lower()
     if ext not in _IMG_EXTS:
         raise HTTPException(400, "only image files (jpg/png/gif/webp)")
-    stem = (
-        re.sub(r"[^A-Za-z0-9_-]+", "-", Path(file.filename or "img").stem).strip("-")
-        or "img"
-    )
+    # Prefer a user-supplied base name (e.g. "corgi"); else the uploaded filename.
+    raw = name.strip() or Path(file.filename or "img").stem
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", raw).strip("-") or "img"
     CHARS_DIR.mkdir(parents=True, exist_ok=True)
     dest = CHARS_DIR / f"{stem}{ext}"
     n = 2

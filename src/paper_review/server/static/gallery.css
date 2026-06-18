@@ -861,7 +861,13 @@
   .btn-mini.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-default); }
 
   /* Illustrations */
-  .illust-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .illust-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .illust-name-input {
+    font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 7px;
+    border: 1px solid var(--border-default); background: var(--bg-canvas);
+    color: var(--text-primary); width: 200px;
+  }
+  .illust-name-input:focus { outline: none; border-color: var(--accent); }
   .illust-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
   .illust-item { position: relative; border: 1px solid var(--border-default); border-radius: 10px; overflow: hidden; background: var(--bg-surface); }
   .illust-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }

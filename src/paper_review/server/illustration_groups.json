@@ -1,11 +1,11 @@
 {
-  "_comment": "Illustration grouping. Cards pick an illustration from the group mapped to their tags, so papers with similar tags share a consistent illustration family. Variants of a character live in the same group. Edit freely; unknown files are ignored, papers with no matching tag fall back to a global hash.",
+  "_comment": "Illustration grouping. Each group lists CHARACTER BASE NAMES; the server expands them to every existing file (base.jpg and base-N.jpg), so new variants join their group automatically. Cards pick an illustration from the group mapped to their tags, so papers with similar tags share a consistent illustration family. Papers with no matching tag fall back to a global hash.",
   "groups": {
-    "vision":     ["badger.jpg", "redpanda.jpg", "redpanda-2.jpg", "fennec.jpg", "corgi.jpg"],
-    "language":   ["dolphin.jpg", "dolphin-2.jpg", "penguin.jpg", "squirtle.jpg"],
-    "generative": ["calcifer.jpg", "agumon.jpg"],
-    "systems":    ["venom.jpg", "venom2.jpg"],
-    "general":    ["shinchan.jpg", "shinchan2.jpg", "soot.jpg"]
+    "vision":     ["badger", "redpanda", "fennec", "corgi"],
+    "language":   ["dolphin", "penguin", "squirtle"],
+    "generative": ["calcifer", "agumon"],
+    "systems":    ["venom", "venom2"],
+    "general":    ["shinchan", "shinchan2", "soot"]
   },
   "tag_groups": {
     "computer-vision": "vision",

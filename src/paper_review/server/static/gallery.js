@@ -143,12 +143,24 @@
     }
     return null;
   }
-  // Pick a card illustration: prefer the tag-mapped group, else the global pool.
+  // Usage counter (reset each renderCards) so already-used images within a
+  // group get lower priority — illustrations spread across cards instead of repeating.
+  let _illustUsage = {};
+  // Pick a card illustration: prefer the tag-mapped group, else the global pool,
+  // choosing the least-used image (deterministic hash tie-break) and counting it.
   function pickIllust(p) {
     const g = groupForTags(p.tags);
-    const pool = g ? ILLUST_GROUPS[g] : CHARACTERS;
-    if (!pool || !pool.length) return CHARACTERS[hashChar((p.title_en || p.slug) + p.slug)];
-    return pool[hashStr((p.title_en || p.title_ko || p.slug) + p.slug) % pool.length];
+    let pool = g ? ILLUST_GROUPS[g] : CHARACTERS;
+    if (!pool || !pool.length) pool = CHARACTERS;
+    const key = (p.title_en || p.title_ko || p.slug) + p.slug;
+    let best = pool[0], bestU = Infinity, bestH = Infinity;
+    for (const f of pool) {
+      const u = _illustUsage[f] || 0;
+      const h = hashStr(key + '|' + f);
+      if (u < bestU || (u === bestU && h < bestH)) { best = f; bestU = u; bestH = h; }
+    }
+    _illustUsage[best] = (_illustUsage[best] || 0) + 1;
+    return best;
   }
   function initials(s) {
     const tokens = s.replace(/[:\-]/g, ' ').split(/\s+/).filter(Boolean);
@@ -186,6 +198,7 @@
     return Math.floor(diff / 86400 / 365) + 'y ago';
   }
   function renderCards() {
+    _illustUsage = {};  // reset usage so spreading is recomputed per render
     const filtered = papers.filter(p => {
       if (activeFilter !== 'all' && p.status !== activeFilter) return false;
       if (activeTags.size) {
@@ -990,12 +1003,18 @@
       fileInput.onchange = async () => {
         const files = [...fileInput.files];
         if (!files.length) return;
+        const nameInput = document.getElementById('illust-name');
+        const baseName = (nameInput && nameInput.value.trim()) || '';
         upBtn.textContent = '업로드 중…';
         for (const f of files) {
-          const fd = new FormData(); fd.append('file', f);
+          const fd = new FormData();
+          fd.append('file', f);
+          if (baseName) fd.append('name', baseName);
           await fetch('/illustrations', { method: 'POST', body: fd });
         }
-        fileInput.value = ''; upBtn.textContent = '+ 이미지 추가';
+        fileInput.value = '';
+        if (nameInput) nameInput.value = '';
+        upBtn.textContent = '+ 이미지 추가';
         await refreshCharacters(); loadIllust();
       };
     }

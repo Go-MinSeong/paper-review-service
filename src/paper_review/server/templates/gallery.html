@@ -163,9 +163,10 @@
       </div>
       <div class="settings-pane" id="spane-illust" hidden>
         <div class="illust-bar">
+          <input type="text" id="illust-name" class="illust-name-input" placeholder="이름 (예: corgi) — 비우면 파일명">
           <button class="btn-mini" id="illust-upload-btn">+ 이미지 추가</button>
           <input type="file" id="illust-file" accept="image/*" multiple style="display:none">
-          <span class="hint" id="illust-hint">카드 썸네일에 쓰이는 일러스트. 삭제 시 _trash로 이동(복구 가능).</span>
+          <span class="hint" id="illust-hint">이름을 적으면 그 이름(+자동 번호)으로 저장됩니다. 캐릭터 베이스명을 쓰면 해당 그룹에 자동 포함. 삭제 시 _trash로 이동(복구 가능).</span>
         </div>
         <div class="illust-grid" id="illust-grid"></div>
       </div>

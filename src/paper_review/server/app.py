@@ -598,9 +598,9 @@ def illustration_groups_route():
 
 
 @app.post("/illustrations")
-async def illustrations_add(file: UploadFile):
+async def illustrations_add(file: UploadFile, name: str = Form("")):
     from .settings import save_illustration
-    return {"name": await save_illustration(file)}
+    return {"name": await save_illustration(file, name)}
 
 
 @app.delete("/illustrations/{name}")
