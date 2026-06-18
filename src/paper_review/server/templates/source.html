@@ -8,41 +8,55 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<script>
+  // Apply the app's selected theme (localStorage 'pr-theme'; same origin as the
+  // gallery) so the original pane matches the chosen theme, not just OS dark/light.
+  (function () {
+    const T = {
+      light:  {bg:"#ffffff", fg:"#1d1d1f", muted:"#7a7a7a", accent:"#0066cc", border:"#e0e0e0", surface:"#f5f5f7"},
+      dark:   {bg:"#161618", fg:"#e6e6e6", muted:"#8a8f98", accent:"#6cb6ff", border:"#33343a", surface:"#1f2023"},
+      stripe: {bg:"#ffffff", fg:"#0a0e27", muted:"#6b7280", accent:"#635bff", border:"#e5e7eb", surface:"#f6f8fb"},
+      figma:  {bg:"#ffffff", fg:"#0d0d0d", muted:"#666666", accent:"#18a0fb", border:"#ebebeb", surface:"#f8f8f8"},
+      tesla:  {bg:"#000000", fg:"#ffffff", muted:"#8a8a8a", accent:"#e82127", border:"#2a2a2a", surface:"#0d0d0d"},
+      sunset: {bg:"#1a1412", fg:"#fbeee6", muted:"#b08e7e", accent:"#ff7a59", border:"#3d2f28", surface:"#241b18"},
+      sage:   {bg:"#f6f8f4", fg:"#1f2a1c", muted:"#6b7a5e", accent:"#2f7d4f", border:"#d7e0cf", surface:"#eef2ea"},
+    };
+    let t = "light";
+    try { t = localStorage.getItem("pr-theme") || "auto"; } catch (e) {}
+    if (t === "auto" || !T[t]) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const v = T[t] || T.light, r = document.documentElement.style;
+    for (const k in v) r.setProperty("--" + k, v[k]);
+  })();
+</script>
 <style>
-  :root { color-scheme: light dark; }
+  :root { --bg:#fff; --fg:#1d1d1f; --muted:#7a7a7a; --accent:#0066cc; --border:#e0e0e0; --surface:#f5f5f7; }
   body {
     margin: 0; padding: 2rem 2.2rem 4rem;
     font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", "Segoe UI", Roboto, sans-serif;
     line-height: 1.7; font-size: 15px;
-    color: #1d1d1f; background: #fff;
+    color: var(--fg); background: var(--bg);
     max-width: 820px; margin-inline: auto;
   }
-  @media (prefers-color-scheme: dark) {
-    body { color: #e6e6e6; background: #161618; }
-    a { color: #6cb6ff; }
-    hr { border-color: #333; }
-    code { background: #222; }
-    .src-badge { background: #222; color: #aaa; }
-    figure { border-color: #2a2a2d; }
-  }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--border); }
   h1 { font-size: 1.7rem; line-height: 1.3; }
-  h2 { font-size: 1.3rem; margin-top: 2rem; border-bottom: 1px solid rgba(128,128,128,.25); padding-bottom: .25rem; }
+  h2 { font-size: 1.3rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
   h3 { font-size: 1.1rem; margin-top: 1.5rem; }
   img { max-width: 100%; height: auto; }
-  pre { overflow-x: auto; padding: .8rem; background: rgba(128,128,128,.12); border-radius: 6px; }
-  code { padding: .1em .35em; border-radius: 4px; background: rgba(128,128,128,.15); }
+  pre { overflow-x: auto; padding: .8rem; background: var(--surface); border-radius: 6px; }
+  code { padding: .1em .35em; border-radius: 4px; background: var(--surface); }
   pre code { background: none; padding: 0; }
   table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid rgba(128,128,128,.3); padding: .4rem .6rem; }
+  th, td { border: 1px solid var(--border); padding: .4rem .6rem; }
   .src-badge {
     display: inline-block; font-size: .72rem; letter-spacing: .03em;
-    text-transform: uppercase; background: #f0f0f2; color: #666;
+    text-transform: uppercase; background: var(--surface); color: var(--muted);
     padding: .15rem .5rem; border-radius: 999px; margin-bottom: 1rem;
   }
   .figs { margin-top: 2.5rem; }
   .figs h2 { border: none; }
-  figure { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e5e5e7; border-radius: 8px; }
-  figcaption { font-size: .85rem; color: #888; margin-top: .5rem; }
+  figure { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  figcaption { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
 </style>
 </head>
 <body data-slug="__SLUG__">
