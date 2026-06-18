@@ -20,7 +20,6 @@ from pydantic import BaseModel
 
 from .. import SERVICE_ROOT
 
-
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 
 
@@ -66,6 +65,7 @@ def _fetch_arxiv_meta(arxiv_id: str) -> ArxivMeta:
         except Exception as e:
             last_err = e
             import time as _t
+
             _t.sleep(1.5 * (attempt + 1))
     else:
         raise HTTPException(502, f"arxiv fetch failed after 3 tries: {last_err}")
@@ -84,8 +84,11 @@ def _fetch_arxiv_meta(arxiv_id: str) -> ArxivMeta:
     ]
     authors = [a for a in authors if a]
     return ArxivMeta(
-        arxiv_id=arxiv_id, title=title, authors=authors,
-        abstract=abstract, published=published,
+        arxiv_id=arxiv_id,
+        title=title,
+        authors=authors,
+        abstract=abstract,
+        published=published,
     )
 
 
@@ -109,6 +112,7 @@ def _download_arxiv_pdf(arxiv_id: str, dest: Path) -> bool:
             return True
         except Exception:
             import time as _t
+
             _t.sleep(1.5 * (attempt + 1))
     return False
 
@@ -153,6 +157,7 @@ def _extract_pdf_meta(pdf_path: Path) -> tuple[str | None, list[str]]:
     authors: list[str] = []
     try:
         from pypdf import PdfReader
+
         m = PdfReader(str(pdf_path)).metadata
         if m:
             t = (m.title or "").strip()
@@ -166,6 +171,7 @@ def _extract_pdf_meta(pdf_path: Path) -> tuple[str | None, list[str]]:
     if not title:
         try:
             import pypdfium2 as pdfium
+
             doc = pdfium.PdfDocument(str(pdf_path))
             text = doc[0].get_textpage().get_text_range()
             title = _title_from_first_page(text)
@@ -183,7 +189,9 @@ def _unique_slug(slug: str) -> str:
     return f"{slug}-{i}"
 
 
-def _render_to_read_workbench(meta: ArxivMeta, *, category: str, tags: list[str]) -> str:
+def _render_to_read_workbench(
+    meta: ArxivMeta, *, category: str, tags: list[str]
+) -> str:
     slug = _make_slug(meta.arxiv_id)
     title_en = meta.title.replace('"', '\\"')
     paper_url = f"https://arxiv.org/abs/{meta.arxiv_id}"
@@ -227,7 +235,11 @@ def _render_to_read_workbench(meta: ArxivMeta, *, category: str, tags: list[str]
 
 
 def _render_pdf_to_read_workbench(
-    *, title: str, category: str, tags: list[str], filename: str,
+    *,
+    title: str,
+    category: str,
+    tags: list[str],
+    filename: str,
     authors: list[str] | None = None,
 ) -> str:
     today = date.today().isoformat()
@@ -266,15 +278,132 @@ def _render_pdf_to_read_workbench(
     return "\n".join(p for p in parts if p is not None)
 
 
+_ARXIVISH = re.compile(r"arxiv\.org|^\d{4}\.\d{4,5}(?:v\d+)?$|^[a-z\-]+/\d{7}$", re.I)
+_BLOG_HINTS = re.compile(
+    r"(?:^|\.)blog\.|/blog/|/posts?/|/engineering/|/research/", re.I
+)
+_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"
+
+
+def _is_web_url(source: str) -> bool:
+    s = source.strip().lower()
+    return s.startswith(("http://", "https://")) and not _ARXIVISH.search(s)
+
+
+def _web_slug(url: str, title: str) -> str:
+    """Mirror of fetch_web.make_slug so a saved entry's slug == its ingest slug."""
+    host = urllib.parse.urlparse(url).hostname or "web"
+    host = re.sub(r"^www\.", "", host).split(".")[0]
+    if title:
+        tslug = re.sub(r"[^A-Za-z0-9]+", "-", title.lower()).strip("-")[:40].strip("-")
+    else:
+        seg = urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+        tslug = re.sub(r"[^A-Za-z0-9]+", "-", seg.lower()).strip("-")[:40]
+    parts = tslug.split("-")
+    if len(parts) > 1 and len(parts[-1]) <= 2:
+        tslug = "-".join(parts[:-1])
+    return f"{host}-{tslug}".strip("-") or "web"
+
+
+def _fetch_web_meta(url: str) -> dict:
+    """Lightweight metadata (title/site/date/type) — no body/figures."""
+    import httpx
+    import trafilatura
+
+    try:
+        resp = httpx.get(
+            url, headers={"User-Agent": _UA}, follow_redirects=True, timeout=30
+        )
+        resp.raise_for_status()
+        md = trafilatura.extract_metadata(resp.text)
+    except Exception as e:
+        raise HTTPException(502, f"web fetch failed: {e}")
+    title = (getattr(md, "title", "") if md else "") or url
+    site = (getattr(md, "sitename", "") if md else "") or (
+        urllib.parse.urlparse(url).hostname or ""
+    )
+    pub = (getattr(md, "date", "") if md else "") or ""
+    ctype = "blog" if _BLOG_HINTS.search(url) else "article"
+    return {
+        "title": re.sub(r"\s+", " ", title).strip(),
+        "site": site,
+        "date": pub,
+        "content_type": ctype,
+    }
+
+
+def _render_web_to_read_workbench(
+    url: str, meta: dict, *, category: str, tags: list[str]
+) -> str:
+    title = meta["title"]
+    today = date.today().isoformat()
+    tags_str = ", ".join(tags) if tags else ""
+    title_en = title.replace('"', '\\"')
+    parts = [
+        "---",
+        f"slug: {_web_slug(url, title)}",
+        f"content_type: {meta['content_type']}",
+        f'title_en: "{title_en}"',
+        'title_ko: ""',
+        f"paper_url: {url}",
+        f'category: "{category}"',
+        f"tags: [{tags_str}]",
+        f"review_started: {today}",
+        "status: to_read",
+        "---",
+        "",
+        f"# {title} — Reading list",
+        "",
+        "## 글 정보",
+        "",
+        f"- **종류**: {meta['content_type']}",
+        f"- **출처**: {meta['site']}" if meta["site"] else "",
+        f"- **발행**: {meta['date']}" if meta["date"] else "",
+        f"- **링크**: {url}",
+        "",
+        "---",
+        "",
+        "_이 글은 reading list에만 저장된 상태입니다. detail 페이지에서 **▶ Analyze** 를 누르면 본문·이미지 추출과 분석이 시작됩니다._",
+        "",
+    ]
+    return "\n".join(p for p in parts if p is not None)
+
+
+async def save_web_paper(body: SaveBody) -> dict:
+    loop = asyncio.get_event_loop()
+    meta = await loop.run_in_executor(None, _fetch_web_meta, body.source)
+    slug = _web_slug(body.source, meta["title"])
+    paper_dir = SERVICE_ROOT / slug
+    if paper_dir.exists() and (paper_dir / "workbench.md").exists():
+        if body.tags:
+            from .tags import _set_tags_in_text
+
+            wb = paper_dir / "workbench.md"
+            wb.write_text(_set_tags_in_text(wb.read_text(), body.tags))
+        return {"slug": slug, "already_existed": True, "pdf_ok": True}
+    paper_dir.mkdir(parents=True, exist_ok=True)
+    (paper_dir / "workbench.md").write_text(
+        _render_web_to_read_workbench(
+            body.source, meta, category=body.category or "", tags=body.tags
+        )
+    )
+    return {"slug": slug, "already_existed": False, "pdf_ok": True}
+
+
 async def save_paper(body: SaveBody) -> dict:
+    if _is_web_url(body.source):
+        return await save_web_paper(body)
     arxiv_id = _extract_arxiv_id(body.source)
-    meta = await asyncio.get_event_loop().run_in_executor(None, _fetch_arxiv_meta, arxiv_id)
+    meta = await asyncio.get_event_loop().run_in_executor(
+        None, _fetch_arxiv_meta, arxiv_id
+    )
     slug = _make_slug(arxiv_id)
     paper_dir = SERVICE_ROOT / slug
     if paper_dir.exists() and (paper_dir / "workbench.md").exists():
         # Already exists — just bump tags if requested, and backfill PDF if missing
         if body.tags:
             from .tags import _set_tags_in_text  # forward import
+
             wb = paper_dir / "workbench.md"
             wb.write_text(_set_tags_in_text(wb.read_text(), body.tags))
         pdf_dest = paper_dir / "original.pdf"
@@ -286,7 +415,9 @@ async def save_paper(body: SaveBody) -> dict:
         return {"slug": slug, "already_existed": True, "pdf_ok": pdf_ok}
     paper_dir.mkdir(parents=True, exist_ok=True)
     wb_text = _render_to_read_workbench(
-        meta, category=body.category or "", tags=body.tags,
+        meta,
+        category=body.category or "",
+        tags=body.tags,
     )
     (paper_dir / "workbench.md").write_text(wb_text)
     # Archive the actual PDF so it's viewable in the reading list
@@ -318,10 +449,15 @@ async def save_pdf_paper(
     fallback = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
     title = extracted_title or fallback or filename
     wb_text = _render_pdf_to_read_workbench(
-        title=title, category=category or "", tags=tags, filename=filename,
+        title=title,
+        category=category or "",
+        tags=tags,
+        filename=filename,
         authors=authors,
     )
     # Override the slug line to the unique slug (render uses filename-derived)
-    wb_text = re.sub(r"^slug: .*$", f"slug: {slug}", wb_text, count=1, flags=re.MULTILINE)
+    wb_text = re.sub(
+        r"^slug: .*$", f"slug: {slug}", wb_text, count=1, flags=re.MULTILINE
+    )
     (paper_dir / "workbench.md").write_text(wb_text)
     return {"slug": slug, "already_existed": False, "pdf_ok": True}

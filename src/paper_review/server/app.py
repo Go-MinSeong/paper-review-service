@@ -559,6 +559,20 @@ async def papers_promote(slug: str):
         job.preserve_fields = preserve
         return job_resp
 
+    # Web-backed (blog/article) → re-ingest from the URL; `init` auto-detects web
+    # and produces the same slug, so it overwrites this reading-list folder.
+    paper_url = (fm.get("paper_url") or "").strip()
+    is_web = fm.get("content_type") in ("blog", "article") or (
+        paper_url.startswith("http") and "arxiv.org" not in paper_url
+    )
+    if is_web:
+        if not paper_url:
+            raise HTTPException(400, "no source_url to analyze")
+        job_resp = await start_arxiv_job(StartIngestBody(source=paper_url))
+        job = _ingest_jobs[job_resp["job_id"]]
+        job.preserve_fields = preserve
+        return job_resp
+
     # arXiv-backed → re-ingest by id (stable slug)
     arxiv_id = fm.get("slug") or slug
     job_resp = await start_arxiv_job(StartIngestBody(source=arxiv_id))
