@@ -143,8 +143,11 @@ def _materialize_figures(
                 return f"![{alt}]({_write(mi.group(1), raw, ext)})"
             mf = _FIG_BY_FILE.match(url)
             if mf:
-                src = paper_dir / "figures" / mf.group(1)
-                if not src.is_file():
+                rel = mf.group(1)
+                figdir = (paper_dir / "figures").resolve()
+                src = (figdir / rel).resolve()
+                # stay inside the figures dir (reject ../ escapes)
+                if figdir not in src.parents or not src.is_file():
                     return m.group(0)
                 ext = src.suffix.lstrip(".").lower() or "png"
                 return f"![{alt}]({_write(src.stem, src.read_bytes(), ext)})"

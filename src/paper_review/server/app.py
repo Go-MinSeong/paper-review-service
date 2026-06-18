@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from html import escape as _escape
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
@@ -247,7 +248,7 @@ def paper_detail(slug: str) -> HTMLResponse:
     html = _render_template(
         "detail",
         SLUG=slug,
-        TITLE=title,
+        TITLE=_escape(title),
         STATUS=meta.get("status", "?"),
         RATING=str(meta.get("rating") or "0"),
         CONTENT_TYPE=content_type,
@@ -331,7 +332,7 @@ def paper_source(slug: str) -> HTMLResponse:
         raise HTTPException(404, "no source")
     meta = _read_frontmatter(d / "workbench.md")
     title = meta.get("title_ko") or meta.get("title_en") or slug
-    html = _render_template("source", SLUG=slug, TITLE=title)
+    html = _render_template("source", SLUG=slug, TITLE=_escape(title))
     return HTMLResponse(html)
 
 

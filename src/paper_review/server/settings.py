@@ -59,19 +59,19 @@ def list_skills() -> list[dict]:
         sk = d / "SKILL.md"
         if not sk.is_file():
             continue
-        fm = _parse_frontmatter(sk.read_text())
+        fm = _parse_frontmatter(sk.read_text(encoding="utf-8"))
         rows.append({"name": d.name, "description": fm.get("description", "")})
     return rows
 
 
 def read_skill(name: str) -> str:
-    return (_skill_dir(name) / "SKILL.md").read_text()
+    return (_skill_dir(name) / "SKILL.md").read_text(encoding="utf-8")
 
 
 def write_skill(name: str, content: str) -> None:
     if not content.strip():
         raise HTTPException(400, "empty content")
-    (_skill_dir(name) / "SKILL.md").write_text(content)
+    (_skill_dir(name) / "SKILL.md").write_text(content, encoding="utf-8")
 
 
 # ── Illustrations ───────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ def illustration_groups() -> dict:
     so new variants join automatically. Returns
     {"groups": {name: [files]}, "tag_groups": {tag: group}}."""
     try:
-        data = json.loads(GROUPS_FILE.read_text())
+        data = json.loads(GROUPS_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {"groups": {}, "tag_groups": {}}
     files_by_base: dict[str, list[str]] = {}
