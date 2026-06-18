@@ -158,10 +158,69 @@ def _materialize_figures(
     return _MD_IMG.sub(repl, draft)
 
 
+def _norm_heading(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "")).strip().lower()
+
+
+def _inline_web_figures(body: str, paper_dir: Path) -> str:
+    """Insert web figures into the draft after the section heading they came
+    from (figures.json `section_heading`), as `/paper/<slug>/fig/<id>` refs that
+    the velog figure bridge then materializes. Unmatched figures go to the end."""
+    files = sorted(paper_dir.glob("*_figures.json"))
+    if not files:
+        return body
+    try:
+        figs = json.loads(files[0].read_text())
+    except Exception:
+        return body
+    figs = [f for f in figs if isinstance(f, dict) and f.get("data_uri")]
+    if not figs:
+        return body
+    slug = paper_dir.name
+
+    def fig_md(f: dict) -> str:
+        cap = (f.get("caption_en") or f.get("label") or "").strip()
+        out = f"\n![{cap}](/paper/{slug}/fig/{f['id']})\n"
+        if cap:
+            out += f"> {cap}\n"
+        return out
+
+    lines = body.split("\n")
+    heading_line = {}  # normalized heading text → first line index
+    for i, ln in enumerate(lines):
+        m = re.match(r"^#{1,4}\s+(.+?)\s*$", ln)
+        if m:
+            key = _norm_heading(m.group(1))
+            heading_line.setdefault(key, i)
+    inserts: dict[int, list[str]] = {}
+    leftover = []
+    for f in figs:
+        key = _norm_heading(f.get("section_heading", ""))
+        idx = heading_line.get(key) if key else None
+        if idx is None:
+            leftover.append(f)
+        else:
+            inserts.setdefault(idx, []).append(fig_md(f))
+    if not inserts and not leftover:
+        return body
+    out = []
+    for i, ln in enumerate(lines):
+        out.append(ln)
+        for md in inserts.get(i, []):
+            out.append(md)
+    if leftover:
+        out.append("\n## 그림\n")
+        out += [fig_md(f) for f in leftover]
+    return "\n".join(out)
+
+
 def render(wb: Workbench, *, paper_dir: Path) -> str:
     labels = _labels(wb)
     fm = _render_frontmatter(wb, labels)
     body = _render_body(wb, paper_dir=paper_dir, labels=labels)
+    ct = (wb.frontmatter.get("content_type") or "paper").strip().lower()
+    if ct in ("blog", "article"):
+        body = _inline_web_figures(body, paper_dir)
     return fm + "\n" + body
 
 
