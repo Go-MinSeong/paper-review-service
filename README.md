@@ -1,14 +1,14 @@
 # paper-review
 
-A local-first service for **collaborative paper review** — ingest a paper, read and review it section-by-section together with Claude, then publish a polished blog draft. Runs entirely on your machine with a browser UI and a macOS menubar app.
+A local-first service for **collaborative review** — ingest a paper, blog, or web article, read and review it section-by-section together with Claude, then publish a polished blog draft. Runs entirely on your machine with a browser UI and a macOS menubar app.
 
 > Built on top of the `paper-reader` translation engine. Connects to a Velog/Obsidian vault only at the publish step.
 
-> 🚧 **Expanding (experimental).** The same review workflow is being extended
-> beyond academic papers to **engineering/release blogs and general web
-> articles** — paste a link and review it section-by-section just like a paper.
-> See [Beyond papers](#beyond-papers-experimental) below. The paper workflow
-> documented here is the stable path.
+> **v2.0** — the workflow now covers **papers, engineering/release blogs, and
+> general web articles** (paste any link; type is auto-detected), with a settings
+> panel (themes, skill editor, illustrations) and tag-based card illustrations.
+> See [Beyond papers](#beyond-papers) and the [CHANGELOG](./CHANGELOG.md). The
+> academic-paper workflow remains the core.
 
 ## Screenshots
 
@@ -95,14 +95,14 @@ paper-review export-draft <slug>     # workbench → Velog draft
 
 Everything else (registering papers, analyzing, tagging, reviewing, publishing) happens in the browser UI.
 
-## Beyond papers (experimental)
+## Beyond papers
 
 The ingest → review → publish pipeline is content-type aware, so the same flow
-now handles web content in addition to papers:
+handles web content alongside papers:
 
 | Type | Examples | Review skill |
 |---|---|---|
-| `paper` | arXiv / PDF (stable) | `paper-review` |
+| `paper` | arXiv / PDF | `paper-review` |
 | `blog` | vLLM / PyTorch / company engineering & release posts | `blog-review` |
 | `article` | news, op-eds, product / tech reviews, general web pages | `article-review` |
 
@@ -112,8 +112,17 @@ paper-review init https://some-blog.example/post   # auto-detects blog vs articl
 
 The source kind is detected automatically (arXiv ID/URL · PDF · web URL); web
 content is classified as `blog` or `article` and reviewed with a matching
-rubric (claims & tradeoffs for blogs, critical reading for articles). This path
-is still being polished — the paper workflow above is the stable one.
+rubric (claims & tradeoffs for blogs, critical reading for articles). Web pages
+can also be saved to the reading list (metadata only) and promoted later, and
+their published drafts inline the article figures by section.
+
+### Settings & illustrations
+
+The gallery's ⚙ panel (top-right) switches **themes** (light/dark + Stripe,
+Figma, Tesla, Sunset, Sage), views/edits the installed **skills**, and manages
+the card **illustrations** (upload / soft-delete). Cards pick a thumbnail from
+the illustration group mapped to their tags, so similar-tag items look
+consistent (config in `server/illustration_groups.json`).
 
 ## Voice samples
 
@@ -151,9 +160,8 @@ Claude Code skills live in [`skills/`](./skills/). The core paper trio:
 | `paper-review` | section-by-section interactive review (`/next-section`, `/explain`, `/finalize`) |
 | `paper-publish` | workbench → Velog draft (kimjy99 structure + your voice) |
 
-Plus two experimental review skills for web content — `blog-review` and
-`article-review` — which share the same mechanics as `paper-review` (see
-[Beyond papers](#beyond-papers-experimental)).
+Plus two review skills for web content — `blog-review` and `article-review` —
+which share the same engine as `paper-review` (see [Beyond papers](#beyond-papers)).
 
 `bash install-skills.sh` symlinks them into `~/.claude/skills/` so the repo stays
 the source of truth (edits are live). Pass `--copy` to copy instead of symlink.
