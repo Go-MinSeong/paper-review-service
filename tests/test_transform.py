@@ -18,12 +18,24 @@ def test_labels_by_content_type():
 
 def test_inline_web_figures_positions_by_heading(tmp_path):
     figs = [
-        {"id": "fig1", "data_uri": "data:image/png;base64,AA",
-         "caption_en": "Arch", "section_heading": "Architecture"},
-        {"id": "fig2", "data_uri": "data:image/png;base64,BB",
-         "caption_en": "Res", "section_heading": "Results"},
-        {"id": "fig3", "data_uri": "data:image/png;base64,CC",
-         "caption_en": "Orphan", "section_heading": "Nowhere"},
+        {
+            "id": "fig1",
+            "data_uri": "data:image/png;base64,AA",
+            "caption_en": "Arch",
+            "section_heading": "Architecture",
+        },
+        {
+            "id": "fig2",
+            "data_uri": "data:image/png;base64,BB",
+            "caption_en": "Res",
+            "section_heading": "Results",
+        },
+        {
+            "id": "fig3",
+            "data_uri": "data:image/png;base64,CC",
+            "caption_en": "Orphan",
+            "section_heading": "Nowhere",
+        },
     ]
     (tmp_path / "x_figures.json").write_text(json.dumps(figs))
     body = "# Title\n\n## Architecture\n\nbody\n\n## Results\n\nmore\n"

@@ -61,10 +61,7 @@ def list_all_tags() -> dict:
             wb = d / "workbench.md"
             counter.update(_read_frontmatter_tags(wb))
     return {
-        "tags": [
-            {"name": t, "count": c}
-            for t, c in counter.most_common()
-        ],
+        "tags": [{"name": t, "count": c} for t, c in counter.most_common()],
     }
 
 
@@ -73,6 +70,7 @@ def patch_paper_tags(slug: str, body: TagsPatchBody) -> dict:
     wb = paper_dir / "workbench.md"
     if not wb.exists():
         from fastapi import HTTPException
+
         raise HTTPException(404, f"workbench not found for {slug}")
     text = wb.read_text()
     # Normalize tags: strip whitespace, dedupe (preserve order), filter empty
@@ -107,6 +105,7 @@ def patch_paper_rating(slug: str, body: RatingPatchBody) -> dict:
     wb = SERVICE_ROOT / slug / "workbench.md"
     if not wb.exists():
         from fastapi import HTTPException
+
         raise HTTPException(404, f"workbench not found for {slug}")
     r = max(0, min(5, int(body.rating)))
     wb.write_text(_set_rating_in_text(wb.read_text(), r))

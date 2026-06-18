@@ -23,7 +23,6 @@ from pydantic import BaseModel
 
 from .. import SERVICE_ROOT
 
-
 Status = Literal["starting", "running", "done", "error"]
 
 
@@ -53,7 +52,9 @@ class StartIngestBody(BaseModel):
 async def start_arxiv_job(body: StartIngestBody) -> dict:
     if not body.source.strip():
         raise HTTPException(400, "empty source")
-    job = IngestJob(job_id=uuid.uuid4().hex[:12], source=body.source.strip(), is_pdf=False)
+    job = IngestJob(
+        job_id=uuid.uuid4().hex[:12], source=body.source.strip(), is_pdf=False
+    )
     _jobs[job.job_id] = job
     asyncio.create_task(_run_ingest(job))
     return {"job_id": job.job_id}
@@ -163,12 +164,18 @@ def _restore_preserved_fields(job: IngestJob) -> None:
     text = wb.read_text()
     if "tags" in job.preserve_fields:
         from .tags import _set_tags_in_text
+
         text = _set_tags_in_text(text, job.preserve_fields["tags"])
     if job.preserve_fields.get("category"):
         cat = job.preserve_fields["category"]
         if re.search(r"^category:.*$", text, flags=re.MULTILINE):
-            text = re.sub(r"^category:.*$", f'category: "{cat}"', text,
-                          count=1, flags=re.MULTILINE)
+            text = re.sub(
+                r"^category:.*$",
+                f'category: "{cat}"',
+                text,
+                count=1,
+                flags=re.MULTILINE,
+            )
     wb.write_text(text)
 
 
@@ -209,7 +216,13 @@ async def _auto_tag(job: IngestJob) -> None:
             "Good examples: VLM, diffusion, RAG, object-detection, RLHF, benchmark."
         )
         proc = await asyncio.create_subprocess_exec(
-            "claude", "-p", prompt, "--model", "haiku", "--max-turns", "1",
+            "claude",
+            "-p",
+            prompt,
+            "--model",
+            "haiku",
+            "--max-turns",
+            "1",
             limit=16 * 1024 * 1024,
             cwd=str(paper_dir),
             stdout=asyncio.subprocess.PIPE,

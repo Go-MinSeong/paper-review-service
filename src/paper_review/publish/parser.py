@@ -13,20 +13,20 @@ class Section:
     heading: str
     section_id: str
     line_range: str
-    raw_excerpt: str = ""           # **원문 발췌** 블록
-    summary: str = ""               # **요약** 블록 (4-6 문장)
-    claude_translation: str = ""    # **Claude 1차 번역** 블록
-    claude_notes: str = ""          # **Claude Reader's Notes** 블록
-    user_answer: str = ""           # legacy — kept for backward compat
+    raw_excerpt: str = ""  # **원문 발췌** 블록
+    summary: str = ""  # **요약** 블록 (4-6 문장)
+    claude_translation: str = ""  # **Claude 1차 번역** 블록
+    claude_notes: str = ""  # **Claude Reader's Notes** 블록
+    user_answer: str = ""  # legacy — kept for backward compat
     done: bool = False
 
 
 @dataclass
 class QnaItem:
-    from_section: str = ""          # e.g. "1 Introduction"  (format A: "### Q from §…")
+    from_section: str = ""  # e.g. "1 Introduction"  (format A: "### Q from §…")
     questions: list[str] = field(default_factory=list)
-    answer: str = ""                # 사용자 답변 (placeholder if empty)
-    heading: str = ""               # format B: "### Q1. <question>" — question lives in the header
+    answer: str = ""  # 사용자 답변 (placeholder if empty)
+    heading: str = ""  # format B: "### Q1. <question>" — question lives in the header
 
 
 @dataclass
@@ -41,7 +41,7 @@ class Workbench:
     wrap_one_line: str = ""
     wrap_weakness: str = ""
     wrap_followups: list[str] = field(default_factory=list)
-    pipelines: list = field(default_factory=list)   # parsed ```pipeline specs
+    pipelines: list = field(default_factory=list)  # parsed ```pipeline specs
 
 
 # A new ingested (sub)section always starts with a `<!-- section_id: … -->`
@@ -54,10 +54,10 @@ class Workbench:
 # real field, so this boundary is a no-op for well-formed sections.
 _NEXT_SECTION = r"(?:\*\*[^\n*]+\*\*\s*)?<!--\s*section_id:"
 _BLOCK_PATTERNS = {
-    "raw_excerpt":         rf"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
-    "summary":             rf"\*\*요약\*\*\s*\n(.+?)(?=\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
-    "claude_translation":  rf"\*\*Claude 1차 번역\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
-    "claude_notes":        rf"\*\*Claude Reader's Notes\*\*\s*\n(.+?)(?={_NEXT_SECTION}|\Z)",
+    "raw_excerpt": rf"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "summary": rf"\*\*요약\*\*\s*\n(.+?)(?=\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "claude_translation": rf"\*\*Claude 1차 번역\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "claude_notes": rf"\*\*Claude Reader's Notes\*\*\s*\n(.+?)(?={_NEXT_SECTION}|\Z)",
 }
 
 
@@ -72,10 +72,14 @@ def parse(workbench_md: Path) -> Workbench:
                 continue
             k, _, v = line.partition(":")
             wb.frontmatter[k.strip()] = v.strip().strip('"')
-        text = text[fm_match.end():]
+        text = text[fm_match.end() :]
 
     title_m = re.search(r"^#\s+(.+?)\s*$", text, flags=re.MULTILINE)
-    wb.title = title_m.group(1) if title_m else wb.frontmatter.get("title_ko") or wb.frontmatter.get("title_en", "")
+    wb.title = (
+        title_m.group(1)
+        if title_m
+        else wb.frontmatter.get("title_ko") or wb.frontmatter.get("title_en", "")
+    )
 
     wb.tldr = _extract_h2_body(text, "TL;DR")
     wb.contributions = _extract_numbered(_extract_h2_body(text, "핵심 contribution"))
@@ -157,8 +161,11 @@ def _extract_sections(text: str) -> list[Section]:
     # A stray numbered "## 6. …" section heading (some sections get written at H2
     # instead of H3) must NOT terminate it — that silently dropped every section
     # after it from the published draft.
-    h2_match = re.search(r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s+(?!\d)|\Z)", text,
-                        flags=re.DOTALL | re.MULTILINE)
+    h2_match = re.search(
+        r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s+(?!\d)|\Z)",
+        text,
+        flags=re.DOTALL | re.MULTILINE,
+    )
     if not h2_match:
         return []
     body = h2_match.group(1)
@@ -189,7 +196,9 @@ def _extract_sections(text: str) -> list[Section]:
         for mi in range(1, len(markers)):
             seg_start = markers[mi].start()
             seg_end = markers[mi + 1].start() if mi + 1 < len(markers) else len(chunk)
-            title = _title_above(chunk[:seg_start]) or _fallback_title(markers[mi].group(1))
+            title = _title_above(chunk[:seg_start]) or _fallback_title(
+                markers[mi].group(1)
+            )
             out.append(_section_from_segment(title, chunk[seg_start:seg_end]))
 
     return out
@@ -232,7 +241,7 @@ def _answer_is_real(ans: str) -> bool:
         and not ans.startswith("(")
         and "미진행" not in ans
         and "여기에 본인 답변" not in ans
-        and "답변하면" not in ans          # the "## Q&A" intro placeholder line
+        and "답변하면" not in ans  # the "## Q&A" intro placeholder line
     )
 
 
@@ -248,8 +257,9 @@ def _extract_qna(text: str) -> list[QnaItem]:
     Format B was silently dropped because the splitter only matched
     "### Q from §"; its questions then never reached publish.
     """
-    m = re.search(r"^##\s+Q&A\s*\n(.+?)(?=^##\s|\Z)", text,
-                  flags=re.DOTALL | re.MULTILINE)
+    m = re.search(
+        r"^##\s+Q&A\s*\n(.+?)(?=^##\s|\Z)", text, flags=re.DOTALL | re.MULTILINE
+    )
     if not m:
         return []
     body = m.group(1)
@@ -270,7 +280,8 @@ def _extract_qna(text: str) -> list[QnaItem]:
             a_match = re.search(
                 r"^[ \t>]*[*_]{0,2}\s*답변\s*[*_]{0,2}\s*:?\s*[*_]{0,2}"
                 r"(.*?)(?=^[ \t]*###\s|\Z)",
-                chunk, flags=re.DOTALL | re.MULTILINE,
+                chunk,
+                flags=re.DOTALL | re.MULTILINE,
             )
             if a_match:
                 ans = _deemph_lines(a_match.group(1))
@@ -280,7 +291,9 @@ def _extract_qna(text: str) -> list[QnaItem]:
             continue
         # Format B: "### Q1. <question>" / "### Q. <question>" — the question is
         # the header text and the answer is the body beneath it.
-        head_b = re.match(r"^###\s+(Q[0-9]*[.)]?\s*\S.*?)\s*$", chunk, flags=re.MULTILINE)
+        head_b = re.match(
+            r"^###\s+(Q[0-9]*[.)]?\s*\S.*?)\s*$", chunk, flags=re.MULTILINE
+        )
         if head_b:
             heading = head_b.group(1).strip()
             after = chunk.split("\n", 1)[1] if "\n" in chunk else ""
@@ -298,14 +311,20 @@ def _extract_qna(text: str) -> list[QnaItem]:
 def _extract_dash_field(body: str, label: str) -> str:
     # Accept -, * or + bullets: the WYSIWYG editor re-serializes `- ` list
     # markers as `* `, which silently broke Wrap-up field extraction.
-    m = re.search(rf"[-*+][ \t]+\*\*{re.escape(label)}\*\*:[ \t]*(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
-                  body, flags=re.DOTALL)
+    m = re.search(
+        rf"[-*+][ \t]+\*\*{re.escape(label)}\*\*:[ \t]*(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
+        body,
+        flags=re.DOTALL,
+    )
     return m.group(1).strip() if m else ""
 
 
 def _extract_followups(body: str) -> list[str]:
-    m = re.search(r"[-*+][ \t]+\*\*후속으로 읽을 논문\*\*:[ \t]*\n(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
-                  body, flags=re.DOTALL)
+    m = re.search(
+        r"[-*+][ \t]+\*\*후속으로 읽을 논문\*\*:[ \t]*\n(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
+        body,
+        flags=re.DOTALL,
+    )
     if not m:
         return []
     items = re.findall(r"^\s*\d+\.[ \t]+(.+?)[ \t]*$", m.group(1), flags=re.MULTILINE)

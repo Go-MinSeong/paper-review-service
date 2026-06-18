@@ -19,6 +19,7 @@ authors) is returned and the caller should ask the user to fill the gaps.
 Output: stdout JSON with:
     arxiv_id (or null), title, authors, abstract, published, pdf_path, full_text
 """
+
 import sys
 import re
 import json
@@ -71,8 +72,7 @@ def fetch_metadata(arxiv_id: str) -> dict:
     title = re.sub(r"\s+", " ", text_of(entry, "a:title"))
     abstract = re.sub(r"\s+", " ", text_of(entry, "a:summary"))
     authors = [
-        (a.find("a:name", ns).text or "").strip()
-        for a in entry.findall("a:author", ns)
+        (a.find("a:name", ns).text or "").strip() for a in entry.findall("a:author", ns)
     ]
     published = text_of(entry, "a:published")
     return {
@@ -123,7 +123,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("input", nargs="?", help="arXiv URL or ID")
     ap.add_argument("--pdf", help="path to a local PDF instead of fetching from arXiv")
-    ap.add_argument("--out-dir", default="/tmp/papers", help="where to save PDF and outputs")
+    ap.add_argument(
+        "--out-dir", default="/tmp/papers", help="where to save PDF and outputs"
+    )
     ap.add_argument("--no-text", action="store_true", help="skip text extraction")
     args = ap.parse_args()
 

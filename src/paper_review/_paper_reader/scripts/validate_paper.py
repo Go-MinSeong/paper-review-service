@@ -17,12 +17,12 @@ Exit:
     0 if no errors (warnings OK)
     2 if any errors
 """
+
 import sys
 import os
 import re
 import json
 import argparse
-
 
 # Required metadata fields. Missing → ERROR.
 REQUIRED_METADATA = ("title", "year", "venue", "abstract_en")
@@ -32,8 +32,19 @@ RECOMMENDED_METADATA = ("title_ko", "abstract_ko", "category")
 
 # Allowed category values (open list — anything else is OK but flagged for review)
 KNOWN_CATEGORIES = {
-    "VLA", "Foundation Models", "LLM", "VLM", "Diffusion", "RL", "Robotics",
-    "Vision", "Speech", "NLP", "Theory", "Systems", "Other",
+    "VLA",
+    "Foundation Models",
+    "LLM",
+    "VLM",
+    "Diffusion",
+    "RL",
+    "Robotics",
+    "Vision",
+    "Speech",
+    "NLP",
+    "Theory",
+    "Systems",
+    "Other",
 }
 
 
@@ -130,8 +141,7 @@ def check_paper(paper, paper_path=None):
 
     # Sections without summary_ko
     sections_missing_summary = [
-        s.get("id", "?") for s in sections
-        if not (s.get("summary_ko") or "").strip()
+        s.get("id", "?") for s in sections if not (s.get("summary_ko") or "").strip()
     ]
     if sections and len(sections_missing_summary) / len(sections) > 0.3:
         warnings.append(
@@ -238,13 +248,16 @@ def check_paper(paper, paper_path=None):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("paper", help="path to paper.json")
-    ap.add_argument("--json", action="store_true",
-                    help="machine-readable JSON output")
-    ap.add_argument("--quiet", action="store_true",
-                    help="only print on errors (suppress 'OK' message)")
+    ap.add_argument("--json", action="store_true", help="machine-readable JSON output")
+    ap.add_argument(
+        "--quiet",
+        action="store_true",
+        help="only print on errors (suppress 'OK' message)",
+    )
     args = ap.parse_args()
 
     with open(args.paper, "r", encoding="utf-8") as f:
@@ -253,12 +266,18 @@ def main():
     errors, warnings = check_paper(paper, paper_path=args.paper)
 
     if args.json:
-        print(json.dumps(
-            {"errors": errors, "warnings": warnings,
-             "ok": not errors,
-             "paper_path": args.paper},
-            ensure_ascii=False, indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "errors": errors,
+                    "warnings": warnings,
+                    "ok": not errors,
+                    "paper_path": args.paper,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
     else:
         if errors:
             sys.stderr.write(f"❌ {len(errors)} error(s) in {args.paper}:\n")

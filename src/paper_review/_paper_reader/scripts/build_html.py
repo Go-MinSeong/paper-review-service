@@ -5,12 +5,12 @@ viewer-template.html에 paper.json을 주입해 self-contained HTML을 생성한
 Usage:
     python build_html.py --data paper.json --template viewer-template.html --out out.html
 """
+
 import sys
 import os
 import re
 import json
 import argparse
-
 
 PLACEHOLDER = '"__PAPER_DATA__"'
 
@@ -35,7 +35,11 @@ def normalize_figure_refs(paper):
     section_keys = []
     for sec in sections:
         sid = sec.get("id") or ""
-        candidates = {_slug(sid), _slug(sec.get("title_en")), _slug(sec.get("title_ko"))}
+        candidates = {
+            _slug(sid),
+            _slug(sec.get("title_en")),
+            _slug(sec.get("title_ko")),
+        }
         candidates.discard("")
         section_keys.append((sid, candidates))
 
@@ -82,8 +86,11 @@ def main():
     ap.add_argument("--data", required=True, help="path to paper.json")
     ap.add_argument("--template", required=True, help="path to viewer-template.html")
     ap.add_argument("--out", required=True, help="output HTML path")
-    ap.add_argument("--skip-validate", action="store_true",
-                    help="skip the validate_paper.py gate (use only when intentional)")
+    ap.add_argument(
+        "--skip-validate",
+        action="store_true",
+        help="skip the validate_paper.py gate (use only when intentional)",
+    )
     args = ap.parse_args()
 
     # --- Validation gate ---
@@ -102,7 +109,9 @@ def main():
             for w in warnings:
                 sys.stderr.write(f"  - {w}\n")
         if errors:
-            sys.stderr.write(f"❌ {len(errors)} validation error(s) — refusing to build:\n")
+            sys.stderr.write(
+                f"❌ {len(errors)} validation error(s) — refusing to build:\n"
+            )
             for e in errors:
                 sys.stderr.write(f"  - {e}\n")
             sys.stderr.write(

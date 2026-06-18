@@ -22,7 +22,6 @@ from typing import Literal, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-
 Status = Literal["idle", "running", "done", "error", "cancelled"]
 
 
@@ -83,8 +82,9 @@ def cancel(slug: str) -> dict:
 def _section_blocks(text: str) -> dict:
     """Map each '### ' section heading → its full block markdown (within the
     '## 섹션별 리뷰' region)."""
-    m = re.search(r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s|\Z)", text,
-                  flags=re.DOTALL | re.MULTILINE)
+    m = re.search(
+        r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s|\Z)", text, flags=re.DOTALL | re.MULTILINE
+    )
     body = m.group(1) if m else text
     blocks: dict = {}
     for chunk in re.split(r"(?=^###\s)", body, flags=re.MULTILINE):
@@ -136,13 +136,17 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
         needs_prelude = _needs_prelude(wb_text) and not body.only_sections
         if needs_prelude and not job.cancel_event.is_set():
             job.log.append("━━ [pre] 사전지식 카드 + 핵심 contribution + TL;DR 생성")
-            await _generate_prelude(paper_dir, body.model, body.timeout_per_section, job)
+            await _generate_prelude(
+                paper_dir, body.model, body.timeout_per_section, job
+            )
             wb_text = wb.read_text()  # reload after edit
 
         sections_with_range = _parse_unfinished_sections(paper_dir, wb_text)
         if body.only_sections:
             wanted = set(body.only_sections)
-            sections_with_range = [(h, r) for h, r in sections_with_range if h in wanted]
+            sections_with_range = [
+                (h, r) for h, r in sections_with_range if h in wanted
+            ]
         if body.max_sections:
             sections_with_range = sections_with_range[: body.max_sections]
         job.total = len(sections_with_range)
@@ -161,8 +165,12 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
             job.last_text_preview = ""
             job.log.append(f"━━ [{i+1}/{job.total}] {sec_heading} {line_range or ''}")
             ok = await _analyze_one_section(
-                paper_dir, sec_heading, line_range, body.model,
-                body.timeout_per_section, job,
+                paper_dir,
+                sec_heading,
+                line_range,
+                body.model,
+                body.timeout_per_section,
+                job,
             )
             if ok:
                 job.succeeded_sections.append(sec_heading)
@@ -206,13 +214,20 @@ async def _analyze_one_section(
     )
 
     cmd = [
-        "claude", "-p", prompt, "--continue",
-        "--append-system-prompt", system_ctx,
-        "--output-format", "stream-json",
+        "claude",
+        "-p",
+        prompt,
+        "--continue",
+        "--append-system-prompt",
+        system_ctx,
+        "--output-format",
+        "stream-json",
         "--include-partial-messages",
         "--verbose",
-        "--max-turns", "20",
-        "--permission-mode", "acceptEdits",
+        "--max-turns",
+        "20",
+        "--permission-mode",
+        "acceptEdits",
     ]
     if model:
         cmd += ["--model", model]
@@ -272,7 +287,9 @@ async def _analyze_one_section(
                 proc.kill()
 
 
-async def generate_questions(paper_dir: Path, model: Optional[str], timeout: int = 240) -> dict:
+async def generate_questions(
+    paper_dir: Path, model: Optional[str], timeout: int = 240
+) -> dict:
     """On-demand: generate probing Q&A questions for the already-analyzed sections."""
     slug = paper_dir.name
     prompt = f"""Generate probing review questions for this paper's ## Q&A section.
@@ -301,20 +318,29 @@ Steps:
         "only. Use the Edit tool on workbench.md. Output minimal chat."
     )
     cmd = [
-        "claude", "-p", prompt, "--continue",
-        "--append-system-prompt", system_ctx,
-        "--output-format", "stream-json",
+        "claude",
+        "-p",
+        prompt,
+        "--continue",
+        "--append-system-prompt",
+        system_ctx,
+        "--output-format",
+        "stream-json",
         "--verbose",
-        "--max-turns", "15",
-        "--permission-mode", "acceptEdits",
+        "--max-turns",
+        "15",
+        "--permission-mode",
+        "acceptEdits",
     ]
     if model:
         cmd += ["--model", model]
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        limit=16 * 1024 * 1024, cwd=str(paper_dir),
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        limit=16 * 1024 * 1024,
+        cwd=str(paper_dir),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
     start = time.time()
     try:
@@ -340,7 +366,9 @@ Steps:
                 proc.kill()
 
 
-async def generate_pipeline(paper_dir: Path, model: Optional[str], timeout: int = 360) -> dict:
+async def generate_pipeline(
+    paper_dir: Path, model: Optional[str], timeout: int = 360
+) -> dict:
     """On-demand: auto-generate the ```pipeline animation spec from the paper."""
     prompt = """Generate an animated-pipeline spec for THIS paper and insert it into workbench.md.
 
@@ -374,20 +402,29 @@ Steps:
         "pipeline spec only. Use the Edit tool on workbench.md. Output minimal chat."
     )
     cmd = [
-        "claude", "-p", prompt, "--continue",
-        "--append-system-prompt", system_ctx,
-        "--output-format", "stream-json",
+        "claude",
+        "-p",
+        prompt,
+        "--continue",
+        "--append-system-prompt",
+        system_ctx,
+        "--output-format",
+        "stream-json",
         "--verbose",
-        "--max-turns", "20",
-        "--permission-mode", "acceptEdits",
+        "--max-turns",
+        "20",
+        "--permission-mode",
+        "acceptEdits",
     ]
     if model:
         cmd += ["--model", model]
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
-        limit=16 * 1024 * 1024, cwd=str(paper_dir),
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        limit=16 * 1024 * 1024,
+        cwd=str(paper_dir),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
     start = time.time()
     try:
@@ -403,8 +440,11 @@ Steps:
             if not line:
                 break
         await proc.wait()
-        wb = (paper_dir / "workbench.md")
-        created = bool(wb.exists() and re.search(r"```pipeline\s*\n", wb.read_text(encoding="utf-8")))
+        wb = paper_dir / "workbench.md"
+        created = bool(
+            wb.exists()
+            and re.search(r"```pipeline\s*\n", wb.read_text(encoding="utf-8"))
+        )
         return {"ok": proc.returncode == 0, "code": proc.returncode, "created": created}
     finally:
         if proc.returncode is None:
@@ -417,7 +457,11 @@ Steps:
 
 def _build_section_prompt(heading: str, line_range: str, paper_dir: Path) -> str:
     slug = paper_dir.name
-    range_hint = f"It corresponds to lines {line_range} of {slug}_source.txt." if line_range else ""
+    range_hint = (
+        f"It corresponds to lines {line_range} of {slug}_source.txt."
+        if line_range
+        else ""
+    )
     return f"""Translate paper section {heading!r} INLINE (no subagent dispatch).
 
 {range_hint}
@@ -461,7 +505,9 @@ def _needs_prelude(workbench_md: str) -> bool:
     # TL;DR placeholder: 비어있음 marker
     tldr_unfilled = "아직 비어있음" in workbench_md
     # contrib placeholder: "1. \n2. \n3. " (empty numbered items)
-    contrib_unfilled = bool(re.search(r"## 핵심 contribution[\s\S]*?\n1\. \n2\. \n3\. ", workbench_md))
+    contrib_unfilled = bool(
+        re.search(r"## 핵심 contribution[\s\S]*?\n1\. \n2\. \n3\. ", workbench_md)
+    )
     # prereqs placeholder
     prereqs_unfilled = "ingest는 사전지식 카드를 미리 만들지 않음" in workbench_md
     return tldr_unfilled or contrib_unfilled or prereqs_unfilled
@@ -508,13 +554,20 @@ Steps:
     )
 
     cmd = [
-        "claude", "-p", prompt, "--continue",
-        "--append-system-prompt", system_ctx,
-        "--output-format", "stream-json",
+        "claude",
+        "-p",
+        prompt,
+        "--continue",
+        "--append-system-prompt",
+        system_ctx,
+        "--output-format",
+        "stream-json",
         "--include-partial-messages",
         "--verbose",
-        "--max-turns", "15",
-        "--permission-mode", "acceptEdits",
+        "--max-turns",
+        "15",
+        "--permission-mode",
+        "acceptEdits",
     ]
     if model:
         cmd += ["--model", model]
@@ -630,7 +683,9 @@ def _summarize_tool(name: str, input_data: dict) -> str:
     return f"{name}"
 
 
-def _parse_unfinished_sections(paper_dir: Path, workbench_md: str) -> list[tuple[str, str]]:
+def _parse_unfinished_sections(
+    paper_dir: Path, workbench_md: str
+) -> list[tuple[str, str]]:
     """Returns [(heading, line_range), ...] for sections with the _(미진행)_ marker.
 
     line_range is read from the <!-- section_id: ... | lines: A-B --> comment,

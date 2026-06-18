@@ -8,12 +8,12 @@ Usage:
 Output: stdout JSON with:
     repo, url, description, language, stars, default_branch, tree_text, readme
 """
+
 import re
 import json
 import argparse
 import base64
 import urllib.request
-
 
 HEADERS = {
     "Accept": "application/vnd.github+json",

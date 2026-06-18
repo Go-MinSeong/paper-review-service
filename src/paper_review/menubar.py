@@ -61,7 +61,9 @@ def _stale_server_pids(port: int) -> list[int]:
     try:
         out = subprocess.run(
             [lsof, "-ti", f"tcp:{port}", "-sTCP:LISTEN"],
-            capture_output=True, text=True, timeout=4,
+            capture_output=True,
+            text=True,
+            timeout=4,
         ).stdout
     except Exception:
         return []
@@ -73,7 +75,9 @@ def _stale_server_pids(port: int) -> list[int]:
         try:
             cmd = subprocess.run(
                 [ps, "-o", "command=", "-p", str(pid)],
-                capture_output=True, text=True, timeout=4,
+                capture_output=True,
+                text=True,
+                timeout=4,
             ).stdout
         except Exception:
             cmd = ""
@@ -129,8 +133,10 @@ def _lan_ip() -> str | None:
 class PaperReviewMenubarApp:
     def __init__(self, port: int = DEFAULT_PORT, auto_open: bool = False):
         if rumps is None:
-            print("rumps not available — menubar mode requires macOS + rumps.",
-                  file=sys.stderr)
+            print(
+                "rumps not available — menubar mode requires macOS + rumps.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         self.port = port
@@ -144,26 +150,28 @@ class PaperReviewMenubarApp:
         icon_kwargs = {}
         if icon_path.exists():
             icon_kwargs = {"icon": str(icon_path), "template": True}
-        self.app = rumps.App("paper-review", title=None if icon_kwargs else "◫",
-                             quit_button=None, **icon_kwargs)
+        self.app = rumps.App(
+            "paper-review",
+            title=None if icon_kwargs else "◫",
+            quit_button=None,
+            **icon_kwargs,
+        )
         self.menu_status = rumps.MenuItem("●  starting…")
         self.menu_status.set_callback(None)
-        self.menu_open = rumps.MenuItem("Open Gallery",
-                                        callback=self._on_open_gallery)
-        self.menu_url = rumps.MenuItem(f"http://127.0.0.1:{port}",
-                                       callback=self._on_open_gallery)
+        self.menu_open = rumps.MenuItem("Open Gallery", callback=self._on_open_gallery)
+        self.menu_url = rumps.MenuItem(
+            f"http://127.0.0.1:{port}", callback=self._on_open_gallery
+        )
         lan = _lan_ip()
         self.menu_lan = rumps.MenuItem(
-            f"📱  http://{lan}:{port}" if lan else "📱  LAN: (offline)",
-            callback=None)
-        self.menu_restart = rumps.MenuItem("Restart Server",
-                                           callback=self._on_restart)
-        self.menu_toggle = rumps.MenuItem("Stop Server",
-                                          callback=self._on_toggle)
-        self.menu_logs = rumps.MenuItem("Open Latest Log",
-                                        callback=self._on_open_log)
-        self.menu_auto_open = rumps.MenuItem("Auto-open on launch",
-                                             callback=self._on_toggle_auto_open)
+            f"📱  http://{lan}:{port}" if lan else "📱  LAN: (offline)", callback=None
+        )
+        self.menu_restart = rumps.MenuItem("Restart Server", callback=self._on_restart)
+        self.menu_toggle = rumps.MenuItem("Stop Server", callback=self._on_toggle)
+        self.menu_logs = rumps.MenuItem("Open Latest Log", callback=self._on_open_log)
+        self.menu_auto_open = rumps.MenuItem(
+            "Auto-open on launch", callback=self._on_toggle_auto_open
+        )
         if self.auto_open:
             self.menu_auto_open.state = 1
         self.menu_quit = rumps.MenuItem("Quit", callback=self._on_quit)

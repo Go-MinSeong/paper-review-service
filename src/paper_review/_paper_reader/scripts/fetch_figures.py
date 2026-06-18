@@ -24,6 +24,7 @@ Output: stdout JSON (and write to <out-dir>/<id>_figures.json):
 ref_in_section은 source_text가 주어졌고 본문에 "Figure 3" 같은 매치가 있으면
 첫 등장 부근의 추정 section_id로 채운다. 없으면 null.
 """
+
 import sys
 import os
 import re
@@ -37,7 +38,6 @@ import urllib.parse
 import tarfile
 import gzip
 from pathlib import Path
-
 
 HEADERS = {"User-Agent": "paper-reader/0.3 (research)"}
 
@@ -61,14 +61,17 @@ def _img_url_candidates(src, page_url, join_base):
     if src.startswith("http"):
         return [src]
     out = []
-    for cand in (urllib.parse.urljoin(page_url, src),
-                 urllib.parse.urljoin(join_base, src)):
+    for cand in (
+        urllib.parse.urljoin(page_url, src),
+        urllib.parse.urljoin(join_base, src),
+    ):
         if cand not in out:
             out.append(cand)
     return out
 
 
 # ---------- Image processing ----------
+
 
 def downsize_to_data_uri(raw_bytes, max_width=800, jpeg_quality=80, force_jpeg=True):
     """Resize raster images to max_width if larger; pass SVG through unchanged.
@@ -79,7 +82,11 @@ def downsize_to_data_uri(raw_bytes, max_width=800, jpeg_quality=80, force_jpeg=T
     PNG when transparency matters.
     """
     # SVG: don't rasterize, embed as-is
-    if raw_bytes[:5] == b"<?xml" or raw_bytes[:4] == b"<svg" or b"<svg" in raw_bytes[:200]:
+    if (
+        raw_bytes[:5] == b"<?xml"
+        or raw_bytes[:4] == b"<svg"
+        or b"<svg" in raw_bytes[:200]
+    ):
         b64 = base64.b64encode(raw_bytes).decode("ascii")
         return f"data:image/svg+xml;base64,{b64}", None, "image/svg+xml"
 
@@ -127,6 +134,7 @@ def downsize_to_data_uri(raw_bytes, max_width=800, jpeg_quality=80, force_jpeg=T
 
 # ---------- Strategy 1: ar5iv HTML ----------
 
+
 def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
     """Returns list of figure dicts, or [] on failure."""
     try:
@@ -164,7 +172,9 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
         """Returns (label, label_id) from caption text. default_kind is 'figure' or 'table'."""
         nonlocal fig_count, tbl_count
         # Try Arabic numerals first: "Figure 3" / "Table 2" / "Fig. 3a"
-        m = re.match(r"^(Figure|Fig\.?|Table|Tab\.?)\s+(\d+[a-z]?)", caption, re.IGNORECASE)
+        m = re.match(
+            r"^(Figure|Fig\.?|Table|Tab\.?)\s+(\d+[a-z]?)", caption, re.IGNORECASE
+        )
         if m:
             head = m.group(1).rstrip(".").lower()
             num = m.group(2).lower()
@@ -173,7 +183,9 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
             else:
                 return f"Figure {m.group(2)}", f"fig{num}"
         # Roman numeral tables (IEEE style): "TABLE I", "Table II"
-        m = re.match(r"^(Figure|Fig\.?|Table|Tab\.?)\s+([IVXLCDM]+)\b", caption, re.IGNORECASE)
+        m = re.match(
+            r"^(Figure|Fig\.?|Table|Tab\.?)\s+([IVXLCDM]+)\b", caption, re.IGNORECASE
+        )
         if m:
             head = m.group(1).rstrip(".").lower()
             num = m.group(2).upper()
@@ -220,16 +232,18 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
                 continue
             seen_table_ids.add(label_id)
             figure_tables_seen.add(id(inner_table))
-            figures.append({
-                "id": label_id,
-                "kind": "table",
-                "label": label,
-                "caption_en": caption,
-                "caption_ko": "",
-                "html": _clean_table_html(inner_table),
-                "ref_in_section": None,
-                "source": "ar5iv",
-            })
+            figures.append(
+                {
+                    "id": label_id,
+                    "kind": "table",
+                    "label": label,
+                    "caption_en": caption,
+                    "caption_ko": "",
+                    "html": _clean_table_html(inner_table),
+                    "ref_in_section": None,
+                    "source": "ar5iv",
+                }
+            )
             continue
 
         # Image figure (may also contain a small table that's part of the figure layout — fine, we keep image)
@@ -254,21 +268,25 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
             sys.stderr.write(f"[warn] failed to fetch image '{src}': {last_err}\n")
             continue
 
-        data_uri, w, _ = downsize_to_data_uri(raw, max_width=max_width, jpeg_quality=jpeg_quality)
+        data_uri, w, _ = downsize_to_data_uri(
+            raw, max_width=max_width, jpeg_quality=jpeg_quality
+        )
         if not data_uri:
             continue
 
-        figures.append({
-            "id": label_id,
-            "kind": "image",
-            "label": label,
-            "caption_en": caption,
-            "caption_ko": "",
-            "data_uri": data_uri,
-            "width": w or max_width,
-            "ref_in_section": None,
-            "source": "ar5iv",
-        })
+        figures.append(
+            {
+                "id": label_id,
+                "kind": "image",
+                "label": label,
+                "caption_en": caption,
+                "caption_ko": "",
+                "data_uri": data_uri,
+                "width": w or max_width,
+                "ref_in_section": None,
+                "source": "ar5iv",
+            }
+        )
 
     # --- Pass 2: standalone <table> elements not already wrapped in a <figure>. ---
     # ar5iv sometimes emits tables outside <figure> with caption in a sibling <p> or
@@ -302,16 +320,18 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
             continue
         seen_table_ids.add(label_id)
 
-        figures.append({
-            "id": label_id,
-            "kind": "table",
-            "label": label,
-            "caption_en": caption,
-            "caption_ko": "",
-            "html": _clean_table_html(table_tag),
-            "ref_in_section": None,
-            "source": "ar5iv",
-        })
+        figures.append(
+            {
+                "id": label_id,
+                "kind": "table",
+                "label": label,
+                "caption_en": caption,
+                "caption_ko": "",
+                "html": _clean_table_html(table_tag),
+                "ref_in_section": None,
+                "source": "ar5iv",
+            }
+        )
 
     return figures
 
@@ -401,7 +421,9 @@ def fetch_from_tarball(arxiv_id, max_width=800, jpeg_quality=80):
         r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", re.DOTALL
     )
     inc_pattern = re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}")
-    cap_pattern = re.compile(r"\\caption(?:\[[^\]]*\])?\{((?:[^{}]|\{[^{}]*\})*)\}", re.DOTALL)
+    cap_pattern = re.compile(
+        r"\\caption(?:\[[^\]]*\])?\{((?:[^{}]|\{[^{}]*\})*)\}", re.DOTALL
+    )
 
     results = []
     fig_idx = 0
@@ -455,7 +477,9 @@ def fetch_from_tarball(arxiv_id, max_width=800, jpeg_quality=80):
             # EPS is rare in modern arXiv but skip — no easy renderer here
             continue
 
-        data_uri, w, _ = downsize_to_data_uri(raw_img, max_width=max_width, jpeg_quality=jpeg_quality)
+        data_uri, w, _ = downsize_to_data_uri(
+            raw_img, max_width=max_width, jpeg_quality=jpeg_quality
+        )
         if not data_uri:
             continue
 
@@ -464,27 +488,32 @@ def fetch_from_tarball(arxiv_id, max_width=800, jpeg_quality=80):
         m = re.match(r"^(Figure|Fig\.?|Table|Tab\.?)\s+(\d+[a-z]?)", caption)
         if m:
             label = f"{m.group(1).rstrip('.')} {m.group(2)}"
-            label_id = ("fig" if m.group(1).startswith("Fig") else "tbl") + m.group(2).lower()
+            label_id = ("fig" if m.group(1).startswith("Fig") else "tbl") + m.group(
+                2
+            ).lower()
         else:
             label = f"Figure {fig_idx}"
             label_id = f"fig{fig_idx}"
 
-        results.append({
-            "id": label_id,
-            "kind": "image",
-            "label": label,
-            "caption_en": caption,
-            "caption_ko": "",
-            "data_uri": data_uri,
-            "width": w,
-            "ref_in_section": None,
-            "source": "tarball",
-        })
+        results.append(
+            {
+                "id": label_id,
+                "kind": "image",
+                "label": label,
+                "caption_en": caption,
+                "caption_ko": "",
+                "data_uri": data_uri,
+                "width": w,
+                "ref_in_section": None,
+                "source": "tarball",
+            }
+        )
 
     return results
 
 
 # ---------- Section ref guessing ----------
+
 
 def guess_section_refs(figures, source_text_path, sections_index_path):
     """For each figure, find first "Figure N" mention in source.txt and map to
@@ -523,7 +552,11 @@ def guess_section_refs(figures, source_text_path, sections_index_path):
         num = m.group(2)
         is_fig = fig["label"].lower().startswith("f")
         if is_fig:
-            patterns = [rf"\bFigure\s+{num}\b", rf"\bFig\.\s*{num}\b", rf"\bFig\s+{num}\b"]
+            patterns = [
+                rf"\bFigure\s+{num}\b",
+                rf"\bFig\.\s*{num}\b",
+                rf"\bFig\s+{num}\b",
+            ]
         else:
             patterns = [rf"\bTable\s+{num}\b", rf"\bTab\.\s*{num}\b"]
         combined = re.compile("|".join(patterns))
@@ -541,11 +574,19 @@ def main():
     ap.add_argument("arxiv_id", help="arXiv ID (e.g. 2410.24164)")
     ap.add_argument("--out-dir", default="/tmp/papers")
     ap.add_argument("--max-width", type=int, default=800)
-    ap.add_argument("--jpeg-quality", type=int, default=80,
-                    help="JPEG quality for raster images (1-100). Lower = smaller files.")
+    ap.add_argument(
+        "--jpeg-quality",
+        type=int,
+        default=80,
+        help="JPEG quality for raster images (1-100). Lower = smaller files.",
+    )
     ap.add_argument("--source-text", help="path to source.txt for section ref guessing")
-    ap.add_argument("--sections-index", help="path to sections.txt for section ref guessing")
-    ap.add_argument("--out-name", help="override output filename (default: <slug>_figures.json)")
+    ap.add_argument(
+        "--sections-index", help="path to sections.txt for section ref guessing"
+    )
+    ap.add_argument(
+        "--out-name", help="override output filename (default: <slug>_figures.json)"
+    )
     args = ap.parse_args()
 
     arxiv_id = args.arxiv_id.strip()
@@ -558,11 +599,15 @@ def main():
 
     # Try ar5iv first
     sys.stderr.write(f"[info] trying ar5iv for {arxiv_id}...\n")
-    figures = fetch_from_ar5iv(arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality)
+    figures = fetch_from_ar5iv(
+        arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
+    )
     source_used = "ar5iv"
     if not figures:
         sys.stderr.write(f"[info] ar5iv yielded 0 figures, trying source tarball...\n")
-        figures = fetch_from_tarball(arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality)
+        figures = fetch_from_tarball(
+            arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
+        )
         source_used = "tarball"
 
     # Guess section refs

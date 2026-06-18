@@ -56,6 +56,7 @@ Section JSON 예시:
 기본 동작은 append. 같은 id의 section이 이미 있으면 replace.
 --mode replace를 명시하면 prerequisites/key_terms도 기존 항목을 비우고 set.
 """
+
 import sys
 import json
 import argparse
@@ -96,11 +97,22 @@ def merge_figures(paper, items, mode):
         else:
             existing.append(incoming)
             added += 1
-    return f"figures merged: {added} added, {updated} updated (now {len(existing)} total)"
+    return (
+        f"figures merged: {added} added, {updated} updated (now {len(existing)} total)"
+    )
 
 
-VALID_KINDS = {"section", "prerequisites", "key_terms", "github", "further_reading",
-               "metadata", "ambiguities", "code_clarifications", "figures"}
+VALID_KINDS = {
+    "section",
+    "prerequisites",
+    "key_terms",
+    "github",
+    "further_reading",
+    "metadata",
+    "ambiguities",
+    "code_clarifications",
+    "figures",
+}
 
 
 def load_data(path_or_stdin):
@@ -175,8 +187,12 @@ def summarize(paper):
         "prerequisites_count": len(paper.get("prerequisites", [])),
         "key_terms_count": len(paper.get("key_terms", [])),
         "has_github": paper.get("github") is not None,
-        "from_references_count": len((paper.get("further_reading") or {}).get("from_references", [])),
-        "follow_up_count": len((paper.get("further_reading") or {}).get("follow_up", [])),
+        "from_references_count": len(
+            (paper.get("further_reading") or {}).get("from_references", [])
+        ),
+        "follow_up_count": len(
+            (paper.get("further_reading") or {}).get("follow_up", [])
+        ),
         "ambiguities_count": len(paper.get("ambiguities", [])),
         "code_clarifications_count": len(paper.get("code_clarifications", [])),
         "figures_count": len(paper.get("figures", [])),
@@ -184,16 +200,27 @@ def summarize(paper):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--paper", required=True, help="path to paper.json")
-    ap.add_argument("--kind", choices=sorted(VALID_KINDS),
-                    help="(single mode) what to merge")
-    ap.add_argument("--data", help="(single mode) path to JSON file (or '-' / omit for stdin)")
-    ap.add_argument("--mode", default="append", choices=["append", "replace"],
-                    help="for list fields: append (default) or replace")
-    ap.add_argument("--batch", help="(batch mode) path to a batch JSON file: "
-                                    "list of {kind, data_path|data, mode?}")
+    ap.add_argument(
+        "--kind", choices=sorted(VALID_KINDS), help="(single mode) what to merge"
+    )
+    ap.add_argument(
+        "--data", help="(single mode) path to JSON file (or '-' / omit for stdin)"
+    )
+    ap.add_argument(
+        "--mode",
+        default="append",
+        choices=["append", "replace"],
+        help="for list fields: append (default) or replace",
+    )
+    ap.add_argument(
+        "--batch",
+        help="(batch mode) path to a batch JSON file: "
+        "list of {kind, data_path|data, mode?}",
+    )
     args = ap.parse_args()
 
     with open(args.paper, "r", encoding="utf-8") as f:
@@ -206,7 +233,9 @@ def main():
         with open(args.batch, "r", encoding="utf-8") as f:
             ops = json.load(f)
         if not isinstance(ops, list):
-            sys.exit("--batch file must contain a JSON array of {kind, data|data_path, mode?}")
+            sys.exit(
+                "--batch file must contain a JSON array of {kind, data|data_path, mode?}"
+            )
         for i, op in enumerate(ops):
             kind = op.get("kind")
             if kind not in VALID_KINDS:

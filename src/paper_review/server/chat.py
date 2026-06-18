@@ -40,7 +40,9 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
 
     lock = _locks[slug]
     if lock.locked():
-        yield _sse({"type": "error", "message": "chat busy — another turn is in flight"})
+        yield _sse(
+            {"type": "error", "message": "chat busy — another turn is in flight"}
+        )
         return
 
     async with lock:
@@ -49,7 +51,9 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
         # Wrap leading-slash pseudo-commands so Claude Code's slash command
         # parser doesn't intercept them as unknown slash commands.
         user_text = body.prompt
-        if user_text.lstrip().startswith("/") and not user_text.lstrip().startswith("/paper-review"):
+        if user_text.lstrip().startswith("/") and not user_text.lstrip().startswith(
+            "/paper-review"
+        ):
             user_text = (
                 f"User pseudo-command (from paper-review chat UI): {user_text.strip()}\n\n"
                 "Apply the matching rule from ~/.claude/skills/paper-review/SKILL.md. "
@@ -76,13 +80,19 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
             "user sees them in a chat panel, not a full terminal."
         )
         cmd = [
-            "claude", "-p", user_text,
-            "--append-system-prompt", system_ctx,
-            "--output-format", "stream-json",
+            "claude",
+            "-p",
+            user_text,
+            "--append-system-prompt",
+            system_ctx,
+            "--output-format",
+            "stream-json",
             "--include-partial-messages",
             "--verbose",
-            "--permission-mode", "acceptEdits",
-            "--max-turns", str(body.max_turns),
+            "--permission-mode",
+            "acceptEdits",
+            "--max-turns",
+            str(body.max_turns),
         ]
         if body.model:
             cmd += ["--model", body.model]
@@ -118,7 +128,9 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
                 err = ""
                 if proc.stderr:
                     err = (await proc.stderr.read()).decode("utf-8", "replace")
-                yield _sse({"type": "error", "code": proc.returncode, "stderr": err[-2000:]})
+                yield _sse(
+                    {"type": "error", "code": proc.returncode, "stderr": err[-2000:]}
+                )
             yield _sse({"type": "done"})
         finally:
             if proc.returncode is None:
@@ -159,11 +171,22 @@ def _sse_pass(obj: dict) -> str:
             if delta.get("type") == "text_delta":
                 return _sse({"type": "delta", "text": delta.get("text", "")})
             if delta.get("type") == "input_json_delta":
-                return _sse({"type": "tool_delta", "partial_json": delta.get("partial_json", "")})
+                return _sse(
+                    {
+                        "type": "tool_delta",
+                        "partial_json": delta.get("partial_json", ""),
+                    }
+                )
         if et == "content_block_start":
             cb = ev.get("content_block", {})
             if cb.get("type") == "tool_use":
-                return _sse({"type": "tool_start", "name": cb.get("name", ""), "id": cb.get("id")})
+                return _sse(
+                    {
+                        "type": "tool_start",
+                        "name": cb.get("name", ""),
+                        "id": cb.get("id"),
+                    }
+                )
         if et == "message_stop":
             return _sse({"type": "message_stop"})
         return ""  # other stream_event types: skip
@@ -173,22 +196,37 @@ def _sse_pass(obj: dict) -> str:
     if t == "system":
         sub = obj.get("subtype")
         if sub == "init":
-            return _sse({"type": "system", "subtype": "init",
-                         "session_id": obj.get("session_id"),
-                         "model": obj.get("model")})
+            return _sse(
+                {
+                    "type": "system",
+                    "subtype": "init",
+                    "session_id": obj.get("session_id"),
+                    "model": obj.get("model"),
+                }
+            )
         if sub == "status":
-            return _sse({"type": "system", "subtype": "status",
-                         "status": obj.get("status")})
+            return _sse(
+                {"type": "system", "subtype": "status", "status": obj.get("status")}
+            )
         if sub == "post_turn_summary":
-            return _sse({"type": "system", "subtype": "summary",
-                         "status_detail": obj.get("status_detail"),
-                         "needs_action": obj.get("needs_action")})
+            return _sse(
+                {
+                    "type": "system",
+                    "subtype": "summary",
+                    "status_detail": obj.get("status_detail"),
+                    "needs_action": obj.get("needs_action"),
+                }
+            )
         return ""
     if t == "result":
-        return _sse({"type": "result",
-                     "result": obj.get("result"),
-                     "is_error": obj.get("is_error", False),
-                     "duration_ms": obj.get("duration_ms"),
-                     "total_cost_usd": obj.get("total_cost_usd"),
-                     "session_id": obj.get("session_id")})
+        return _sse(
+            {
+                "type": "result",
+                "result": obj.get("result"),
+                "is_error": obj.get("is_error", False),
+                "duration_ms": obj.get("duration_ms"),
+                "total_cost_usd": obj.get("total_cost_usd"),
+                "session_id": obj.get("session_id"),
+            }
+        )
     return ""
