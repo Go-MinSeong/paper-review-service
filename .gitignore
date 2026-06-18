@@ -16,6 +16,10 @@
 !skills/
 !skills/**
 
+# ...and the test suite
+!tests/
+!tests/**
+
 # Standard Python
 __pycache__/
 *.py[cod]

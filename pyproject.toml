@@ -20,8 +20,17 @@ dependencies = [
     "rumps>=0.4; sys_platform == 'darwin'",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 paper-review = "paper_review.cli:main"
+
+[tool.black]
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["hatchling"]
@@ -36,3 +45,4 @@ packages = ["src/paper_review"]
 "src/paper_review/_paper_reader/references" = "paper_review/_paper_reader/references"
 "src/paper_review/server/templates" = "paper_review/server/templates"
 "src/paper_review/server/static" = "paper_review/server/static"
+"src/paper_review/server/illustration_groups.json" = "paper_review/server/illustration_groups.json"
