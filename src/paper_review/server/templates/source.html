@@ -69,31 +69,56 @@
     } catch (e) {}
     loadFigures();
   }
+  const norm = s => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  function makeFigure(f) {
+    const fig = document.createElement("figure");
+    if (f.data_uri) {
+      const img = document.createElement("img");
+      img.src = f.data_uri; img.alt = f.caption_en || f.label || "";
+      fig.appendChild(img);
+    } else if (f.html) {
+      const div = document.createElement("div");
+      div.innerHTML = f.html; fig.appendChild(div);
+    }
+    const cap = f.caption_en || f.label;
+    if (cap) {
+      const c = document.createElement("figcaption");
+      c.textContent = cap; fig.appendChild(c);
+    }
+    return fig;
+  }
   async function loadFigures() {
     let figs = [];
     try { figs = await fetch(`/paper/${slug}/figures.json`).then(r => r.ok ? r.json() : []); }
     catch (e) { return; }
     if (!Array.isArray(figs)) figs = figs.figures || [];
     if (!figs.length) return;
-    const wrap = document.getElementById("figs-list");
+
+    // Map each content heading (normalized text) → its element. Place each
+    // figure right after the heading of the section it came from; figures with
+    // no section_heading (or no match) fall back to the bottom gallery.
+    const content = document.getElementById("content");
+    const headings = [...content.querySelectorAll("h1,h2,h3,h4")];
+    const byText = {};
+    for (const h of headings) { const k = norm(h.textContent); if (!(k in byText)) byText[k] = h; }
+    const anchor = {};  // heading text → last inserted node (to keep figure order)
+    const leftover = [];
     for (const f of figs) {
-      const fig = document.createElement("figure");
-      if (f.data_uri) {
-        const img = document.createElement("img");
-        img.src = f.data_uri; img.alt = f.caption_en || f.label || "";
-        fig.appendChild(img);
-      } else if (f.html) {
-        const div = document.createElement("div");
-        div.innerHTML = f.html; fig.appendChild(div);
+      const key = norm(f.section_heading);
+      const h = key && byText[key];
+      if (h) {
+        const fig = makeFigure(f);
+        (anchor[key] || h).insertAdjacentElement("afterend", fig);
+        anchor[key] = fig;
+      } else {
+        leftover.push(f);
       }
-      const cap = f.caption_en || f.label;
-      if (cap) {
-        const c = document.createElement("figcaption");
-        c.textContent = cap; fig.appendChild(c);
-      }
-      wrap.appendChild(fig);
     }
-    document.getElementById("figs").hidden = false;
+    if (leftover.length) {
+      const wrap = document.getElementById("figs-list");
+      leftover.forEach(f => wrap.appendChild(makeFigure(f)));
+      document.getElementById("figs").hidden = false;
+    }
   }
   load();
 </script>

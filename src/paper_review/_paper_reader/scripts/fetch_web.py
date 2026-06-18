@@ -175,6 +175,11 @@ def extract_images(
             )
         if not data_uri:
             continue
+        # 직전 heading 텍스트 → 뷰어가 그림을 해당 섹션 자리에 인라인 배치하는 데 사용
+        h = img.find_previous(["h1", "h2", "h3", "h4"])
+        section_heading = (
+            re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip() if h else ""
+        )
         n += 1
         figures.append(
             {
@@ -186,6 +191,7 @@ def extract_images(
                 "data_uri": data_uri,
                 "width": w or max_width,
                 "ref_in_section": None,
+                "section_heading": section_heading,
                 "source": "web",
             }
         )
