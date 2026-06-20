@@ -94,10 +94,13 @@ async def _run_ingest(job: IngestJob) -> None:
     job.status = "running"
     job.log.append(f"$ paper-review init {job.source}")
 
-    venv_bin = SERVICE_ROOT / ".venv" / "bin" / "paper-review"
-    paper_review_bin = str(venv_bin) if venv_bin.exists() else "paper-review"
-
-    cmd = [paper_review_bin, "init", "--force", job.source]
+    if getattr(sys, "frozen", False):
+        # In the packaged .app, re-exec ourselves (the app dispatches `init`).
+        cmd = [sys.executable, "init", "--force", job.source]
+    else:
+        venv_bin = SERVICE_ROOT / ".venv" / "bin" / "paper-review"
+        paper_review_bin = str(venv_bin) if venv_bin.exists() else "paper-review"
+        cmd = [paper_review_bin, "init", "--force", job.source]
 
     try:
         proc = await asyncio.create_subprocess_exec(

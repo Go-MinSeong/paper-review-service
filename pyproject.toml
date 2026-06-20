@@ -18,10 +18,11 @@ dependencies = [
     "pypdfium2>=4.0",
     "python-multipart>=0.0.9",
     "rumps>=0.4; sys_platform == 'darwin'",
+    "pywebview>=5.0; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pyinstaller>=6.0"]
 
 [project.scripts]
 paper-review = "paper_review.cli:main"

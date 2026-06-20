@@ -213,6 +213,14 @@ def menubar(port: int, auto_open: bool) -> None:
 
 
 @main.command()
+def app() -> None:
+    """Launch the desktop app (native window over the local server)."""
+    from .app import run_app
+
+    run_app()
+
+
+@main.command()
 @click.argument("slug")
 def session(slug: str) -> None:
     """cd into the paper's folder and launch claude."""
