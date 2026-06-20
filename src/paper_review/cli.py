@@ -247,5 +247,30 @@ def export_draft(slug: str, drafts_dir: Path) -> None:
     click.secho(f"✓ wrote {dest}", fg="green")
 
 
+@main.command(
+    name="_run-script",
+    hidden=True,
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.argument("script")
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def _run_script(script: str, args: tuple[str, ...]) -> None:
+    """Internal: run a vendored _paper_reader script in-process so the pipeline
+    works in a frozen .app (where `python <file>` isn't available). Invoked by
+    runner._run via self-re-exec."""
+    import importlib
+
+    from ._paper_reader import SCRIPTS_DIR
+
+    sys.path.insert(0, str(SCRIPTS_DIR))
+    mod = importlib.import_module(Path(script).stem)
+    saved = sys.argv
+    sys.argv = [script, *args]
+    try:
+        mod.main()
+    finally:
+        sys.argv = saved
+
+
 if __name__ == "__main__":
     main()

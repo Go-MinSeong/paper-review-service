@@ -7,6 +7,7 @@ so the original /tmp/papers default is never used.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,9 +15,21 @@ from pathlib import Path
 from . import SCRIPTS_DIR, VIEWER_TEMPLATE
 
 
+def _self_cmd() -> list[str]:
+    """Command prefix that re-invokes this app/CLI's hidden `_run-script`
+    dispatcher. In a PyInstaller bundle sys.executable is the app binary (which
+    dispatches via cli.main); in dev it's python, so go through the module."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "_run-script"]
+    return [sys.executable, "-m", "paper_review.cli", "_run-script"]
+
+
 def _run(script: str, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-    cmd = [sys.executable, str(SCRIPTS_DIR / script), *args]
-    return subprocess.run(cmd, check=check, text=True, capture_output=True)
+    # Re-exec ourselves to run the vendored script in-process, so the pipeline
+    # works whether running from source or a frozen .app (no `python <file>`).
+    env = {**os.environ, "PR_RUN_SCRIPT": json.dumps(_self_cmd())}
+    cmd = [*_self_cmd(), script, *args]
+    return subprocess.run(cmd, check=check, text=True, capture_output=True, env=env)
 
 
 def init_paper(

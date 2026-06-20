@@ -47,15 +47,15 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def run_fetch_arxiv(args_list, out_dir):
-    """Call fetch_arxiv.py and return parsed JSON."""
-    cmd = (
-        [sys.executable, os.path.join(SCRIPT_DIR, "fetch_arxiv.py")]
-        + args_list
-        + [
-            "--out-dir",
-            out_dir,
-        ]
-    )
+    """Call fetch_arxiv.py and return parsed JSON. When invoked inside a frozen
+    .app, runner sets PR_RUN_SCRIPT to the self-re-exec prefix so this nested
+    call also avoids `python <file>` (unavailable when frozen)."""
+    self_cmd = os.environ.get("PR_RUN_SCRIPT")
+    if self_cmd:
+        prefix = json.loads(self_cmd) + ["fetch_arxiv.py"]
+    else:
+        prefix = [sys.executable, os.path.join(SCRIPT_DIR, "fetch_arxiv.py")]
+    cmd = prefix + args_list + ["--out-dir", out_dir]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)
