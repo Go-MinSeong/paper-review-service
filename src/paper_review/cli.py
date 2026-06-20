@@ -192,8 +192,10 @@ def serve(host: str, port: int) -> None:
         import uvicorn
     except ImportError:
         raise click.ClickException("uvicorn not installed. Run: uv pip install -e .")
+    from .server.app import app as fastapi_app
+
     click.secho(f"→ paper-review serve on http://{host}:{port}", fg="cyan")
-    uvicorn.run("paper_review.server.app:app", host=host, port=port, reload=False)
+    uvicorn.run(fastapi_app, host=host, port=port, reload=False)
 
 
 @main.command()
@@ -266,12 +268,19 @@ def _run_script(script: str, args: tuple[str, ...]) -> None:
     """Internal: run a vendored _paper_reader script in-process so the pipeline
     works in a frozen .app (where `python <file>` isn't available). Invoked by
     runner._run via self-re-exec."""
-    import importlib
+    import importlib.util
 
     from ._paper_reader import SCRIPTS_DIR
 
+    # Put the scripts dir on sys.path so sibling imports (e.g. fetch_web's
+    # `from fetch_figures import ...`) resolve, then load the target by file
+    # path — robust whether running from source or a frozen bundle.
     sys.path.insert(0, str(SCRIPTS_DIR))
-    mod = importlib.import_module(Path(script).stem)
+    name = Path(script).stem
+    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / script)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
     saved = sys.argv
     sys.argv = [script, *args]
     try:

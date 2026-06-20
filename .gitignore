@@ -20,6 +20,10 @@
 !tests/
 !tests/**
 
+# ...and the packaging scripts (PyInstaller spec / build.sh / entry)
+!packaging/
+!packaging/**
+
 # Standard Python
 __pycache__/
 *.py[cod]

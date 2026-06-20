@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.1.0
+
+Packaged as a **standalone macOS app** (like data-manager) for one-download
+accessibility — no Python/uv/clone needed.
+
+### Added
+- **Desktop .app** — `packaging/build.sh` produces `dist/paper-review-<arch>.zip`
+  (PyInstaller bundle: FastAPI backend + vendored engine + UI). Double-click opens
+  a native **pywebview** window over the local server. First launch copies the
+  skills into `~/.claude/skills` and installs the subagents.
+- `paper-review app` runs the same window in dev.
+
+### Changed
+- Vendored scripts now run via a self-re-exec dispatcher (`_run-script`) instead
+  of `python <file>`, so the pipeline works inside a frozen bundle. uvicorn is
+  started from the app object (import strings don't resolve when frozen). PATH is
+  augmented at launch so a Finder-launched app still finds `claude`.
+
+### Notes
+- **Review/chat still require the Claude Code CLI** installed and signed in — it
+  can't be bundled. ingest, browsing, and publish work without it.
+- The app is ad-hoc signed: first launch needs right-click → Open.
+
 ## 2.0.0
 
 Expands the service from papers-only to **papers, engineering/release blogs, and

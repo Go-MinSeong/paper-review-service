@@ -12,6 +12,7 @@ binary for `serve` / `init` / `_run-script`).
 from __future__ import annotations
 
 import os
+import shutil
 import socket
 import sys
 import threading
@@ -19,6 +20,29 @@ import time
 from pathlib import Path
 
 WINDOW_TITLE = "paper-review"
+
+
+def _bundle_dir() -> Path:
+    """Root holding bundled data (skills/, etc.) — _MEIPASS when frozen, else repo."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return Path(__file__).resolve().parents[2]
+
+
+def _install_skills() -> None:
+    """First-run: copy bundled skills into ~/.claude/skills (skip existing, so a
+    dev symlink or the user's edits are never clobbered)."""
+    src = _bundle_dir() / "skills"
+    if not src.is_dir():
+        return
+    dest = Path.home() / ".claude" / "skills"
+    dest.mkdir(parents=True, exist_ok=True)
+    for d in src.iterdir():
+        if d.is_dir() and (d / "SKILL.md").is_file() and not (dest / d.name).exists():
+            try:
+                shutil.copytree(d, dest / d.name)
+            except Exception:
+                pass
 
 
 def _augment_path() -> None:
@@ -64,12 +88,11 @@ def start_server(port: int) -> threading.Thread:
     def _serve() -> None:
         import uvicorn
 
-        uvicorn.run(
-            "paper_review.server.app:app",
-            host="127.0.0.1",
-            port=port,
-            log_level="warning",
-        )
+        # Pass the app object (not an import string) — the string form can't be
+        # re-imported inside a frozen bundle.
+        from .server.app import app as fastapi_app
+
+        uvicorn.run(fastapi_app, host="127.0.0.1", port=port, log_level="warning")
 
     t = threading.Thread(target=_serve, name="pr-server", daemon=True)
     t.start()
@@ -78,6 +101,7 @@ def start_server(port: int) -> threading.Thread:
 
 def run_app(port: int | None = None) -> None:
     _augment_path()
+    _install_skills()
     # Best-effort first-run install of the named subagents into ~/.claude/agents.
     try:
         from ._paper_reader import runner

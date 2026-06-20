@@ -36,7 +36,21 @@ arXiv/PDF ──► ingest ──► review (with Claude) ──► publish ─�
 
 ## Install
 
-### Easiest (macOS, no commands)
+### Desktop app (macOS, recommended)
+
+A standalone `.app` — no Python/clone needed.
+
+- **Prebuilt**: grab `paper-review-<arch>.zip` from [Releases](https://github.com/Go-MinSeong/paper-review-service/releases),
+  unzip, drag **paper-review.app** to `/Applications`, first launch right-click → **Open**.
+- **Build it yourself**: `uv venv && uv pip install -e '.[dev]'` then
+  `bash packaging/build.sh` → `dist/paper-review-<arch>.zip`.
+
+Double-clicking opens a native window with the gallery; first launch installs
+the skills into `~/.claude/skills`. **Review/chat need the
+[Claude Code](https://claude.com/claude-code) CLI installed & signed in** (it
+isn't bundled); ingest, browsing, and publish work without it.
+
+### From source (macOS, no commands)
 
 1. Download this repo: green **Code** button → **Download ZIP** → unzip.
 2. Double-click **`setup.command`** inside the folder. It installs everything
