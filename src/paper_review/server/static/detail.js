@@ -1578,11 +1578,25 @@
   const aLog = document.getElementById('a-toast-log');
   const aPreview = document.getElementById('a-toast-preview');
   document.getElementById('a-toast-cancel').addEventListener('click', async () => {
+    // While running the ✕ cancels; once finished it just closes the toast.
+    if (!analyzePolling) { aToast.removeAttribute('open'); return; }
     if (await UIDialog.confirm('분석을 취소할까요?',
       { title: '분석 취소', danger: true, okLabel: '분석 중단', cancelLabel: '계속' })) {
       await fetch(`/paper/${slug}/analyze/cancel`, { method: 'POST' });
     }
   });
+
+  // On load, re-attach to an existing analyze job: resume polling if still
+  // running, or surface a failed/errored result so it's visible after a reload.
+  (async function reattachAnalyze() {
+    try {
+      const s = await (await fetch(`/paper/${slug}/analyze/status`)).json();
+      if (s.status === 'running') { updateAnalyzeButton(s); pollAnalyze(); }
+      else if (s.status === 'error' || (s.failed_sections || []).length) {
+        updateAnalyzeButton(s);
+      }
+    } catch {}
+  })();
 
   function updateAnalyzeButton(s) {
     if (s.status === 'running') {
@@ -1598,15 +1612,14 @@
       btnAnalyze.style.color = '';
       btnAnalyze.title = '미완료 섹션 자동 분석';
       if (s.status === 'done' || s.status === 'cancelled' || s.status === 'error') {
-        // Show final state briefly then hide
         renderAnalyzeToast(s);
-        setTimeout(() => aToast.removeAttribute('open'), s.status === 'error' ? 8000 : 3500);
+        aToast.setAttribute('open', '');
+        // Failures / errors stay until the user closes them (✕); a clean run
+        // auto-hides. This is the only place the failure log is surfaced.
+        const sticky = s.status === 'error' || (s.failed_sections || []).length > 0;
+        if (!sticky) setTimeout(() => aToast.removeAttribute('open'), 3500);
       } else {
         aToast.removeAttribute('open');
-      }
-      if (s.status === 'error') {
-        // Keep error visible
-        aLabel.textContent = '✗ Failed';
       }
     }
   }

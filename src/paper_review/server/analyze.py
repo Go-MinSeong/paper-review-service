@@ -133,12 +133,16 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
 
         # Step 0: auto-fill prereqs + contributions if still empty.
         # Skip when the user asked for specific section(s) only (single-section run).
+        # Track whether a claude call has been made this run — the first one must
+        # start a fresh session (no --continue), else a session-less folder fails.
+        made_call = False
         needs_prelude = _needs_prelude(wb_text) and not body.only_sections
         if needs_prelude and not job.cancel_event.is_set():
             job.log.append("━━ [pre] 사전지식 카드 + 핵심 contribution + TL;DR 생성")
             await _generate_prelude(
-                paper_dir, body.model, body.timeout_per_section, job
+                paper_dir, body.model, body.timeout_per_section, job, cont=False
             )
+            made_call = True
             wb_text = wb.read_text()  # reload after edit
 
         sections_with_range = _parse_unfinished_sections(paper_dir, wb_text)
@@ -171,7 +175,9 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
                 body.model,
                 body.timeout_per_section,
                 job,
+                cont=made_call,
             )
+            made_call = True
             if ok:
                 job.succeeded_sections.append(sec_heading)
             else:
@@ -201,8 +207,12 @@ async def _analyze_one_section(
     model: Optional[str],
     timeout: int,
     job: AnalysisJob,
+    cont: bool = True,
 ) -> bool:
-    """Spawn one claude -p call and stream-watch its progress."""
+    """Spawn one claude -p call and stream-watch its progress. `cont` controls
+    --continue: the FIRST claude call of an analyze run must start a fresh
+    session (a freshly-ingested folder has none, and `--continue` then errors —
+    which used to silently fail every section)."""
 
     prompt = _build_section_prompt(heading, line_range, paper_dir)
     system_ctx = (
@@ -213,11 +223,10 @@ async def _analyze_one_section(
         "exactly one short line: '✓ done'."
     )
 
-    cmd = [
-        "claude",
-        "-p",
-        prompt,
-        "--continue",
+    cmd = ["claude", "-p", prompt]
+    if cont:
+        cmd += ["--continue"]
+    cmd += [
         "--append-system-prompt",
         system_ctx,
         "--output-format",
@@ -514,7 +523,11 @@ def _needs_prelude(workbench_md: str) -> bool:
 
 
 async def _generate_prelude(
-    paper_dir: Path, model: Optional[str], timeout: int, job: AnalysisJob
+    paper_dir: Path,
+    model: Optional[str],
+    timeout: int,
+    job: AnalysisJob,
+    cont: bool = True,
 ) -> None:
     """One-shot generation of TL;DR + contributions + prereqs."""
     slug = paper_dir.name
@@ -553,11 +566,10 @@ Steps:
         "Use Edit tool on workbench.md. Output minimal chat."
     )
 
-    cmd = [
-        "claude",
-        "-p",
-        prompt,
-        "--continue",
+    cmd = ["claude", "-p", prompt]
+    if cont:
+        cmd += ["--continue"]
+    cmd += [
         "--append-system-prompt",
         system_ctx,
         "--output-format",

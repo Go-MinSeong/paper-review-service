@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.1
+
+### Fixed
+- **Auto-analysis silently aborting on freshly-ingested content.** Every claude
+  call used `--continue`, but a just-ingested folder has no prior session, so
+  the first call errored and every section failed. The first call of an analyze
+  run now starts a fresh session (subsequent calls still chain with `--continue`).
+- **Failures weren't visible.** The analyze toast now stays open (with the error
+  log + a ✕ to close) whenever a run errors or any section fails, and re-attaches
+  on page load — instead of auto-dismissing after a few seconds.
+
 ## 2.1.0
 
 Packaged as a **standalone macOS app** (like data-manager) for one-download
