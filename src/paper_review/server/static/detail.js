@@ -1586,6 +1586,39 @@
     }
   });
 
+  // Full analyze-log window — reachable any time (topbar 로그 button + toast),
+  // even after a clean run or a reload. Fetches the current/last job status.
+  const aLogModal = document.getElementById('modal-alog');
+  async function openAnalyzeLog() {
+    const body = document.getElementById('alog-body');
+    const statusEl = document.getElementById('alog-status');
+    const failedEl = document.getElementById('alog-failed');
+    body.textContent = '불러오는 중…';
+    failedEl.textContent = '';
+    statusEl.textContent = '';
+    aLogModal.setAttribute('open', '');
+    try {
+      const s = await (await fetch(`/paper/${slug}/analyze/status`)).json();
+      statusEl.textContent = `${s.status} · ${s.current || 0}/${s.total || 0}`;
+      const failed = s.failed_sections || [];
+      failedEl.textContent = failed.length
+        ? `실패 섹션 (${failed.length}): ${failed.join(', ')}` : '';
+      const lines = s.log_tail || [];
+      body.textContent = lines.length
+        ? lines.join('\n')
+        : (s.status === 'idle' ? '아직 분석을 실행한 적이 없습니다.' : '로그 없음');
+      if (s.error) body.textContent += `\n\n✗ ${s.error}`;
+      body.scrollTop = body.scrollHeight;
+    } catch (e) { body.textContent = '상태를 불러오지 못했습니다: ' + e; }
+  }
+  document.getElementById('btn-analyze-log').addEventListener('click', openAnalyzeLog);
+  document.getElementById('a-toast-fulllog').addEventListener('click', openAnalyzeLog);
+  aLogModal.querySelectorAll('[data-close]').forEach(el =>
+    el.addEventListener('click', () => aLogModal.removeAttribute('open')));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && aLogModal.hasAttribute('open')) aLogModal.removeAttribute('open');
+  });
+
   // On load, re-attach to an existing analyze job: resume polling if still
   // running, or surface a failed/errored result so it's visible after a reload.
   (async function reattachAnalyze() {

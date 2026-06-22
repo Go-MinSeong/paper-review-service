@@ -57,6 +57,7 @@
     <span class="topbar-div"></span>
 
     <button class="btn" id="btn-analyze" title="Analyze incomplete sections">Analyze</button>
+    <button class="btn" id="btn-analyze-log" title="분석 로그 보기">로그</button>
     <button class="btn" id="btn-edit" title="Edit markdown">Edit</button>
     <button class="btn btn-primary" id="btn-publish" title="Export as Velog draft">Publish</button>
 
@@ -131,11 +132,24 @@
       <span class="label" id="a-toast-label">Analyzing</span>
       <span class="frac" id="a-toast-frac">·</span>
       <span class="spacer"></span>
+      <button id="a-toast-fulllog" title="전체 로그">로그</button>
       <button id="a-toast-cancel" title="Cancel">✕</button>
     </div>
     <div class="a-toast-sub" id="a-toast-sub">—</div>
     <div class="a-toast-log" id="a-toast-log"></div>
     <div class="a-toast-preview" id="a-toast-preview" style="display:none"></div>
+  </div>
+
+  <div class="modal" id="modal-alog" aria-hidden="true">
+    <div class="modal-bg" data-close></div>
+    <div class="modal-content">
+      <div class="modal-head">
+        <h2>분석 로그</h2>
+        <span class="hint" id="alog-status">—</span>
+      </div>
+      <div class="alog-failed" id="alog-failed"></div>
+      <pre class="alog-body" id="alog-body">로그 없음</pre>
+    </div>
   </div>
 
 

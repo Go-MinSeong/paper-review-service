@@ -1218,3 +1218,13 @@
     /* Print the original arXiv/URL after each link so it's usable on paper */
     .wb a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.8em; color: #6a6a6a; word-break: break-all; }
   }
+
+  /* Analyze log modal */
+  #modal-alog .alog-failed { color: #e5484d; font-size: 12.5px; margin: 2px 0 10px; }
+  #modal-alog .alog-body {
+    max-height: 62vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    line-height: 1.5; padding: 12px; border-radius: 8px;
+    background: var(--bg-canvas); border: 1px solid var(--border-default);
+    color: var(--text-primary); margin: 0;
+  }

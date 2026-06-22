@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+
+### Added
+- **Analyze log window** — a "로그" button (topbar + the progress toast) opens a
+  modal with the full run log, status, and failed-section list, reachable any
+  time (even after a clean run or a page reload). Backend keeps more log lines.
+
+### Note
+- If analysis "completes" but the workbench wasn't filled, it's the pre-2.1.1
+  `--continue` failure — restart the menubar/server so the fix is live, then
+  re-run; the log window now shows exactly what happened.
+
 ## 2.1.1
 
 ### Fixed

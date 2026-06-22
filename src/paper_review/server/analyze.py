@@ -737,7 +737,7 @@ def _serialize(job: AnalysisJob) -> dict:
         "total": job.total,
         "current": job.current,
         "current_heading": job.current_heading,
-        "log_tail": job.log[-80:],
+        "log_tail": job.log[-300:],
         "last_text_preview": job.last_text_preview,
         "started_at": job.started_at,
         "finished_at": job.finished_at,
