@@ -909,3 +909,16 @@
   .card-title, .sidebar-brand .brand-text,
   .modal-content h2, .settings-content h2 { text-wrap: balance; }
   .card-sub, .hint { text-wrap: pretty; }
+
+  /* Analyze log modal + list-page failure chip */
+  .frac.err { color: #e5484d; cursor: pointer; }
+  .card-thumb .pulse[data-log] { cursor: pointer; }
+  #modal-alog .hint { color: var(--text-muted); font-size: 12px; margin: -4px 0 8px; }
+  #modal-alog .alog-failed { color: #e5484d; font-size: 12.5px; margin: 2px 0 10px; }
+  #modal-alog .alog-body {
+    max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    line-height: 1.5; padding: 12px; border-radius: 8px; margin: 0;
+    background: var(--bg-canvas); border: 1px solid var(--border-default);
+    color: var(--text-primary);
+  }

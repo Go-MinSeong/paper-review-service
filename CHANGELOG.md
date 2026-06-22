@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.2
+
+### Changed
+- **Analyze log reachable from the gallery (list page).** A running card's
+  "분석 중" pulse and a "⚠ 분석 실패" chip (shown when a run errored or had failed
+  sections) now open the full log modal in place — no need to open the detail
+  page. `/papers/active-jobs` also reports finished error/failed jobs so the
+  list can flag them.
+
 ## 2.2.1
 
 ### Changed (interface polish)

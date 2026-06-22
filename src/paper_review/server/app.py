@@ -679,18 +679,22 @@ def papers_job(job_id: str):
 
 @app.get("/papers/active-jobs")
 def papers_active_jobs():
-    """List slugs with currently running analyze jobs (for gallery indicator)."""
+    """Analyze jobs the gallery should surface: running ones (progress bar) plus
+    finished ones that errored or had failed sections (a failure flag + log)."""
     from .analyze import _jobs
 
     return [
         {
             "slug": j.slug,
+            "status": j.status,
             "current": j.current,
             "total": j.total,
             "current_heading": j.current_heading,
+            "failed": len(j.failed_sections),
+            "error": j.error,
         }
         for j in _jobs.values()
-        if j.status == "running"
+        if j.status == "running" or j.status == "error" or j.failed_sections
     ]
 
 

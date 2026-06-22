@@ -256,7 +256,9 @@
       const activeMeta = activeJobs.get(p.slug);
       // While a background analysis runs, the progress bar tracks the live job
       // (current/total); otherwise it shows the workbench done count.
-      const live = isActive && activeMeta && activeMeta.total > 0;
+      const live = isActive && activeMeta && activeMeta.status === 'running' && activeMeta.total > 0;
+      const failedJob = isActive && activeMeta && !live &&
+        (activeMeta.status === 'error' || (activeMeta.failed || 0) > 0);
       const dispDone = live ? activeMeta.current : done;
       const dispTotal = live ? activeMeta.total : total;
       const pct = Math.round((dispDone / Math.max(dispTotal, 1)) * 100);
@@ -277,7 +279,7 @@
             ${p.content_type && p.content_type !== 'paper' ? `<span class="type-badge t-${escapeHtml(p.content_type)}">${escapeHtml(p.content_type)}</span>` : ''}
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
-            ${live ? `<span class="pulse">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
+            ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
             ${starsHTML(p.rating, p.slug)}
           </div>
           <div class="card-body">
@@ -288,6 +290,7 @@
               ${isToRead ? '<span class="frac">reading list</span>'
                 : live ? `<span class="frac analyzing">⟳ 분석 ${dispDone}/${dispTotal} · ${pct}%</span>`
                 : `<span class="frac">${done}/${total} sections</span>`}
+              ${failedJob ? `<span class="sep">·</span><span class="frac err" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">⚠ 분석 실패${activeMeta.failed ? ` (${activeMeta.failed})` : ''}</span>` : ''}
               ${p.category ? `<span class="sep">·</span><span class="cat">${escapeHtml(p.category)}</span>` : ''}
               ${p.figures_count > 0 ? `<span class="sep">·</span><span>${p.figures_count} figs</span>` : ''}
               ${(p.updated_at || p.last_viewed) ? `<span class="sep">·</span><span class="act">${(p.last_viewed || 0) > (p.updated_at || 0) ? 'viewed' : 'edited'} ${relTime(Math.max(p.last_viewed || 0, p.updated_at || 0))}</span>` : ''}
@@ -405,6 +408,15 @@
     e.stopPropagation();
     openTagEditor(tbtn.dataset.tagedit);
   });
+  // Analyze-log launcher — open the run log straight from the list (the
+  // "분석 중" pulse or a "⚠ 분석 실패" chip), without leaving the gallery.
+  grid.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-log]');
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openAnalyzeLog(el.dataset.log);
+  });
   // Star rating (event-delegated) — click a star to set, click the current to clear
   grid.addEventListener('click', async (e) => {
     const star = e.target.closest('.card-rating .star');
@@ -518,6 +530,39 @@
   }
   pollActiveJobs();
   if (!CAPTURE) setInterval(pollActiveJobs, 3000);
+
+  // ─── Analyze log modal (reachable from the list — pulse / failure chip)
+  const aLogModal = document.getElementById('modal-alog');
+  async function openAnalyzeLog(slug) {
+    const body = document.getElementById('alog-body');
+    const statusEl = document.getElementById('alog-status');
+    const failedEl = document.getElementById('alog-failed');
+    const titleEl = document.getElementById('alog-title');
+    const p = papers.find(x => x.slug === slug);
+    titleEl.textContent = '분석 로그 — ' + ((p && (p.title_ko || p.title_en)) || slug);
+    body.textContent = '불러오는 중…';
+    failedEl.textContent = '';
+    statusEl.textContent = '';
+    aLogModal.setAttribute('open', '');
+    try {
+      const s = await (await fetch(`/paper/${encodeURIComponent(slug)}/analyze/status`)).json();
+      statusEl.textContent = `${s.status} · ${s.current || 0}/${s.total || 0}`;
+      const failed = s.failed_sections || [];
+      failedEl.textContent = failed.length
+        ? `실패 섹션 (${failed.length}): ${failed.join(', ')}` : '';
+      const lines = s.log_tail || [];
+      body.textContent = lines.length
+        ? lines.join('\n')
+        : (s.status === 'idle' ? '아직 분석을 실행한 적이 없습니다.' : '로그 없음');
+      if (s.error) body.textContent += `\n\n✗ ${s.error}`;
+      body.scrollTop = body.scrollHeight;
+    } catch (e) { body.textContent = '상태를 불러오지 못했습니다: ' + e; }
+  }
+  aLogModal.querySelectorAll('[data-close]').forEach(el =>
+    el.addEventListener('click', () => aLogModal.removeAttribute('open')));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && aLogModal.hasAttribute('open')) aLogModal.removeAttribute('open');
+  });
 
   // ─── Theme toggle
   // Dark-ish themes (for the toggle glyph + auto handling).
