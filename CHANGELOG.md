@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.4
+
+### Fixed
+- **Garbled strip at the top of the list when scrolling.** The scroll container's
+  top padding let cards bleed into a band above the sticky toolbar. Moved that
+  spacing into the toolbar's own padding so its frosted background covers from the
+  very top edge.
+- **Type badge shown only on web content.** Papers had no type badge, so the grid
+  looked inconsistent. Every card now shows its type (`PAPER` / `BLOG` / `ARTICLE`).
+
 ## 2.2.3
 
 ### Changed
