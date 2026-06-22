@@ -878,3 +878,34 @@
     font-size: 13px; line-height: 1;
   }
   .illust-del:hover { background: rgba(220,38,38,.9); }
+
+  /* ── Interface polish (make-interfaces-feel-better) ─────────────── */
+  /* Neutral, low-alpha image outline — adapts light/dark via --text-primary
+     (near-black / near-white), avoiding a tinted edge. */
+  :root { --img-outline: color-mix(in srgb, var(--text-primary) 12%, transparent); }
+
+  /* Scale on press — tactile feedback (0.96; never below 0.95). Specific
+     transition properties only (never `transition: all`). */
+  .btn-new, .theme-toggle, .modal-tab, .settings-tab, .btn-mini,
+  .dash-toggle, .view-switch button, .card-del, .card-tagedit, .illust-del,
+  .theme-card {
+    transition-property: background, color, border-color, transform, box-shadow;
+    transition-duration: .14s;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .btn-new:active, .theme-toggle:active, .modal-tab:active, .settings-tab:active,
+  .btn-mini:active, .dash-toggle:active, .view-switch button:active,
+  .card-del:active, .card-tagedit:active, .illust-del:active, .theme-card:active {
+    transform: scale(0.96);
+  }
+
+  /* Subtle image outlines for consistent depth on any background */
+  .card-illust, .illust-item img, .theme-swatch {
+    outline: 1px solid var(--img-outline);
+    outline-offset: -1px;
+  }
+
+  /* Balanced headings, no orphans in body */
+  .card-title, .sidebar-brand .brand-text,
+  .modal-content h2, .settings-content h2 { text-wrap: balance; }
+  .card-sub, .hint { text-wrap: pretty; }

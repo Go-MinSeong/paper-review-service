@@ -1228,3 +1228,22 @@
     background: var(--bg-canvas); border: 1px solid var(--border-default);
     color: var(--text-primary); margin: 0;
   }
+
+  /* ── Interface polish (make-interfaces-feel-better) ─────────────── */
+  :root { --img-outline: color-mix(in srgb, var(--text-primary) 12%, transparent); }
+
+  /* Scale on press (0.96), specific transition properties only */
+  .btn, .iconbtn, .pipe-btn, .a-toast-head button {
+    transition-property: background, color, border-color, transform, box-shadow;
+    transition-duration: .14s;
+    transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  .btn:active, .iconbtn:active, .a-toast-head button:active { transform: scale(0.96); }
+  .pipe-btn:active { transform: scale(0.96); }  /* was .92 — below .95 feels exaggerated */
+
+  /* Subtle image outlines */
+  #wb img, #modal-figs img, .pdf img { outline: 1px solid var(--img-outline); outline-offset: -1px; }
+
+  /* Balanced headings */
+  #wb h1, #wb h2, .modal-content h2 { text-wrap: balance; }
+  #wb p, #wb li { text-wrap: pretty; }

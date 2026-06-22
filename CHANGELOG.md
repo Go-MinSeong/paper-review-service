@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.1
+
+### Changed (interface polish)
+- Applied the *make-interfaces-feel-better* principles across the gallery,
+  detail, and source views: scale-on-press (0.96) on buttons, subtle theme-aware
+  1px image outlines on card illustrations / figures, `text-wrap: balance` on
+  headings + `pretty` on body, font smoothing on the source pane, and
+  transition-property-specific transitions (never `transition: all`).
+
 ## 2.2.0
 
 ### Added
