@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.3
+
+### Changed
+- **Per-card "로그" button on the list.** Every gallery card now has a ▤ log
+  button (next to 🏷/🗑) that opens the analyze-log modal in place — the log
+  button moved off the detail topbar onto the list, where it's reachable for any
+  paper without opening it. (The running pulse / "⚠ 분석 실패" chip still open it too.)
+- **Illustrations dedup by character, not file.** A character isn't shown on two
+  cards until every registered character has been used; variants of the same
+  character (e.g. `redpanda` / `redpanda-2`) count as one. When a tag group runs
+  out of unused characters, selection widens to the global pool so an unused
+  character appears instead of repeating one.
+
 ## 2.2.2
 
 ### Changed

@@ -143,23 +143,43 @@
     }
     return null;
   }
-  // Usage counter (reset each renderCards) so already-used images within a
-  // group get lower priority — illustrations spread across cards instead of repeating.
-  let _illustUsage = {};
-  // Pick a card illustration: prefer the tag-mapped group, else the global pool,
-  // choosing the least-used image (deterministic hash tie-break) and counting it.
+  // Character (base name) of an illustration file: "redpanda-2.jpg" → "redpanda".
+  // Different variants of the same character count as the *same* character so we
+  // never show two red pandas while another character is still unused.
+  function illustBase(f) {
+    return (f || '').replace(/\.[^.]+$/, '').replace(/-\d+$/, '');
+  }
+  // Usage counters (reset each renderCards). Dedup is enforced at the character
+  // level: a character isn't reused until every character in the pool has been
+  // used; variant rotation (file level) only breaks ties within a character.
+  let _charUsage = {}, _fileUsage = {};
+  // Pick a card illustration: prefer the tag-mapped group, else the global pool.
+  // Choose the least-used character first, then its least-used variant, with a
+  // deterministic hash tie-break, and count both.
   function pickIllust(p) {
     const g = groupForTags(p.tags);
     let pool = g ? ILLUST_GROUPS[g] : CHARACTERS;
     if (!pool || !pool.length) pool = CHARACTERS;
-    const key = (p.title_en || p.title_ko || p.slug) + p.slug;
-    let best = pool[0], bestU = Infinity, bestH = Infinity;
-    for (const f of pool) {
-      const u = _illustUsage[f] || 0;
-      const h = hashStr(key + '|' + f);
-      if (u < bestU || (u === bestU && h < bestH)) { best = f; bestU = u; bestH = h; }
+    // No-repeat rule wins over grouping: if every character in the tag group is
+    // already used this render, widen to the global pool so an as-yet-unused
+    // character is shown instead of repeating one from the (small) group.
+    if (pool !== CHARACTERS && !pool.some(f => !_charUsage[illustBase(f)])) {
+      pool = CHARACTERS;
     }
-    _illustUsage[best] = (_illustUsage[best] || 0) + 1;
+    const key = (p.title_en || p.title_ko || p.slug) + p.slug;
+    let best = pool[0], bestC = Infinity, bestF = Infinity, bestH = Infinity;
+    for (const f of pool) {
+      const cu = _charUsage[illustBase(f)] || 0;
+      const fu = _fileUsage[f] || 0;
+      const h = hashStr(key + '|' + f);
+      if (cu < bestC
+          || (cu === bestC && fu < bestF)
+          || (cu === bestC && fu === bestF && h < bestH)) {
+        best = f; bestC = cu; bestF = fu; bestH = h;
+      }
+    }
+    _charUsage[illustBase(best)] = (_charUsage[illustBase(best)] || 0) + 1;
+    _fileUsage[best] = (_fileUsage[best] || 0) + 1;
     return best;
   }
   function initials(s) {
@@ -198,7 +218,7 @@
     return Math.floor(diff / 86400 / 365) + 'y ago';
   }
   function renderCards() {
-    _illustUsage = {};  // reset usage so spreading is recomputed per render
+    _charUsage = {}; _fileUsage = {};  // reset usage so spreading is recomputed per render
     const filtered = papers.filter(p => {
       if (activeFilter !== 'all' && p.status !== activeFilter) return false;
       if (activeTags.size) {
@@ -277,6 +297,7 @@
             <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
             ${p.content_type && p.content_type !== 'paper' ? `<span class="type-badge t-${escapeHtml(p.content_type)}">${escapeHtml(p.content_type)}</span>` : ''}
+            <button class="card-log" data-log="${escapeHtml(p.slug)}" title="분석 로그">▤</button>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}

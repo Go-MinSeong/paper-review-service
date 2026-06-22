@@ -1611,7 +1611,6 @@
       body.scrollTop = body.scrollHeight;
     } catch (e) { body.textContent = '상태를 불러오지 못했습니다: ' + e; }
   }
-  document.getElementById('btn-analyze-log').addEventListener('click', openAnalyzeLog);
   document.getElementById('a-toast-fulllog').addEventListener('click', openAnalyzeLog);
   aLogModal.querySelectorAll('[data-close]').forEach(el =>
     el.addEventListener('click', () => aLogModal.removeAttribute('open')));
