@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.6
+
+### Changed
+- **Chat now uses the review skill that matches the content type.** Previously
+  the chat always loaded `paper-review`; it now selects `blog-review` /
+  `article-review` for web content (by `content_type` in the workbench
+  frontmatter), so blogs and articles get their own rubric.
+
 ## 2.2.5
 
 ### Fixed

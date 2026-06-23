@@ -32,6 +32,25 @@ class ChatBody(BaseModel):
 
 _locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
+_SKILL_BY_TYPE = {"blog": "blog-review", "article": "article-review"}
+
+
+def _review_skill(paper_dir: Path) -> str:
+    """Skill name matching the workbench content_type (paper → paper-review)."""
+    ctype = "paper"
+    try:
+        text = (paper_dir / "workbench.md").read_text()
+        if text.startswith("---\n"):
+            end = text.find("\n---\n", 4)
+            if end > 0:
+                for line in text[4:end].splitlines():
+                    if line.startswith("content_type:"):
+                        ctype = line.split(":", 1)[1].strip().strip('"') or "paper"
+                        break
+    except OSError:
+        pass
+    return _SKILL_BY_TYPE.get(ctype, "paper-review")
+
 
 async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Request):
     """Async generator yielding SSE-formatted lines."""
@@ -48,6 +67,11 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
     async with lock:
         yield _sse({"type": "user", "text": body.prompt})
 
+        # Pick the review skill that matches this content's type (paper / blog /
+        # article) so the chat applies the right rubric.
+        skill = _review_skill(paper_dir)
+        skill_md = f"~/.claude/skills/{skill}/SKILL.md"
+
         # Wrap leading-slash pseudo-commands so Claude Code's slash command
         # parser doesn't intercept them as unknown slash commands.
         user_text = body.prompt
@@ -56,16 +80,16 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
         ):
             user_text = (
                 f"User pseudo-command (from paper-review chat UI): {user_text.strip()}\n\n"
-                "Apply the matching rule from ~/.claude/skills/paper-review/SKILL.md. "
+                f"Apply the matching rule from {skill_md}. "
                 "Do not respond that the command is unavailable — these are skill-internal, "
                 "not Claude Code slash commands."
             )
 
         system_ctx = (
             f"You are operating inside {paper_dir}, the paper-review service workspace "
-            "(see ~/Projects/paper-review-service/DESIGN.md). The paper-review skill at "
-            "~/.claude/skills/paper-review/SKILL.md is implicitly active for every "
-            "message in this session — do not require the user to type /paper-review "
+            f"(see ~/Projects/paper-review-service/DESIGN.md). The {skill} skill at "
+            f"{skill_md} is implicitly active for every "
+            f"message in this session — do not require the user to type /{skill} "
             "to activate it. "
             "Treat pseudo-commands like /status, /next-section, /explain <topic>, "
             "/challenge, /finalize, /summarize-progress as defined in that SKILL.md. "
