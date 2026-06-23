@@ -76,7 +76,17 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
             "/next-section: read the section's line range from <slug>_source.txt, then "
             "Edit the matching '### ' block in workbench.md in place, replacing its "
             "'_(미진행 …)_' placeholder with 원문 발췌 / 요약 / Claude 1차 번역 / "
-            "Claude Reader's Notes. Keep chat responses short and action-oriented — the "
+            "Claude Reader's Notes. "
+            "RECORDING REQUESTS: when the user asks you to 기재/기록/메모/저장/추가 "
+            "(record / jot down / save) a question, your answer, or a note into the "
+            "workbench — e.g. '이 질문 기재해줘', 'Q&A에 추가해줘' — you MUST Edit "
+            "workbench.md; never treat a chat-panel reply alone as fulfilling it. "
+            "Default target is the '## Q&A' section: append the Q (and the A if "
+            "discussed) there, replacing the '_(분석 중 Claude가 제기한 질문이 …)_' "
+            "placeholder on first write. If the user ties it to a specific section, "
+            "edit that '### ' block instead. After editing, confirm in one line what "
+            "you wrote and where. "
+            "Keep chat responses short and action-oriented — the "
             "user sees them in a chat panel, not a full terminal."
         )
         cmd = [

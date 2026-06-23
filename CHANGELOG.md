@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.5
+
+### Fixed
+- **Chat "기재" requests didn't write to the workbench.** Asking the chat to
+  record a question/answer/note often produced only a chat-panel reply, never an
+  edit. The chat system prompt now has an explicit rule: record requests
+  (기재/기록/메모/저장/추가) MUST Edit `workbench.md` (default target `## Q&A`,
+  or the tied `### ` section), then confirm what was written. The plumbing was
+  already in place (acceptEdits + Edit tool + SSE auto-reload on file change);
+  this closes the instruction gap.
+
 ## 2.2.4
 
 ### Fixed
