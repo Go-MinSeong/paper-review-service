@@ -1173,8 +1173,11 @@
     font: 500 11px/1.4 var(--font-text); padding: 1px 7px; border-radius: 5px;
     white-space: nowrap; border: 1px solid var(--border-default);
   }
-  /* Editor images shouldn't overflow their column while being sized. */
-  #tui-host .ProseMirror img { max-width: 100%; }
+  /* Editor images shouldn't overflow their column while being sized.
+     `height: auto` is required: SVG figures (blog/article) carry width+height
+     attrs and collapse to ~2px under `max-width:100%` alone, leaving nothing to
+     hover/drag. Mirrors the read-view rule (.wb img). */
+  #tui-host .ProseMirror img { max-width: 100%; height: auto; }
 
   /* ─── Print / PDF export ──────────────────────────────────────────
      Isolate the review (workbench) content so the browser's "Save as PDF"

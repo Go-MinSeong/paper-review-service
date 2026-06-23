@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.7
+
+### Fixed
+- **SVG figures (blog/article) couldn't be resized in the editor.** The WYSIWYG
+  image rule had `max-width: 100%` but no `height: auto`, so SVG figures (which
+  carry width+height attrs) collapsed to ~2px — leaving nothing to hover or
+  drag. Added `height: auto` to match the read view; figures now render full
+  size and the drag-resize handle attaches.
+
 ## 2.2.6
 
 ### Changed
