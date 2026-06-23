@@ -162,10 +162,37 @@ def _norm_heading(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "")).strip().lower()
 
 
+# A figure reference inside the workbench/draft body, by live-server id.
+_FIG_REF_IN_BODY = re.compile(r"/paper/[^/\s)]+/fig/([A-Za-z0-9_.-]+)")
+
+
+def _fig_md(slug: str, f: dict) -> str:
+    """Render one figure as `![caption](…/fig/<id>)` + a caption blockquote."""
+    cap = (f.get("caption_en") or f.get("label") or "").strip()
+    out = f"\n![{cap}](/paper/{slug}/fig/{f['id']})\n"
+    if cap:
+        out += f"> {cap}\n"
+    return out
+
+
+def _section_fig_ids(text: str) -> list[str]:
+    """Ordered, de-duped figure ids referenced in a block of markdown."""
+    seen: list[str] = []
+    for m in _FIG_REF_IN_BODY.finditer(text or ""):
+        if m.group(1) not in seen:
+            seen.append(m.group(1))
+    return seen
+
+
 def _inline_web_figures(body: str, paper_dir: Path) -> str:
-    """Insert web figures into the draft after the section heading they came
-    from (figures.json `section_heading`), as `/paper/<slug>/fig/<id>` refs that
-    the velog figure bridge then materializes. Unmatched figures go to the end."""
+    """Auto-place only the web figures the body does NOT already reference.
+
+    Figures the user kept in the workbench are rendered in place by
+    _render_sections, so here we leave them exactly where they are and just
+    rescue orphans — figures present in *_figures.json but referenced nowhere in
+    the body (e.g. the user deleted the section, or ingest never inlined them).
+    Orphans go after the section heading from figures.json `section_heading`,
+    else into a trailing '## 그림'."""
     files = sorted(paper_dir.glob("*_figures.json"))
     if not files:
         return body
@@ -178,31 +205,26 @@ def _inline_web_figures(body: str, paper_dir: Path) -> str:
         return body
     slug = paper_dir.name
 
-    def fig_md(f: dict) -> str:
-        cap = (f.get("caption_en") or f.get("label") or "").strip()
-        out = f"\n![{cap}](/paper/{slug}/fig/{f['id']})\n"
-        if cap:
-            out += f"> {cap}\n"
-        return out
+    present = set(_section_fig_ids(body))
+    orphans = [f for f in figs if f.get("id") not in present]
+    if not orphans:
+        return body  # every figure is already placed — preserve as-is
 
     lines = body.split("\n")
     heading_line = {}  # normalized heading text → first line index
     for i, ln in enumerate(lines):
         m = re.match(r"^#{1,4}\s+(.+?)\s*$", ln)
         if m:
-            key = _norm_heading(m.group(1))
-            heading_line.setdefault(key, i)
+            heading_line.setdefault(_norm_heading(m.group(1)), i)
     inserts: dict[int, list[str]] = {}
     leftover = []
-    for f in figs:
+    for f in orphans:
         key = _norm_heading(f.get("section_heading", ""))
         idx = heading_line.get(key) if key else None
         if idx is None:
             leftover.append(f)
         else:
-            inserts.setdefault(idx, []).append(fig_md(f))
-    if not inserts and not leftover:
-        return body
+            inserts.setdefault(idx, []).append(_fig_md(slug, f))
     out = []
     for i, ln in enumerate(lines):
         out.append(ln)
@@ -210,7 +232,7 @@ def _inline_web_figures(body: str, paper_dir: Path) -> str:
             out.append(md)
     if leftover:
         out.append("\n## 그림\n")
-        out += [fig_md(f) for f in leftover]
+        out += [_fig_md(slug, f) for f in leftover]
     return "\n".join(out)
 
 
@@ -292,7 +314,7 @@ def _render_body(wb: Workbench, *, paper_dir: Path, labels: dict) -> str:
 
     parts += _render_pipelines(wb, paper_dir=paper_dir)
 
-    parts += _render_sections(wb)
+    parts += _render_sections(wb, paper_dir=paper_dir)
 
     parts += _render_qna(wb.qna)
 
@@ -375,8 +397,10 @@ def _render_paper_info(wb: Workbench, labels: dict) -> list[str]:
     return out
 
 
-def _render_sections(wb: Workbench) -> list[str]:
+def _render_sections(wb: Workbench, *, paper_dir: Path) -> list[str]:
     parts: list[str] = []
+    slug = paper_dir.name
+    figs_index = _load_figures_index(paper_dir)
     for sec in wb.sections:
         # Render any section with real content — not just ones with a Claude
         # translation. Parent/transition sections (e.g. "6. 표현 분석") often
@@ -395,6 +419,16 @@ def _render_sections(wb: Workbench) -> list[str]:
 
         parts.append(f"## {_clean_heading(sec.heading)}")
         parts.append("")
+
+        # Figures the user placed in this section (they live in the 원문 발췌
+        # block, which we otherwise drop). Keep them here — at the top of the
+        # section, mirroring the workbench — with the real caption from
+        # figures.json. _inline_web_figures then leaves these in place.
+        for fid in _section_fig_ids(sec.raw_excerpt):
+            f = figs_index.get(fid)
+            if f and f.get("data_uri"):
+                parts.append(_fig_md(slug, f).strip("\n"))
+                parts.append("")
 
         # User callout (if user answer is non-placeholder)
         if sec.user_answer and not _is_placeholder(sec.user_answer):

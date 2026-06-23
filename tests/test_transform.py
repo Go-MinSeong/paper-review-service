@@ -51,6 +51,46 @@ def test_inline_web_figures_positions_by_heading(tmp_path):
     assert "## 그림" in out and f"/paper/{slug}/fig/fig3" in out
 
 
+def test_inline_web_figures_preserves_already_placed(tmp_path):
+    # A figure the body already references must stay exactly where it is — not be
+    # duplicated, moved to its section_heading, or dumped to a trailing gallery.
+    figs = [
+        {
+            "id": "fig1",
+            "data_uri": "data:image/png;base64,AA",
+            "caption_en": "Arch",
+            "section_heading": "Architecture",
+        }
+    ]
+    (tmp_path / "x_figures.json").write_text(json.dumps(figs))
+    slug = tmp_path.name
+    body = f"# T\n\n## Intro\n\n![Arch](/paper/{slug}/fig/fig1)\n\n## Architecture\n\nbody\n"
+    out = T._inline_web_figures(body, tmp_path)
+    assert out.count(f"/paper/{slug}/fig/fig1") == 1  # not duplicated
+    assert "## 그림" not in out
+    lines = out.split("\n")
+    intro_i = lines.index("## Intro")
+    arch_i = lines.index("## Architecture")
+    assert any("/fig/fig1" in l for l in lines[intro_i:arch_i])  # stayed in Intro
+
+
+def test_sections_survive_stray_content_h2(tmp_path):
+    # A stray content H2 inside 섹션별 리뷰 (e.g. a section written at H2) must
+    # not truncate the review block and drop every section after it.
+    from paper_review.publish.parser import parse
+
+    wb_md = tmp_path / "workbench.md"
+    wb_md.write_text(
+        "---\ncontent_type: blog\n---\n# T\n\n## 섹션별 리뷰\n\n"
+        "### A\n\n<!-- section_id: a | lines: 0-1 -->\n\n**요약**\nsa\n\n"
+        "## 끼어든 제목\n\n"
+        "### B\n\n<!-- section_id: b | lines: 2-3 -->\n\n**요약**\nsb\n\n"
+        "## Q&A\n\n_(placeholder)_\n"
+    )
+    heads = [s.heading for s in parse(wb_md).sections]
+    assert "A" in heads and "B" in heads
+
+
 def test_figure_export_rejects_traversal(tmp_path):
     # a crafted figures/<file> ref must not escape the figures dir
     draft = "![x](figures/../../../etc/hosts)"

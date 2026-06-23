@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.8
+
+### Fixed
+- **Publish moved web figures around / dumped them to the end.** Two causes:
+  (1) the publish renderer dropped each section's `원문 발췌` block — where the
+  workbench keeps its figures — then re-inserted every figure by figures.json
+  `section_heading`, ignoring the editor placement. Now figures the workbench
+  already references are rendered in place (top of their section, with the real
+  caption), and `_inline_web_figures` only rescues figures referenced nowhere.
+  (2) The section parser ended the `섹션별 리뷰` block at *any* non-numbered H2,
+  so a stray content heading (e.g. `## vLLM에서의 구현`) silently dropped every
+  later section and its figures into the trailing `## 그림` dump. It now stops
+  only at the known structural H2s (Q&A / Wrap-up / 메타 / 그림).
+
 ## 2.2.7
 
 ### Fixed

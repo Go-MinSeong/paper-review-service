@@ -157,12 +157,13 @@ def _section_from_segment(heading: str, seg: str) -> Section:
 
 
 def _extract_sections(text: str) -> list[Section]:
-    # The review block runs until the next NON-numbered H2 (Q&A / Wrap-up / 메타).
-    # A stray numbered "## 6. …" section heading (some sections get written at H2
-    # instead of H3) must NOT terminate it — that silently dropped every section
-    # after it from the published draft.
+    # The review block runs until the next KNOWN structural H2 (Q&A / Wrap-up /
+    # 메타 / 그림). It must NOT stop at a stray content H2 — neither a numbered
+    # "## 6. …" nor a plain "## vLLM에서의 구현" (sections sometimes get written
+    # at H2 instead of H3). Stopping at an arbitrary H2 silently dropped every
+    # section after it — and its figures — from the published draft.
     h2_match = re.search(
-        r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s+(?!\d)|\Z)",
+        r"^##\s+섹션별 리뷰\s*\n(.+?)(?=^##\s+(?:Q&A|Wrap-up|메타|그림)\s*$|\Z)",
         text,
         flags=re.DOTALL | re.MULTILINE,
     )
