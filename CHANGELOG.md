@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.2.10
+
+### Fixed
+- **Editing no longer breaks LaTeX math.** The WYSIWYG editor mangled `$…$` /
+  `$$…$$` (doubled backslashes, escaped `_`/`*`), corrupting KaTeX. Math is now
+  swapped for opaque tokens before loading and restored verbatim on save —
+  lossless, and correct LaTeX is never touched. (A one-off repair fixed 233
+  already-mangled spans across existing review workbenches.)
+- **Color no longer drops the selection.** The color picker popup collapsed the
+  WYSIWYG selection, so you couldn't apply bold to the same text without
+  re-selecting. The selection is now restored after a swatch is picked, allowing
+  color → bold chaining.
+
 ## 2.2.9
 
 ### Fixed / Added

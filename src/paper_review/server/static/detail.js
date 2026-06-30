@@ -1051,6 +1051,25 @@
 
   btnEdit.addEventListener('click', toggleEdit);
 
+  // Keep the WYSIWYG selection alive across a color-picker apply, so the user can
+  // chain color → bold without re-selecting. The color popup steals focus and
+  // collapses the selection (exec itself preserves it), so we remember the last
+  // non-empty selection and re-apply it after a palette swatch is clicked.
+  let lastWwSel = null;
+  function trackWwSel() {
+    if (!tuiEditor) return;
+    try { const s = tuiEditor.getSelection();
+      if (Array.isArray(s) && s[0] !== s[1]) lastWwSel = s; } catch {}
+  }
+  document.addEventListener('mouseup', trackWwSel, true);
+  document.addEventListener('keyup', trackWwSel, true);
+  document.addEventListener('click', e => {
+    if (!tuiEditor || !lastWwSel || !e.target.closest) return;
+    if (!e.target.closest('.toastui-editor-popup-color')) return;
+    const sel = lastWwSel;
+    setTimeout(() => { try { tuiEditor.setSelection(sel[0], sel[1]); tuiEditor.focus(); } catch {} }, 0);
+  }, true);
+
   function isDarkNow() {
     const t = document.body.dataset.theme;
     if (t === 'dark') return true;
@@ -1095,7 +1114,7 @@
       && toastui.Editor.plugin.colorSyntax) || null;
     const editorOpts = {
       el: document.getElementById('tui-host'),
-      initialValue: body,
+      initialValue: protectMath(body),
       initialEditType: 'wysiwyg',
       previewStyle: 'tab',
       height: '100%',
@@ -1403,11 +1422,30 @@
       .replace(/(<\/span>)((?:\\[*_~])+)/g, (_, s, e) => s + e.replace(/\\/g, ''));
   }
 
+  // The WYSIWYG editor mangles LaTeX inside $…$ / $$…$$ (doubles backslashes,
+  // escapes _ and *), which breaks KaTeX. Inverting that is ambiguous (a real
+  // \\ row-break or an escaped \_ in \text{} is indistinguishable from mangling),
+  // so instead we hide math from the editor entirely: swap each span for an
+  // opaque token on load and restore it verbatim on save. Lossless — correct
+  // LaTeX is never touched.
+  let mathGuards = [];
+  function protectMath(md) {
+    mathGuards = [];
+    return md.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g, m => {
+      mathGuards.push(m);
+      return `◆math${mathGuards.length - 1}◆`;
+    });
+  }
+  function restoreMath(md) {
+    return md.replace(/◆math(\d+)◆/g, (whole, i) =>
+      mathGuards[+i] !== undefined ? mathGuards[+i] : whole);
+  }
+
   async function saveEdit() {
     if (!editing || (!tuiEditor && !editFallbackTA)) return;
     const newBody = editFallbackTA
       ? editFallbackTA.value
-      : unescapeEmphAroundSpans(applyPendingImageWidths(tuiEditor.getMarkdown()));
+      : restoreMath(unescapeEmphAroundSpans(applyPendingImageWidths(tuiEditor.getMarkdown())));
     // Guard: if the editor came up blank/broken, saving would wipe the body.
     // Refuse to save an empty or drastically-shrunk body without confirmation.
     const newLen = newBody.trim().length;
