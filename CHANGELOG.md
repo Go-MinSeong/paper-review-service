@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.9
+
+### Fixed / Added
+- **Themes now apply to the review (detail) page.** It only honored dark/light;
+  the brand/original themes (stripe/figma/tesla/sunset/sage) set in the gallery
+  were ignored. detail.css already had the rules — detail.js just wasn't setting
+  `data-theme` for them.
+- **Fullscreen toggle on the review page** (topbar button + `F` key) via the
+  native Fullscreen API, to hide the browser chrome while reviewing.
+
 ## 2.2.8
 
 ### Fixed

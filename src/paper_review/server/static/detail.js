@@ -952,6 +952,12 @@
     document.getElementById("modal-figs").removeAttribute("open");
   }
   document.getElementById("btn-figures").addEventListener("click", openFigures);
+  // Fullscreen — native API, hides the browser chrome while reviewing.
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  }
+  document.getElementById("btn-fullscreen").addEventListener("click", toggleFullscreen);
   document.querySelectorAll("#modal-figs [data-close]").forEach(el =>
     el.addEventListener("click", closeFigures)
   );
@@ -1018,6 +1024,7 @@
     if (e.key === "g" || e.key === "G") openFigures();
     if (e.key === "s" || e.key === "S") toggleNav();
     if (e.key === "c" || e.key === "C") chatHead.click();
+    if (e.key === "f" || e.key === "F") toggleFullscreen();
     if (e.key === "/" && !chatBusy) {
       e.preventDefault();
       chatInput.focus();
@@ -2024,7 +2031,7 @@
   // Theme is toggled from the gallery; here we just honor the saved choice.
   (function applySavedTheme() {
     const t = localStorage.getItem('pr-theme') || 'auto';
-    if (t === 'dark' || t === 'light') document.body.dataset.theme = t;
+    if (t && t !== 'auto') document.body.dataset.theme = t;
     else delete document.body.dataset.theme;
   })();
 
