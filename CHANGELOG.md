@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.11
+
+### Changed
+- **Reverted the math placeholder tokens.** 2.2.10 hid `$…$` behind `◆mathN◆`
+  tokens in the editor, which leaked into view and read poorly. Math now shows as
+  its `$…$` source again; the WYSIWYG backslash/`_`/`*` mangling is undone on save
+  inside math spans instead (known ceiling: an escaped `\_` inside `\text{}`).
+- **Inserted figures are centered in the editor** (`display:block; margin:auto`).
+
 ## 2.2.10
 
 ### Fixed

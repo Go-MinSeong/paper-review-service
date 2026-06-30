@@ -1177,7 +1177,7 @@
      `height: auto` is required: SVG figures (blog/article) carry width+height
      attrs and collapse to ~2px under `max-width:100%` alone, leaving nothing to
      hover/drag. Mirrors the read-view rule (.wb img). */
-  #tui-host .ProseMirror img { max-width: 100%; height: auto; }
+  #tui-host .ProseMirror img { max-width: 100%; height: auto; display: block; margin-inline: auto; }
 
   /* ─── Print / PDF export ──────────────────────────────────────────
      Isolate the review (workbench) content so the browser's "Save as PDF"

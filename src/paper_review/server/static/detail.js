@@ -1114,7 +1114,7 @@
       && toastui.Editor.plugin.colorSyntax) || null;
     const editorOpts = {
       el: document.getElementById('tui-host'),
-      initialValue: protectMath(body),
+      initialValue: body,
       initialEditType: 'wysiwyg',
       previewStyle: 'tab',
       height: '100%',
@@ -1422,30 +1422,22 @@
       .replace(/(<\/span>)((?:\\[*_~])+)/g, (_, s, e) => s + e.replace(/\\/g, ''));
   }
 
-  // The WYSIWYG editor mangles LaTeX inside $…$ / $$…$$ (doubles backslashes,
-  // escapes _ and *), which breaks KaTeX. Inverting that is ambiguous (a real
-  // \\ row-break or an escaped \_ in \text{} is indistinguishable from mangling),
-  // so instead we hide math from the editor entirely: swap each span for an
-  // opaque token on load and restore it verbatim on save. Lossless — correct
-  // LaTeX is never touched.
-  let mathGuards = [];
-  function protectMath(md) {
-    mathGuards = [];
-    return md.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g, m => {
-      mathGuards.push(m);
-      return `◆math${mathGuards.length - 1}◆`;
-    });
-  }
-  function restoreMath(md) {
-    return md.replace(/◆math(\d+)◆/g, (whole, i) =>
-      mathGuards[+i] !== undefined ? mathGuards[+i] : whole);
+  // The WYSIWYG editor mangles LaTeX inside $…$ / $$…$$: it doubles backslashes
+  // (\tau → \\tau) and escapes markdown chars (_ → \_, * → \*), which breaks
+  // KaTeX. The editor pass doubles EVERY backslash uniformly, so on save we undo
+  // it inside math spans only: halve backslash runs, then drop the escape before
+  // _ * ~. ponytail: an escaped underscore inside \text{…} (rare; none in the
+  // current corpus) can't be told apart from a mangled subscript — known ceiling.
+  function restoreMathEscapes(md) {
+    return md.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g, m =>
+      m.replace(/\\\\/g, '\\').replace(/\\([_*~])/g, '$1'));
   }
 
   async function saveEdit() {
     if (!editing || (!tuiEditor && !editFallbackTA)) return;
     const newBody = editFallbackTA
       ? editFallbackTA.value
-      : restoreMath(unescapeEmphAroundSpans(applyPendingImageWidths(tuiEditor.getMarkdown())));
+      : restoreMathEscapes(unescapeEmphAroundSpans(applyPendingImageWidths(tuiEditor.getMarkdown())));
     // Guard: if the editor came up blank/broken, saving would wipe the body.
     // Refuse to save an empty or drastically-shrunk body without confirmation.
     const newLen = newBody.trim().length;
