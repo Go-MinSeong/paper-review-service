@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.13
+
+### Fixed
+- **Stray leading colon in the Wrap-up one-liner.** A workbench that wrote
+  `**한 줄 contribution** : value` (space before colon) rendered as
+  `한 줄 요약: : value`. `_extract_dash_field` now drops a leading colon from
+  the extracted value.
+
+
 ## 2.2.12
 
 ### Fixed

@@ -320,7 +320,11 @@ def _extract_dash_field(body: str, label: str) -> str:
         body,
         flags=re.DOTALL,
     )
-    return m.group(1).strip() if m else ""
+    if not m:
+        return ""
+    val = m.group(1).strip()
+    # tolerate a stray leading colon from `**label** : value` / `**label**: : value`
+    return val[1:].strip() if val.startswith(":") else val
 
 
 def _extract_followups(body: str) -> list[str]:
