@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.12
+
+### Fixed
+- **Wrap-up (“## 정리”) dropped from published posts.** `_extract_dash_field`
+  required a colon after the label (`**한 줄 contribution**:`), but a workbench that
+  wrote the label on its own line with the body below (no colon) parsed empty, so
+  the whole Wrap-up section was skipped at publish. The colon is now optional and
+  the value may span the following lines.
+
+
 ## 2.2.11
 
 ### Changed

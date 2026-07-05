@@ -312,8 +312,11 @@ def _extract_qna(text: str) -> list[QnaItem]:
 def _extract_dash_field(body: str, label: str) -> str:
     # Accept -, * or + bullets: the WYSIWYG editor re-serializes `- ` list
     # markers as `* `, which silently broke Wrap-up field extraction.
+    # The colon is optional and the value may sit on the following lines: some
+    # workbenches write `* **한 줄 contribution**` then a multi-line body below
+    # (no `: value` on the same line). Without this the whole Wrap-up dropped.
     m = re.search(
-        rf"[-*+][ \t]+\*\*{re.escape(label)}\*\*:[ \t]*(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
+        rf"[-*+][ \t]+\*\*{re.escape(label)}\*\*:?[ \t]*(.*?)(?=\n[-*+][ \t]+\*\*|\Z)",
         body,
         flags=re.DOTALL,
     )
