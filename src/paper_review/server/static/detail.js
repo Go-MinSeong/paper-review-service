@@ -515,37 +515,35 @@
     const md = await res.text();
     const stripped = stripFrontmatter(md);
 
-    const html = marked.parse(stripped);   // edit-diff highlight removed by request
+    // Shield $…$ / $$…$$ from marked before parsing. Otherwise marked treats
+    // math internals as markdown (e.g. `_` → <em>), which splits a math span
+    // across inline elements; KaTeX auto-render then re-pairs the loose `$`
+    // across Korean prose, producing a giant bogus math span whose layout hangs
+    // the page. Extract → placeholder → marked → restore → KaTeX gets intact math.
+    // Protect $…$ / $$…$$ from marked (which treats math internals like `_`/`*`
+    // as markdown, splitting a span across inline elements), then render each
+    // span with katex.renderToString and splice the HTML back in. This replaces
+    // renderMathInElement, whose whole-document delimiter walk hung on large
+    // math-heavy papers even though per-span rendering is fast.
+    const math = [];
+    const protectedMd = stripped.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g, m => {
+      math.push(m);
+      return `M${math.length - 1}`;
+    });
+    let html = marked.parse(protectedMd);
+    html = html.replace(/M(\d+)/g, (_, i) => {
+      const raw = math[+i];
+      if (raw === undefined) return "";
+      const disp = raw.startsWith("$$");
+      const body = raw.slice(disp ? 2 : 1, disp ? -2 : -1);
+      if (window.katex) {
+        try { return katex.renderToString(body, { displayMode: disp, throwOnError: false, strict: "ignore" }); }
+        catch (e) { /* fall through to literal */ }
+      }
+      return raw.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    });
     const wb = document.getElementById("wb");
     wb.innerHTML = html;
-
-    // Add ids to h3 for nav jumps; h1/h2 too so bookmarks can anchor to them
-    wb.querySelectorAll("h3").forEach(h => {
-      h.id = "sec-" + slugify(h.textContent);
-    });
-    wb.querySelectorAll("h1, h2").forEach(h => {
-      if (!h.id) h.id = "h-" + slugify(h.textContent);
-    });
-
-    // Mark workbench blocks by label so view toggle (summary/detail) can hide
-    annotateBlocksByLabel(wb);
-    wrapHeroCard(wb);
-    renderPipelinePlayers(wb);
-    injectPipelineGenButton(wb);
-    renderMermaid(wb);
-    setupResizableImages(wb);
-
-    // KaTeX
-    if (window.renderMathInElement) {
-      renderMathInElement(wb, {
-        delimiters: [
-          {left: "$$", right: "$$", display: true},
-          {left: "$", right: "$", display: false},
-        ],
-        throwOnError: false,
-      });
-    }
-
     // Diff: detect changed section content
     const newContent = new Map();
     let currentH3 = null;

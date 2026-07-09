@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.14
+
+### Fixed
+- **Detail page hung on some math-heavy papers.** `marked` treated `$… internals
+  (`_`, `*`) as markdown and split each math span across inline elements; KaTeX
+  auto-render (`renderMathInElement`) then re-paired the loose ` across Korean
+  prose into a giant bogus span whose layout froze the page. Math is now shielded
+  from marked (placeholder swap) and each span is pre-rendered with
+  `katex.renderToString` and spliced in — no whole-document delimiter walk. Also
+  renders more math correctly (spans marked previously mangled).
+
+
 ## 2.2.13
 
 ### Fixed
