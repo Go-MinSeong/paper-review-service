@@ -544,6 +544,23 @@
     });
     const wb = document.getElementById("wb");
     wb.innerHTML = html;
+
+    // Add ids to h3 for nav jumps; h1/h2 too so bookmarks can anchor to them
+    wb.querySelectorAll("h3").forEach(h => {
+      h.id = "sec-" + slugify(h.textContent);
+    });
+    wb.querySelectorAll("h1, h2").forEach(h => {
+      if (!h.id) h.id = "h-" + slugify(h.textContent);
+    });
+
+    // Mark workbench blocks by label so view toggle (summary/detail) can hide
+    annotateBlocksByLabel(wb);
+    wrapHeroCard(wb);
+    renderPipelinePlayers(wb);
+    injectPipelineGenButton(wb);
+    renderMermaid(wb);
+    setupResizableImages(wb);
+
     // Diff: detect changed section content
     const newContent = new Map();
     let currentH3 = null;

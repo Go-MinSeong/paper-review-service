@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.15
+
+### Fixed
+- **Pipeline player, hero card, mermaid, image-resize, and section anchors gone
+  (2.2.14 regression).** The 2.2.14 math-render rewrite accidentally removed the
+  post-render calls (h3/h1/h2 ids, annotateBlocksByLabel, wrapHeroCard,
+  renderPipelinePlayers, injectPipelineGenButton, renderMermaid,
+  setupResizableImages) that run after the workbench HTML is inserted. Restored
+  them; the animated pipeline (and the auto-generate button when absent) render
+  again, and math still pre-renders correctly.
+
+
 ## 2.2.14
 
 ### Fixed
