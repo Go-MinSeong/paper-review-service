@@ -110,3 +110,31 @@ def patch_paper_rating(slug: str, body: RatingPatchBody) -> dict:
     r = max(0, min(5, int(body.rating)))
     wb.write_text(_set_rating_in_text(wb.read_text(), r))
     return {"ok": True, "rating": r}
+
+
+# ── Status (manual override from the gallery badge) ──────────────────────
+STATUSES = ("to_read", "in_progress", "review_done", "exported", "archived")
+
+
+class StatusPatchBody(BaseModel):
+    status: str
+
+
+def _set_status_in_text(text: str, status: str) -> str:
+    """Update / insert the frontmatter `status:` line."""
+    new_line = f"status: {status}"
+    if re.search(r"^status:.*$", text, flags=re.MULTILINE):
+        return re.sub(r"^status:.*$", new_line, text, count=1, flags=re.MULTILINE)
+    return re.sub(r"^---\n", f"---\n{new_line}\n", text, count=1)
+
+
+def patch_paper_status(slug: str, body: StatusPatchBody) -> dict:
+    from fastapi import HTTPException
+
+    if body.status not in STATUSES:
+        raise HTTPException(400, f"invalid status: {body.status}")
+    wb = SERVICE_ROOT / slug / "workbench.md"
+    if not wb.exists():
+        raise HTTPException(404, f"workbench not found for {slug}")
+    wb.write_text(_set_status_in_text(wb.read_text(), body.status))
+    return {"ok": True, "status": body.status}

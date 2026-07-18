@@ -12,10 +12,22 @@
   // idle for clean screenshots.
   const CAPTURE = new URLSearchParams(location.search).has('capture');
 
+  // Status the user can set from the badge (order = menu order). `archived` is
+  // hidden from the default "all" view.
+  const STATUSES = [
+    { k: 'to_read', label: '읽을 예정' },
+    { k: 'in_progress', label: '리뷰 중' },
+    { k: 'review_done', label: '완료' },
+    { k: 'exported', label: '발행' },
+    { k: 'archived', label: '보관' },
+  ];
+  const STATUS_LABEL = Object.fromEntries(STATUSES.map(s => [s.k, s.label]));
   function statusCounts() {
-    const c = { all: papers.length, to_read: 0, in_progress: 0, review_done: 0, exported: 0 };
+    // `all` excludes archived so it matches what the default view shows.
+    const c = { all: 0, to_read: 0, in_progress: 0, review_done: 0, exported: 0, archived: 0 };
     for (const p of papers) {
       if (c.hasOwnProperty(p.status)) c[p.status]++;
+      if (p.status !== 'archived') c.all++;
     }
     return c;
   }
@@ -220,7 +232,9 @@
   function renderCards() {
     _charUsage = {}; _fileUsage = {};  // reset usage so spreading is recomputed per render
     const filtered = papers.filter(p => {
-      if (activeFilter !== 'all' && p.status !== activeFilter) return false;
+      // Default view ("all") hides archived; a specific filter matches exactly.
+      if (activeFilter === 'all') { if (p.status === 'archived') return false; }
+      else if (p.status !== activeFilter) return false;
       if (activeTags.size) {
         const tags = p.tags || [];
         // Each selected tag (or any of its descendants) must be present
@@ -295,7 +309,7 @@
         <a class="card${live ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
             <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
-            <span class="badge s-${p.status}">${p.status === 'to_read' ? 'reading' : p.status}</span>
+            <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
             <span class="type-badge t-${escapeHtml(p.content_type || 'paper')}">${escapeHtml(p.content_type || 'paper')}</span>
             <button class="card-log" data-log="${escapeHtml(p.slug)}" title="분석 로그">▤</button>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
@@ -437,6 +451,58 @@
     e.preventDefault();
     e.stopPropagation();
     openAnalyzeLog(el.dataset.log);
+  });
+  // ── Status menu (click a card's status badge to change it) ──────────────
+  let _statusMenu = null;
+  function closeStatusMenu() { if (_statusMenu) { _statusMenu.remove(); _statusMenu = null; } }
+  function openStatusMenu(anchor, slug) {
+    closeStatusMenu();
+    const paper = papers.find(p => p.slug === slug);
+    const cur = paper ? paper.status : '';
+    const menu = document.createElement('div');
+    menu.className = 'status-menu';
+    menu.innerHTML = STATUSES.map(s =>
+      `<button class="status-opt s-${s.k}${s.k === cur ? ' cur' : ''}" data-set="${s.k}">${s.label}</button>`
+    ).join('');
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+    menu.style.left = Math.round(Math.min(r.left, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+    _statusMenu = menu;
+    menu.addEventListener('click', async (e) => {
+      const opt = e.target.closest('[data-set]');
+      if (!opt) return;
+      const status = opt.dataset.set;
+      closeStatusMenu();
+      if (!paper || status === cur) return;
+      paper.status = status;
+      renderCards(); updateCounts();
+      const dEl = document.getElementById('dashboard');
+      if (dEl && !dEl.hidden && typeof renderDashboard === 'function') renderDashboard();
+      try {
+        const res = await fetch(`/paper/${encodeURIComponent(slug)}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+      } catch (err) {
+        UIDialog.alert('상태 변경 실패: ' + (err.message || err), { title: '오류' });
+      }
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (_statusMenu && !_statusMenu.contains(e.target) && !e.target.closest('[data-status]')) closeStatusMenu();
+  }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeStatusMenu(); });
+
+  // Status badge — click to open a menu and set the status manually.
+  grid.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-status]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openStatusMenu(b, b.dataset.status);
   });
   // Star rating (event-delegated) — click a star to set, click the current to clear
   grid.addEventListener('click', async (e) => {
@@ -634,6 +700,7 @@
       { k: 'in_progress', label: '리뷰 중', cls: 'in_progress' },
       { k: 'review_done', label: '완료', cls: 'review_done' },
       { k: 'exported', label: '발행', cls: 'exported' },
+      { k: 'archived', label: '보관', cls: 'archived' },
     ].map(s => ({ ...s, n: papers.filter(p => p.status === s.k).length }));
     let secDone = 0, secTotal = 0;
     papers.forEach(p => { secDone += p.sections_done || 0; secTotal += p.sections_total || 0; });

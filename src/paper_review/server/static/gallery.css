@@ -450,15 +450,47 @@
   body[data-theme="light"] .card-thumb.char-bg-12 { background: linear-gradient(135deg, #f3e6d2, #e6cba8); }
   body[data-theme="light"] .card-thumb.char-bg-13 { background: linear-gradient(135deg, #efe7d6, #dcd0b4); }
   .card-thumb .badge {
-    position: absolute; top: 10px; right: 10px; z-index: 2;
+    position: absolute; top: 10px; right: 10px; z-index: 3;
     font-size: 10px; font-weight: 600; padding: 3px 8px;
-    border-radius: 999px; color: white; letter-spacing: .02em;
+    border: 0; border-radius: 999px; color: white; letter-spacing: .02em;
+    font-family: inherit; cursor: pointer;
     backdrop-filter: blur(8px);
     background: rgba(0,0,0,.4);
+    transition: filter .12s, transform .12s;
   }
+  .card-thumb .badge:hover { filter: brightness(1.12); }
+  .card-thumb .badge:active { transform: scale(0.94); }
   .card-thumb .badge.s-in_progress { background: rgba(245,158,11,.85); }
   .card-thumb .badge.s-review_done { background: rgba(16,185,129,.85); }
   .card-thumb .badge.s-exported    { background: rgba(99,102,241,.85); }
+  .card-thumb .badge.s-archived    { background: rgba(100,116,139,.85); }
+
+  /* Status change menu (popped from a card badge) */
+  .status-menu {
+    position: fixed; z-index: 200; min-width: 120px;
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: 10px; padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .status-menu .status-opt {
+    display: flex; align-items: center; gap: 8px;
+    font: inherit; font-size: 13px; text-align: left;
+    padding: 7px 10px; border: 0; border-radius: 7px; cursor: pointer;
+    background: transparent; color: var(--text-primary);
+  }
+  .status-menu .status-opt::before {
+    content: ""; width: 8px; height: 8px; border-radius: 999px;
+    background: rgba(0,0,0,.35); flex: none;
+  }
+  .status-menu .status-opt.s-in_progress::before { background: var(--status-in_progress); }
+  .status-menu .status-opt.s-review_done::before { background: var(--status-review_done); }
+  .status-menu .status-opt.s-exported::before    { background: var(--status-exported); }
+  .status-menu .status-opt.s-to_read::before     { background: #6366f1; }
+  .status-menu .status-opt.s-archived::before    { background: #64748b; }
+  .status-menu .status-opt:hover { background: var(--bg-canvas); }
+  .status-menu .status-opt.cur { font-weight: 700; }
+  .status-menu .status-opt.cur::after { content: "✓"; margin-left: auto; color: var(--text-muted); }
   .card-thumb .type-badge {
     position: absolute; bottom: 10px; left: 10px; z-index: 2;
     font-size: 10px; font-weight: 600; padding: 3px 8px;

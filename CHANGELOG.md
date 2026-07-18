@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.16
+
+### Added
+- **Manual status change from the gallery.** Click a card's status badge to open
+  a menu and set the status (읽을 예정 / 리뷰 중 / 완료 / 발행 / 보관). New
+  `PATCH /paper/<slug>/status` writes it to the workbench frontmatter.
+- **Archived status.** The default "All" view (and its count) hide archived
+  papers; a new **Archived** sidebar filter shows them.
+
+
 ## 2.2.15
 
 ### Fixed

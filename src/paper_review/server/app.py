@@ -32,9 +32,11 @@ from .ingest import StartIngestBody, get_job, start_arxiv_job, start_pdf_job
 from .save import SaveBody, save_paper, save_pdf_paper
 from .tags import (
     RatingPatchBody,
+    StatusPatchBody,
     TagsPatchBody,
     list_all_tags,
     patch_paper_rating,
+    patch_paper_status,
     patch_paper_tags,
 )
 
@@ -649,6 +651,12 @@ def patch_tags(slug: str, body: TagsPatchBody):
 def patch_rating(slug: str, body: RatingPatchBody):
     _paper_dir(slug)  # validate
     return patch_paper_rating(slug, body)
+
+
+@app.patch("/paper/{slug}/status")
+def patch_status(slug: str, body: StatusPatchBody):
+    _paper_dir(slug)  # validate
+    return patch_paper_status(slug, body)
 
 
 @app.get("/paper/{slug}/baseline.json")
