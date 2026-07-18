@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.17
+
+### Changed
+- **Status menu labels are now English** (Reading / In progress / Reviewed /
+  Exported / Archived) to match the badges and sidebar.
+
+
 ## 2.2.16
 
 ### Added

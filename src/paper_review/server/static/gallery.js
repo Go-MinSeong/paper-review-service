@@ -15,11 +15,11 @@
   // Status the user can set from the badge (order = menu order). `archived` is
   // hidden from the default "all" view.
   const STATUSES = [
-    { k: 'to_read', label: '읽을 예정' },
-    { k: 'in_progress', label: '리뷰 중' },
-    { k: 'review_done', label: '완료' },
-    { k: 'exported', label: '발행' },
-    { k: 'archived', label: '보관' },
+    { k: 'to_read', label: 'Reading' },
+    { k: 'in_progress', label: 'In progress' },
+    { k: 'review_done', label: 'Reviewed' },
+    { k: 'exported', label: 'Exported' },
+    { k: 'archived', label: 'Archived' },
   ];
   const STATUS_LABEL = Object.fromEntries(STATUSES.map(s => [s.k, s.label]));
   function statusCounts() {
