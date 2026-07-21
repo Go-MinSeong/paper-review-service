@@ -1,17 +1,29 @@
 // Single-slot remote workbench: GET returns the slot, PUT replaces it.
 // Auth: `x-token` header must equal the REMOTE_TOKEN env var.
-// Storage: one JSON blob (Vercel Blob). Public blob URLs are unguessable
-// (random store host) but not private — don't push anything truly secret.
-import { put, list } from "@vercel/blob";
+//
+// Storage: Vercel Blob. The blob CDN ignores query-string cache busting, so
+// overwriting one pathname serves stale reads for minutes. Instead every save
+// writes a NEW immutable blob (random suffix) and readers pick the newest via
+// list() — read-after-write correct; old revisions are pruned best-effort.
+import { put, list, del } from "@vercel/blob";
 
-const PATH = "paper-review/slot.json";
+const PREFIX = "paper-review/slot-";
+
+const revOf = (b) => +(b.pathname.match(/slot-(\d+)/)?.[1] || 0);
+
+async function newestBlob() {
+  const { blobs } = await list({ prefix: PREFIX, limit: 100 });
+  if (!blobs.length) return null;
+  blobs.sort(
+    (a, b) => revOf(b) - revOf(a) || new Date(b.uploadedAt) - new Date(a.uploadedAt)
+  );
+  return blobs;
+}
 
 async function readSlot() {
-  const { blobs } = await list({ prefix: PATH, limit: 1 });
-  if (!blobs.length) return null;
-  // Cache-bust: blob CDN caches by URL; a unique query forces a fresh read
-  // so mobile edits are visible to an immediate local pull.
-  const res = await fetch(`${blobs[0].url}?t=${Date.now()}`, { cache: "no-store" });
+  const blobs = await newestBlob();
+  if (!blobs) return null;
+  const res = await fetch(blobs[0].url, { cache: "no-store" });
   if (!res.ok) return null;
   return res.json();
 }
@@ -47,11 +59,17 @@ export default async function handler(req, res) {
       pushed_at: body.force ? new Date().toISOString() : cur?.pushed_at,
       updated_at: new Date().toISOString(),
     };
-    await put(PATH, JSON.stringify(doc), {
+    await put(`${PREFIX}${doc.rev}.json`, JSON.stringify(doc), {
       access: "public",
-      addRandomSuffix: false,
+      addRandomSuffix: true, // unique URL → immutable, never a stale CDN hit
       contentType: "application/json",
     });
+    // prune older revisions (best effort — a failure here is harmless)
+    try {
+      const blobs = await newestBlob();
+      const stale = (blobs || []).slice(1).map((b) => b.url);
+      if (stale.length) await del(stale);
+    } catch (e) { /* ignore */ }
     return res.status(200).json({ ok: true, rev: doc.rev, slug: doc.slug });
   }
 

@@ -70,3 +70,4 @@ dev/
 
 # illustration soft-delete trash (runtime)
 src/paper_review/server/static/characters/_trash/
+remote/.env.local
