@@ -24,6 +24,12 @@
 !packaging/
 !packaging/**
 
+# ...and the Vercel remote app (mobile continuation)
+!remote/
+!remote/**
+remote/node_modules/
+remote/.vercel/
+
 # Standard Python
 __pycache__/
 *.py[cod]

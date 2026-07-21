@@ -236,6 +236,33 @@ def session(slug: str) -> None:
         raise click.ClickException("`claude` CLI not found on PATH.")
 
 
+@main.group()
+def remote() -> None:
+    """Manual sync with the Vercel remote slot (mobile continuation)."""
+
+
+@remote.command(name="push")
+@click.argument("slug")
+def remote_push(slug: str) -> None:
+    """Replace the remote slot with SLUG's workbench (+ figures)."""
+    from .remote import push as _push
+
+    out = _push(slug, SERVICE_ROOT)
+    click.secho(f"✓ pushed {out['slug']} (rev {out['rev']}) → {out['url']}", fg="green")
+
+
+@remote.command(name="pull")
+def remote_pull() -> None:
+    """Write the remote slot's workbench back to the local paper (.bak first)."""
+    from .remote import pull as _pull
+
+    out = _pull(SERVICE_ROOT)
+    if out["changed"]:
+        click.secho(f"✓ pulled {out['slug']} (rev {out['rev']}) — workbench updated, .bak saved", fg="green")
+    else:
+        click.secho(f"· {out['slug']} already up to date (rev {out['rev']})", fg="yellow")
+
+
 @main.command(name="export-draft")
 @click.argument("slug")
 @click.option(

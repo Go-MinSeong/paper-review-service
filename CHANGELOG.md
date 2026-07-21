@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0
+
+### Added
+- **Mobile continuation (remote slot).** A tiny Vercel app (`remote/`, monorepo
+  subfolder) holds ONE paper's workbench + figures. Push from the detail page
+  (📱 button) or `paper-review remote push <slug>`; edit on the phone
+  (section-level ✏️ editing, KaTeX/figures rendered, frontmatter via ⚙);
+  pull back from the gallery (📥 button) or `paper-review remote pull`
+  (backs up workbench.md.bak first). Manual sync only; optimistic rev check
+  guards concurrent edits. Config in ~/.config/paper-review/remote.json.
+
+
 ## 2.2.18
 
 ### Added

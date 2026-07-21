@@ -665,6 +665,24 @@
   }
   const savedTheme = localStorage.getItem('pr-theme') || 'auto';
   applyTheme(savedTheme);
+  // Pull mobile edits from the remote slot back into the local workbench.
+  document.getElementById('remote-pull-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const r = await fetch('/remote-pull', { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      if (j.changed) {
+        await UIDialog.alert(`${j.slug} 워크벤치를 원격(rev ${j.rev}) 내용으로 갱신했습니다.\n이전 내용은 workbench.md.bak에 백업.`, { title: '📥 동기화 완료' });
+        location.reload();
+      } else {
+        UIDialog.alert(`${j.slug} — 이미 최신입니다 (rev ${j.rev}).`, { title: '📥' });
+      }
+    } catch (err) {
+      UIDialog.alert('가져오기 실패: ' + (err.message || err), { title: '오류' });
+    } finally { btn.disabled = false; }
+  });
   document.getElementById('theme-toggle').addEventListener('click', () => {
     const cur = localStorage.getItem('pr-theme') || 'auto';
     const next = cur === 'auto' ? 'dark' : cur === 'dark' ? 'light' : 'auto';

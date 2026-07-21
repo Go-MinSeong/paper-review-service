@@ -1,0 +1,9 @@
+{
+  "name": "paper-review-remote",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Single-slot mobile continuation for paper-review (Vercel)",
+  "dependencies": {
+    "@vercel/blob": "^0.27.0"
+  }
+}

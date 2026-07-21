@@ -973,6 +973,23 @@
     else document.documentElement.requestFullscreen().catch(() => {});
   }
   document.getElementById("btn-fullscreen").addEventListener("click", toggleFullscreen);
+  // Push this paper to the remote slot (replaces whatever is there).
+  document.getElementById("btn-remote-push").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const ok = await UIDialog.confirm(
+      "이 페이퍼로 원격(모바일) 슬롯을 교체할까요?\n기존 슬롯 내용은 사라집니다.",
+      { okLabel: "보내기", cancelLabel: "취소" });
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+      const r = await fetch(`/paper/${slug}/remote-push`, { method: "POST" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ("HTTP " + r.status));
+      UIDialog.alert(`원격 슬롯에 푸시됨 (rev ${j.rev}).\n모바일에서 열기: ${j.url}`, { title: "📱 완료" });
+    } catch (err) {
+      UIDialog.alert("푸시 실패: " + (err.message || err), { title: "오류" });
+    } finally { btn.disabled = false; }
+  });
   document.querySelectorAll("#modal-figs [data-close]").forEach(el =>
     el.addEventListener("click", closeFigures)
   );

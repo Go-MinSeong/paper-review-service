@@ -659,6 +659,29 @@ def patch_status(slug: str, body: StatusPatchBody):
     return patch_paper_status(slug, body)
 
 
+@app.post("/paper/{slug}/remote-push")
+def remote_push(slug: str):
+    """Replace the Vercel remote slot with this paper (mobile continuation)."""
+    _paper_dir(slug)  # validate
+    from ..remote import push
+
+    try:
+        return push(slug, SERVICE_ROOT)
+    except Exception as e:  # config missing / network — surface as a clean 400
+        raise HTTPException(400, str(e))
+
+
+@app.post("/remote-pull")
+def remote_pull():
+    """Write the remote slot's workbench back to the local paper."""
+    from ..remote import pull
+
+    try:
+        return pull(SERVICE_ROOT)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/paper/{slug}/baseline.json")
 def paper_baseline(slug: str) -> JSONResponse:
     """Claude-authored section snapshots (heading → markdown), used by the UI

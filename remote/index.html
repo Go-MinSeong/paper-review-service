@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>paper-review · remote</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1d1d1f; --muted: #7a7a7a; --accent: #0066cc;
+    --border: #e0e0e0; --surface: #f5f5f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161618; --fg: #e6e6e6; --muted: #8a8f98; --accent: #6cb6ff;
+            --border: #33343a; --surface: #1f2023; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif;
+    font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);
+  }
+  header .title { font-size: 14px; font-weight: 700; flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .rev { font-size: 11px; color: var(--muted); flex: none; }
+  header button {
+    font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--fg);
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 18px 90px; overflow-wrap: break-word; }
+  main img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 12px auto; }
+  main h1 { font-size: 1.45rem; line-height: 1.3; }
+  main h2 { font-size: 1.2rem; margin-top: 2rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
+  main h3 { font-size: 1.05rem; margin-top: 1.6rem; display: flex; align-items: baseline; gap: 8px; }
+  main pre { overflow-x: auto; padding: .8rem; background: var(--surface); border-radius: 8px; font-size: 13px; }
+  main code { background: var(--surface); padding: .1em .3em; border-radius: 4px; font-size: .9em; }
+  main pre code { background: none; padding: 0; }
+  main blockquote { margin: 1em 0; padding: .1px 14px; border-left: 3px solid var(--accent);
+    background: var(--surface); border-radius: 0 8px 8px 0; }
+  main table { border-collapse: collapse; display: block; overflow-x: auto; }
+  main th, main td { border: 1px solid var(--border); padding: .35rem .55rem; font-size: 14px; }
+  .katex { font-size: 1.02em; }
+  .edit-btn {
+    flex: none; font-size: 12px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--surface); color: var(--muted); padding: 2px 8px;
+  }
+  .editor { margin: 10px 0 18px; }
+  .editor textarea {
+    width: 100%; min-height: 45vh; font: 13px/1.6 ui-monospace, Menlo, monospace;
+    color: var(--fg); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px;
+  }
+  .editor .row { display: flex; gap: 8px; margin-top: 8px; }
+  .editor button {
+    font: inherit; font-size: 14px; padding: 9px 16px; border-radius: 9px; border: 0;
+  }
+  .editor .save { background: var(--accent); color: white; flex: 1; }
+  .editor .cancel { background: var(--surface); color: var(--fg); border: 1px solid var(--border); }
+  #gate { max-width: 420px; margin: 18vh auto 0; padding: 0 20px; }
+  #gate input { width: 100%; font: inherit; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--fg); }
+  #gate button { width: 100%; margin-top: 10px; font: inherit; padding: 12px;
+    border-radius: 10px; border: 0; background: var(--accent); color: white; }
+  .hint { color: var(--muted); font-size: 13px; }
+  #toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom));
+    transform: translateX(-50%); background: var(--fg); color: var(--bg);
+    padding: 9px 16px; border-radius: 999px; font-size: 13px; display: none; z-index: 20; }
+</style>
+</head>
+<body>
+  <div id="gate" hidden>
+    <h2>paper-review remote</h2>
+    <p class="hint">액세스 토큰을 입력하세요 (이 기기에 저장됩니다).</p>
+    <input id="token-input" type="password" autocomplete="off" placeholder="token">
+    <button id="token-save">열기</button>
+  </div>
+
+  <header id="hdr" hidden>
+    <div class="title" id="hd-title">…</div>
+    <span class="rev" id="hd-rev"></span>
+    <button id="btn-front" title="frontmatter/서문 편집">⚙</button>
+    <button id="btn-reload" title="새로고침">↻</button>
+  </header>
+  <main id="wb" hidden></main>
+  <div id="toast"></div>
+
+<script>
+(function () {
+  const API = "/api/doc";
+  let doc = null;          // { slug, title, md, figures, rev }
+  let sections = null;     // [{head, body}] — [0] is the pre-### preamble (head="")
+  let figById = {};
+
+  const $ = id => document.getElementById(id);
+  const token = () => localStorage.getItem("pr-remote-token") || "";
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.style.display = "block";
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 2600);
+  }
+
+  // ── markdown split / join (edit unit = ### section) ─────────────────────
+  function splitSections(md) {
+    const lines = md.split("\n");
+    const out = [{ head: "", body: [] }];
+    for (const ln of lines) {
+      if (/^###\s/.test(ln)) out.push({ head: ln, body: [] });
+      else out[out.length - 1].body.push(ln);
+    }
+    return out.map(s => ({ head: s.head, body: s.body.join("\n") }));
+  }
+  const joinSections = secs =>
+    secs.map(s => (s.head ? s.head + "\n" : "") + s.body).join("\n");
+
+  // ── render (math shielded from marked, pre-rendered via KaTeX) ──────────
+  function renderMarkdown(md) {
+    const math = [];
+    const protectedMd = md.replace(/\$\$[\s\S]*?\$\$|\$[^$\n]+?\$/g, m => {
+      math.push(m); return `M${math.length - 1}`;
+    });
+    let html = marked.parse(protectedMd);
+    html = html.replace(/M(\d+)/g, (_, i) => {
+      const raw = math[+i]; if (raw === undefined) return "";
+      const disp = raw.startsWith("$$");
+      try { return katex.renderToString(raw.slice(disp ? 2 : 1, disp ? -2 : -1),
+        { displayMode: disp, throwOnError: false, strict: "ignore" }); }
+      catch (e) { return raw.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+    });
+    // figure refs → embedded data URIs
+    html = html.replace(/src="(?:\/paper\/[^/"]+\/fig\/([^/"?#]+))"/g,
+      (m, id) => figById[id] ? `src="${figById[id]}"` : m);
+    return html;
+  }
+
+  function stripFrontmatter(md) {
+    const m = md.match(/^---\n[\s\S]*?\n---\n/);
+    return m ? md.slice(m[0].length) : md;
+  }
+
+  function render() {
+    figById = {};
+    for (const f of doc.figures || []) if (f.id && f.data_uri) figById[f.id] = f.data_uri;
+    sections = splitSections(doc.md);
+    $("hd-title").textContent = doc.title || doc.slug || "workbench";
+    $("hd-rev").textContent = "rev " + (doc.rev ?? "?");
+    const wb = $("wb");
+    // preamble (frontmatter hidden from view, editable via ⚙)
+    let html = renderMarkdown(stripFrontmatter(sections[0].body));
+    for (let i = 1; i < sections.length; i++) {
+      html += renderMarkdown(sections[i].head) + renderMarkdown(sections[i].body);
+    }
+    wb.innerHTML = html;
+    // attach an edit button on every h3, mapped to its section index by order
+    const h3s = wb.querySelectorAll("h3");
+    h3s.forEach((h, i) => {
+      const b = document.createElement("button");
+      b.className = "edit-btn"; b.textContent = "✏️ 편집";
+      b.addEventListener("click", () => openEditor(i + 1, h));
+      h.appendChild(b);
+    });
+    $("hdr").hidden = false; wb.hidden = false; $("gate").hidden = true;
+  }
+
+  // ── editing ──────────────────────────────────────────────────────────────
+  let openEd = null;
+  function closeEditor() { if (openEd) { openEd.remove(); openEd = null; } }
+  function openEditor(secIdx, anchorEl, opts = {}) {
+    closeEditor();
+    const sec = sections[secIdx];
+    const box = document.createElement("div");
+    box.className = "editor";
+    const ta = document.createElement("textarea");
+    ta.value = sec.body;
+    box.appendChild(ta);
+    const row = document.createElement("div"); row.className = "row";
+    const save = document.createElement("button"); save.className = "save"; save.textContent = "저장";
+    const cancel = document.createElement("button"); cancel.className = "cancel"; cancel.textContent = "취소";
+    row.append(save, cancel); box.appendChild(row);
+    if (anchorEl) anchorEl.insertAdjacentElement("afterend", box);
+    else { $("wb").prepend(box); box.scrollIntoView({ block: "start" }); }
+    openEd = box; ta.focus();
+    cancel.addEventListener("click", closeEditor);
+    save.addEventListener("click", async () => {
+      sections[secIdx] = { head: sec.head, body: ta.value };
+      const md = joinSections(sections);
+      save.disabled = true; save.textContent = "저장 중…";
+      try {
+        const r = await fetch(API, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "x-token": token() },
+          body: JSON.stringify({ md, baseRev: doc.rev, slug: doc.slug }),
+        });
+        if (r.status === 409) {
+          toast("다른 곳에서 수정됨 — 새로고침합니다");
+          setTimeout(load, 900); return;
+        }
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const j = await r.json();
+        doc.md = md; doc.rev = j.rev;
+        closeEditor(); render(); toast("저장됨 (rev " + j.rev + ")");
+      } catch (e) {
+        save.disabled = false; save.textContent = "저장";
+        toast("저장 실패: " + (e.message || e));
+      }
+    });
+  }
+  $("btn-front").addEventListener("click", () => openEditor(0, null, { frontmatter: true }));
+  $("btn-reload").addEventListener("click", () => load());
+
+  // ── load ────────────────────────────────────────────────────────────────
+  async function load() {
+    closeEditor();
+    try {
+      const r = await fetch(API, { headers: { "x-token": token() } });
+      if (r.status === 401) { showGate("토큰이 올바르지 않습니다."); return; }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      if (j.empty) { showGate("아직 푸시된 페이퍼가 없습니다. 로컬에서 push 하세요."); return; }
+      doc = j; render();
+    } catch (e) { showGate("불러오기 실패: " + (e.message || e)); }
+  }
+  function showGate(msg) {
+    $("gate").hidden = false; $("hdr").hidden = true; $("wb").hidden = true;
+    $("gate").querySelector(".hint").textContent =
+      msg || "액세스 토큰을 입력하세요 (이 기기에 저장됩니다).";
+  }
+  $("token-save").addEventListener("click", () => {
+    localStorage.setItem("pr-remote-token", $("token-input").value.trim());
+    load();
+  });
+
+  if (token()) load(); else showGate();
+})();
+</script>
+</body>
+</html>
