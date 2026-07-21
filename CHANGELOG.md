@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.18
+
+### Added
+- **Actionable hint on Claude CLI auth expiry.** When an analyze section fails
+  with an authentication/OAuth error, the log now appends: re-login with
+  `claude auth login`, then re-run Analyze (no server restart needed).
+- Tests for the status PATCH helpers/route (missed in 2.2.16) and the auth hint.
+
+
 ## 2.2.17
 
 ### Changed

@@ -284,6 +284,7 @@ async def _analyze_one_section(
             err_bytes = await proc.stderr.read() if proc.stderr else b""
             err = err_bytes.decode("utf-8", "replace")[-400:]
             job.log.append(f"   ✗ exit {proc.returncode}: {err}")
+            _hint_auth_failure(err, job)
             return False
         job.log.append("   ✓ section done")
         return True
@@ -621,6 +622,16 @@ Steps:
                 await asyncio.wait_for(proc.wait(), timeout=2)
             except asyncio.TimeoutError:
                 proc.kill()
+
+
+def _hint_auth_failure(err_text: str, job: AnalysisJob) -> None:
+    """Turn a cryptic claude-CLI auth error into an actionable hint."""
+    if re.search(r"authenticat|oauth|logged in|login", err_text, re.IGNORECASE):
+        job.log.append(
+            "   ℹ Claude Code 로그인이 만료된 것 같습니다. 터미널에서 "
+            "`claude auth login`으로 재로그인한 뒤 다시 Analyze 하세요 "
+            "(서버 재시작 불필요)."
+        )
 
 
 def _consume_stream_line(line: bytes, job: AnalysisJob) -> None:
