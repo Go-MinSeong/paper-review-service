@@ -659,6 +659,40 @@ def patch_status(slug: str, body: StatusPatchBody):
     return patch_paper_status(slug, body)
 
 
+class SettingsBody(BaseModel):
+    drafts_dir: str
+
+
+@app.get("/settings")
+def get_settings():
+    """User settings + effective paths (for the gallery settings panel)."""
+    from ..config import DEFAULT_DRAFTS_DIR, get_drafts_dir, load_settings
+
+    return {
+        "drafts_dir": load_settings().get("drafts_dir", ""),
+        "effective_drafts_dir": str(get_drafts_dir()),
+        "default_drafts_dir": str(DEFAULT_DRAFTS_DIR),
+    }
+
+
+@app.put("/settings")
+def put_settings(body: SettingsBody):
+    """Set the publish output dir (obsidian/velog vault drafts). Empty = default."""
+    from ..config import get_drafts_dir, load_settings, save_settings
+
+    s = load_settings()
+    val = body.drafts_dir.strip()
+    if val:
+        p = Path(val).expanduser()
+        if not p.is_absolute():
+            raise HTTPException(400, "절대 경로를 입력하세요 (예: ~/Documents/my-vault/drafts)")
+        s["drafts_dir"] = str(p)
+    else:
+        s.pop("drafts_dir", None)
+    save_settings(s)
+    return {"ok": True, "effective_drafts_dir": str(get_drafts_dir())}
+
+
 @app.post("/paper/{slug}/remote-push")
 def remote_push(slug: str):
     """Replace the Vercel remote slot with this paper (mobile continuation)."""
@@ -814,15 +848,16 @@ def paper_report(slug: str) -> FileResponse:
 @app.post("/paper/{slug}/publish")
 def paper_publish(slug: str):
     import re as _re
+    from ..config import get_drafts_dir
     from ..publish.transform import workbench_to_draft
-    from .. import VELOG_DRAFTS_DIR
 
     d = _paper_dir(slug)
     wb = d / "workbench.md"
     if not wb.exists():
         raise HTTPException(404, "workbench missing")
-    VELOG_DRAFTS_DIR.mkdir(parents=True, exist_ok=True)
-    dest = VELOG_DRAFTS_DIR / f"{slug}.md"
+    drafts_dir = get_drafts_dir()
+    drafts_dir.mkdir(parents=True, exist_ok=True)
+    dest = drafts_dir / f"{slug}.md"
     workbench_to_draft(wb, dest, paper_dir=d)
     # Bump workbench status to 'exported'
     text = wb.read_text()

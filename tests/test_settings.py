@@ -34,3 +34,18 @@ def test_illustration_groups_structure():
     # every tag maps to a real group
     for grp in g["tag_groups"].values():
         assert grp in g["groups"]
+
+
+def test_drafts_dir_resolution(tmp_path, monkeypatch):
+    from paper_review import config as C
+
+    monkeypatch.setattr(C, "SETTINGS_PATH", tmp_path / "settings.json")
+    monkeypatch.delenv("PAPER_REVIEW_DRAFTS_DIR", raising=False)
+    # default
+    assert C.get_drafts_dir() == C.DEFAULT_DRAFTS_DIR
+    # settings.json wins over default
+    C.save_settings({"drafts_dir": "/tmp/my-vault/drafts"})
+    assert str(C.get_drafts_dir()) == "/tmp/my-vault/drafts"
+    # env wins over settings
+    monkeypatch.setenv("PAPER_REVIEW_DRAFTS_DIR", "/tmp/env-vault/drafts")
+    assert str(C.get_drafts_dir()) == "/tmp/env-vault/drafts"

@@ -830,7 +830,10 @@
     if (ok) generateReport(null, null);
   });
 
-  const savedView = localStorage.getItem("pr-view") || "detail";
+  // View choice is PER PAPER — a global key made every paper open in the
+  // report/summary view after using it once anywhere.
+  const VIEW_KEY = `pr-view:${slug}`;
+  const savedView = localStorage.getItem(VIEW_KEY) || "detail";
   setView(savedView);
   viewToggle.querySelectorAll("button").forEach(b => {
     b.addEventListener("click", () => setView(b.dataset.view));
@@ -840,7 +843,7 @@
     viewToggle.querySelectorAll("button").forEach(b => {
       b.classList.toggle("active", b.dataset.view === mode);
     });
-    localStorage.setItem("pr-view", mode);
+    localStorage.setItem(VIEW_KEY, mode);
     if (mode === "summary") {
       await checkReport();
       showReportPane();

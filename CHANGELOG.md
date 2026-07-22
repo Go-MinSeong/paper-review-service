@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.4.2
+
+### Fixed
+- **Report view sticking to every paper.** The Summary/Detail choice was a
+  single global key, so opening the report once made EVERY paper open in the
+  report view (with its top bar). The view is now remembered per paper
+  (default: Detail). The no-report generate banner also shrank to one line.
+
+### Added
+- **Configurable publish path (Settings → 경로).** The Obsidian/velog vault
+  drafts folder is no longer hardcoded: set it in the gallery settings (stored
+  in ~/.config/paper-review/settings.json; PAPER_REVIEW_DRAFTS_DIR env
+  overrides; empty = legacy default). Publish routes and `export-draft` use it.
+
+
 ## 2.4.1
 
 ### Fixed

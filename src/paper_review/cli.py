@@ -268,13 +268,15 @@ def remote_pull() -> None:
 @click.option(
     "--drafts-dir",
     type=click.Path(path_type=Path),
-    default=VELOG_DRAFTS_DIR,
-    help="Where to write the Velog draft.",
+    default=None,
+    help="Where to write the Velog draft (default: configured drafts dir).",
 )
-def export_draft(slug: str, drafts_dir: Path) -> None:
+def export_draft(slug: str, drafts_dir: Path | None) -> None:
     """Transform workbench.md → Velog draft markdown in drafts/."""
+    from .config import get_drafts_dir
     from .publish.transform import workbench_to_draft
 
+    drafts_dir = drafts_dir or get_drafts_dir()
     src = SERVICE_ROOT / slug / "workbench.md"
     if not src.exists():
         raise click.ClickException(f"workbench.md not found: {src}")

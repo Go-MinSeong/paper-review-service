@@ -1062,9 +1062,39 @@
       document.getElementById('spane-themes').hidden = id !== 'themes';
       document.getElementById('spane-skills').hidden = id !== 'skills';
       document.getElementById('spane-illust').hidden = id !== 'illust';
+      document.getElementById('spane-paths').hidden = id !== 'paths';
       if (id === 'skills') loadSkills();
       if (id === 'illust') loadIllust();
+      if (id === 'paths') loadPaths();
     }));
+
+    // — Paths (publish output → user's own Obsidian/velog vault) —
+    async function loadPaths() {
+      try {
+        const s = await (await fetch('/settings')).json();
+        document.getElementById('paths-drafts').value = s.drafts_dir || '';
+        document.getElementById('paths-hint').textContent =
+          `현재 적용 경로: ${s.effective_drafts_dir}` +
+          (s.drafts_dir ? '' : ` (기본값)`);
+      } catch (e) {
+        document.getElementById('paths-hint').textContent = '설정을 불러오지 못했습니다: ' + e;
+      }
+    }
+    document.getElementById('paths-save').addEventListener('click', async () => {
+      try {
+        const r = await fetch('/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ drafts_dir: document.getElementById('paths-drafts').value }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+        document.getElementById('paths-hint').textContent =
+          `저장됨 — 적용 경로: ${j.effective_drafts_dir}`;
+      } catch (e) {
+        UIDialog.alert('저장 실패: ' + (e.message || e), { title: '오류' });
+      }
+    });
 
     // — Themes —
     const THEMES = [

@@ -106,11 +106,9 @@
           <button class="btn-mini" id="report-regen">재생성</button>
         </div>
         <div class="report-empty" id="report-empty" hidden>
-          <p>아직 리포트가 없습니다. 리뷰를 마친 뒤 생성하면<br>
-          00 TL;DR → 01 개념 → 02 배경 → 03 방법론 → 04 실험 → 05 한계 → 06 후속 연구<br>
-          구조의 단일 리포트가 만들어집니다 (수 분 소요, 후속 연구는 웹 검색).</p>
-          <button class="btn-primary" id="report-gen">구조화 리포트 생성</button>
-          <div class="hint" id="report-gen-status"></div>
+          <span class="hint">구조화 리포트 없음 — 리뷰(내 정리·Q&A)를 반영해 00 TL;DR~06 후속 연구 리포트를 만듭니다 (수 분)</span>
+          <button class="btn-mini" id="report-gen">구조화 리포트 생성</button>
+          <span class="hint" id="report-gen-status"></span>
         </div>
         <iframe id="report-frame" title="리뷰 리포트" hidden></iframe>
       </section>
