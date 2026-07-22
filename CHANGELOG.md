@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.1
+
+### Fixed
+- **Report pane leaking into the Detail view.** Rapid Summary↔Detail toggling
+  let the async report check resolve late and re-show the pane over Detail;
+  showReportPane now bails unless the current view is summary. The "리포트
+  생성" banner also moved from the bottom (next to chat) to ABOVE the summary.
+
+
 ## 2.4.0
 
 ### Added

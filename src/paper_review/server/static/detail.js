@@ -770,6 +770,9 @@
     return reportExists;
   }
   function showReportPane() {
+    // Guard against async races (checkReport/generateReport resolving after
+    // the user already switched back): only ever show in summary mode.
+    if (document.getElementById("wb").dataset.view !== "summary") return;
     reportPane.hidden = false;
     reportPane.classList.toggle("full", !!reportExists);
     if (reportExists) {

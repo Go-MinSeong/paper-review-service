@@ -1268,3 +1268,11 @@
   }
   .report-empty p { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); line-height: 1.7; }
   .report-empty .hint { margin-top: 8px; font-size: 12px; }
+
+  /* Banner mode (no report yet): show the CTA ABOVE the summary, not pinned
+     at the bottom next to chat. */
+  .wb-stack:has(.pane.report:not(.full):not([hidden])) {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .pane.report:not(.full) { order: -1; }
+  .pane.report:not(.full) .report-empty { border-top: 0; border-bottom: 1px solid var(--border-default); }
