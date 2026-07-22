@@ -751,18 +751,99 @@
   }
 
   // ───────────────────────────────────────────────────────── View toggle (summary/detail)
+  // Summary shows the structured report (report.html) when it exists; until
+  // then it falls back to the label-filtered workbench + a generate CTA.
   const viewToggle = document.getElementById("view-toggle");
+  const reportPane = document.getElementById("report-pane");
+  const reportFrame = document.getElementById("report-frame");
+  const reportEmpty = document.getElementById("report-empty");
+  let reportExists = null;   // null = unknown yet
+  let reportGenBusy = false;
+
+  async function checkReport() {
+    if (reportExists !== null) return reportExists;
+    try {
+      // GET, not HEAD — FastAPI's GET routes don't auto-answer HEAD (405)
+      const r = await fetch(`/paper/${slug}/report`);
+      reportExists = r.ok;
+    } catch (e) { reportExists = false; }
+    return reportExists;
+  }
+  function showReportPane() {
+    reportPane.hidden = false;
+    reportPane.classList.toggle("full", !!reportExists);
+    if (reportExists) {
+      // report replaces the workbench in summary mode
+      document.getElementById("wb").style.display = "none";
+      reportEmpty.hidden = true;
+      reportFrame.hidden = false;
+      const url = `/paper/${slug}/report`;
+      if (!reportFrame.src) reportFrame.src = url;
+      document.getElementById("report-open").href = url;
+    } else {
+      // no report yet: keep the label-filtered summary, show a generate banner
+      document.getElementById("wb").style.display = "";
+      reportFrame.hidden = true;
+      reportEmpty.hidden = false;
+    }
+    // the bar's 새 탭/재생성 only make sense with an existing report
+    document.querySelector("#report-pane .report-bar").style.display =
+      reportExists ? "" : "none";
+  }
+  function hideReportPane() {
+    reportPane.hidden = true;
+    document.getElementById("wb").style.display = "";
+  }
+  async function generateReport(statusEl, btn) {
+    if (reportGenBusy) return;
+    reportGenBusy = true;
+    if (btn) { btn.disabled = true; btn.textContent = "생성 중… (수 분 소요)"; }
+    if (statusEl) statusEl.textContent = "워크벤치·원문을 읽고 리포트를 작성하는 중…";
+    try {
+      const r = await fetch(`/paper/${slug}/generate-report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelPicker.value }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || j.detail || ("HTTP " + r.status));
+      reportExists = true;
+      reportFrame.src = `/paper/${slug}/report?t=` + Date.now();
+      showReportPane();
+    } catch (err) {
+      if (statusEl) statusEl.textContent = "";
+      UIDialog.alert("리포트 생성 실패: " + (err.message || err), { title: "오류" });
+    } finally {
+      reportGenBusy = false;
+      if (btn) { btn.disabled = false; btn.textContent = "구조화 리포트 생성"; }
+      if (statusEl) statusEl.textContent = "";
+    }
+  }
+  document.getElementById("report-gen").addEventListener("click", (e) =>
+    generateReport(document.getElementById("report-gen-status"), e.currentTarget));
+  document.getElementById("report-regen").addEventListener("click", async () => {
+    const ok = await UIDialog.confirm("리포트를 다시 생성할까요? (수 분 소요)",
+      { okLabel: "재생성", cancelLabel: "취소" });
+    if (ok) generateReport(null, null);
+  });
+
   const savedView = localStorage.getItem("pr-view") || "detail";
   setView(savedView);
   viewToggle.querySelectorAll("button").forEach(b => {
     b.addEventListener("click", () => setView(b.dataset.view));
   });
-  function setView(mode) {
+  async function setView(mode) {
     document.getElementById("wb").dataset.view = mode;
     viewToggle.querySelectorAll("button").forEach(b => {
       b.classList.toggle("active", b.dataset.view === mode);
     });
     localStorage.setItem("pr-view", mode);
+    if (mode === "summary") {
+      await checkReport();
+      showReportPane();
+    } else {
+      hideReportPane();
+    }
   }
 
   // ───────────────────────────────────────────────────────── Nav toggle

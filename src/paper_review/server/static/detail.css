@@ -1250,3 +1250,21 @@
   /* Balanced headings */
   #wb h1, #wb h2, .modal-content h2 { text-wrap: balance; }
   #wb p, #wb li { text-wrap: pretty; }
+
+  /* ── Structured review report (Summary view) ─────────────────────────── */
+  .pane.report { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .report-bar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-bottom: 1px solid var(--border-default);
+    background: var(--bg-surface); font-size: 12px;
+  }
+  .report-bar .hint { color: var(--text-muted); }
+  .report-bar .spacer { flex: 1; }
+  .report-bar a.btn-mini { text-decoration: none; }
+  #report-frame { flex: 1; width: 100%; border: 0; min-height: 0; background: white; }
+  .report-empty {
+    padding: 18px 20px; text-align: center;
+    border-top: 1px solid var(--border-default); background: var(--bg-surface);
+  }
+  .report-empty p { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); line-height: 1.7; }
+  .report-empty .hint { margin-top: 8px; font-size: 12px; }

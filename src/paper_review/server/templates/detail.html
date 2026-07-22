@@ -98,6 +98,22 @@
     <div class="gutter" id="gutter" title="드래그하여 좌/우 너비 조절 · 더블클릭 초기화" role="separator" aria-orientation="vertical"></div>
     <div class="wb-stack">
       <section class="pane wb" id="wb" tabindex="0"></section>
+      <section class="pane report" id="report-pane" hidden>
+        <div class="report-bar">
+          <span class="hint">구조화 리포트 — 워크벤치 리뷰(내 정리·Q&A)를 반영해 생성됩니다</span>
+          <span class="spacer"></span>
+          <a class="btn-mini" id="report-open" href="#" target="_blank">새 탭</a>
+          <button class="btn-mini" id="report-regen">재생성</button>
+        </div>
+        <div class="report-empty" id="report-empty" hidden>
+          <p>아직 리포트가 없습니다. 리뷰를 마친 뒤 생성하면<br>
+          00 TL;DR → 01 개념 → 02 배경 → 03 방법론 → 04 실험 → 05 한계 → 06 후속 연구<br>
+          구조의 단일 리포트가 만들어집니다 (수 분 소요, 후속 연구는 웹 검색).</p>
+          <button class="btn-primary" id="report-gen">구조화 리포트 생성</button>
+          <div class="hint" id="report-gen-status"></div>
+        </div>
+        <iframe id="report-frame" title="리뷰 리포트" hidden></iframe>
+      </section>
       <aside class="chat" id="chat" data-collapsed="1">
         <div class="chat-head" id="chat-head" title="click to collapse">
           <span class="label">Chat</span>

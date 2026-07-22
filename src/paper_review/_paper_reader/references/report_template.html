@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[논문 제목] — Paper Review Template</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --bg2: #f7f8fa;
+  --bg3: #eef0f3;
+  --border: #e0e3e8;
+  --text: #1a1d23;
+  --muted: #6b717e;
+  --accent: #1a6fd4;
+  --accent2: #6340b0;
+  --green: #1a8f5a;
+  --amber: #b86b00;
+  --red: #c43a3a;
+  --teal: #1a8fa0;
+  --font-sans: 'IBM Plex Sans KR', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --bg2: #1d2026;
+    --bg3: #262a31;
+    --border: #333842;
+    --text: #e7e9ee;
+    --muted: #8b919e;
+    --accent: #5ea0ec;
+    --accent2: #9d7fe0;
+    --green: #4bb583;
+    --amber: #d99a3d;
+    --red: #e06c6c;
+    --teal: #4db3c4;
+  }
+  nav { background: rgba(22,24,29,0.92) !important; }
+  p, td, .callout, .code-block, .paper-fig-caption { color: #c6cad2; }
+  .timeline-item::before { border-color: var(--bg); }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.75;
+  font-weight: 300;
+}
+.container { max-width: 860px; margin: 0 auto; padding: 0 32px; }
+section { padding: 72px 0; border-bottom: 1px solid var(--border); }
+section:last-child { border-bottom: none; }
+
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+}
+.nav-inner { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 24px; }
+.nav-logo { font-family: var(--font-mono); font-size: 13px; color: var(--accent); letter-spacing: 0.05em; white-space: nowrap; }
+.nav-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.nav-links a { font-size: 12px; color: var(--muted); text-decoration: none; font-family: var(--font-mono); transition: color 0.2s; }
+.nav-links a:hover { color: var(--text); }
+
+.section-label { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 12px; }
+h2 { font-size: 26px; font-weight: 500; margin-bottom: 28px; letter-spacing: -0.02em; }
+h3 { font-size: 17px; font-weight: 500; margin: 32px 0 12px; }
+h4 { font-size: 13px; font-weight: 500; color: var(--accent); margin: 20px 0 8px; font-family: var(--font-mono); letter-spacing: 0.05em; }
+p { margin-bottom: 14px; color: #3a3f4a; }
+p:last-child { margin-bottom: 0; }
+
+.hero { padding: 80px 0 64px; border-bottom: 1px solid var(--border); }
+.hero-tag { display: inline-block; font-family: var(--font-mono); font-size: 11px; color: var(--accent); background: rgba(26,111,212,0.06); border: 1px solid rgba(26,111,212,0.2); padding: 4px 10px; border-radius: 4px; letter-spacing: 0.1em; margin-bottom: 20px; }
+.hero h1 { font-size: 38px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 14px; }
+.hero h1 span { color: var(--accent); }
+.hero-sub { font-size: 13px; color: var(--muted); font-family: var(--font-mono); margin-bottom: 36px; }
+.hero-meta { display: flex; gap: 32px; flex-wrap: wrap; }
+.hero-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.hero-meta-item .label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; }
+.hero-meta-item .value { font-size: 20px; font-weight: 500; color: var(--accent); font-family: var(--font-mono); }
+
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin-bottom: 14px; }
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
+.stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; text-align: center; }
+.stat-num { font-family: var(--font-mono); font-size: 22px; font-weight: 500; color: var(--accent); display: block; }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+th { background: var(--bg3); color: var(--muted); font-weight: 500; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: #3a3f4a; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg2); }
+.highlight-row td { color: var(--accent); font-weight: 500; }
+
+code { font-family: var(--font-mono); font-size: 13px; background: var(--bg3); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; color: var(--green); }
+.code-block {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px 20px; margin: 14px 0;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.9;
+  color: #3a3f4a; overflow-x: auto; white-space: pre;
+}
+.code-block .c { color: var(--muted); }
+.code-block .k { color: var(--accent); }
+.code-block .s { color: var(--green); }
+.code-block .n { color: var(--amber); }
+
+details { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; margin: 10px 0; overflow: hidden; }
+details[open] { border-color: rgba(26,111,212,0.3); }
+summary { padding: 13px 18px; cursor: pointer; font-size: 13px; font-family: var(--font-mono); color: var(--accent); display: flex; align-items: center; gap: 8px; list-style: none; user-select: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: '▶'; font-size: 10px; transition: transform 0.2s; }
+details[open] summary::before { transform: rotate(90deg); }
+.details-body { padding: 0 18px 18px; font-size: 14px; }
+
+.badge { display: inline-block; font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.05em; }
+.badge-blue { background: rgba(26,111,212,0.08); color: var(--accent); border: 1px solid rgba(26,111,212,0.2); }
+.badge-green { background: rgba(26,143,90,0.08); color: var(--green); border: 1px solid rgba(26,143,90,0.2); }
+.badge-amber { background: rgba(184,107,0,0.08); color: var(--amber); border: 1px solid rgba(184,107,0,0.2); }
+.badge-red { background: rgba(196,58,58,0.08); color: var(--red); border: 1px solid rgba(196,58,58,0.2); }
+.badge-purple { background: rgba(99,64,176,0.08); color: var(--accent2); border: 1px solid rgba(99,64,176,0.2); }
+
+.callout { border-left: 3px solid var(--accent); background: rgba(26,111,212,0.04); padding: 13px 18px; border-radius: 0 8px 8px 0; margin: 14px 0; font-size: 14px; color: #3a3f4a; }
+.callout.warn { border-color: var(--amber); background: rgba(184,107,0,0.04); }
+.callout.success { border-color: var(--green); background: rgba(26,143,90,0.04); }
+
+.pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+
+.diagram-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin: 18px 0; overflow: hidden; }
+.diagram-caption { font-size: 12px; color: var(--muted); font-family: var(--font-mono); text-align: center; margin-top: 10px; }
+
+/* Paper figures */
+.paper-fig { width: 100%; border-radius: 8px; border: 1px solid var(--border); margin: 16px 0 4px; display: block; }
+.paper-fig-half { width: 50%; border-radius: 8px; border: 1px solid var(--border); margin: 16px auto 4px; display: block; }
+.paper-fig-caption {
+  font-size: 13px; color: #3a3f4a;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px; padding: 10px 16px;
+  margin-bottom: 20px; line-height: 1.6;
+}
+.paper-fig-caption strong { color: var(--text); }
+
+.result-bar-row { margin: 10px 0; }
+.result-bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.result-bar-label .name { color: #3a3f4a; }
+.result-bar-label .val { font-family: var(--font-mono); color: var(--accent); }
+.result-bar-track { background: var(--bg3); border-radius: 4px; height: 8px; overflow: hidden; }
+.result-bar-fill { height: 100%; border-radius: 4px; }
+
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before { content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 1px; background: var(--border); }
+.timeline-item { position: relative; margin-bottom: 26px; }
+.timeline-item::before { content: ''; position: absolute; left: -20px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+.timeline-year { font-family: var(--font-mono); font-size: 11px; color: var(--accent); margin-bottom: 3px; }
+.timeline-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.timeline-desc { font-size: 13px; color: var(--muted); }
+
+.limit-list { list-style: none; }
+.limit-list li { padding: 15px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 14px; align-items: flex-start; }
+.limit-list li:last-child { border-bottom: none; }
+.limit-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+.limit-content h4 { margin: 0 0 3px; font-size: 14px; font-weight: 500; color: var(--text); font-family: var(--font-sans); letter-spacing: 0; }
+.limit-content p { margin: 0; font-size: 13px; color: var(--muted); }
+
+@media (max-width: 600px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .card-grid, .card-grid-3 { grid-template-columns: 1fr; }
+  h2 { font-size: 20px; }
+  .hero h1 { font-size: 26px; }
+  .paper-fig-half { width: 80%; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <div class="nav-logo">PAPER.REVIEW</div>
+  <div class="nav-links">
+    <a href="#tldr">TL;DR</a><a href="#concepts">개념</a><a href="#background">배경</a><a href="#methodology">방법론</a><a href="#experiments">실험</a><a href="#limitations">한계</a><a href="#followup">후속 연구</a>
+  </div>
+</div>
+</nav>
+
+<!-- ===================== HERO =====================
+학회/venue · arXiv ID 태그, 논문 제목(핵심 키워드는 <span>으로 강조),
+저자·소속, 핵심 숫자 3~4개(hero-meta) -->
+<div class="hero">
+<div class="container">
+  <div class="hero-tag">VENUE YYYY · arXiv:XXXX.XXXXX</div>
+  <h1>논문 제목: <span>핵심 키워드 강조</span></h1>
+  <div class="hero-sub">저자 · 소속 · 발표 시기</div>
+  <div class="hero-meta">
+    <div class="hero-meta-item"><div class="label">Model Size</div><div class="value">7B</div></div>
+    <div class="hero-meta-item"><div class="label">Training Data</div><div class="value">970K</div></div>
+    <div class="hero-meta-item"><div class="label">Key Metric</div><div class="value">+16.5%</div></div>
+  </div>
+</div>
+</div>
+
+<!-- ===================== 00 TL;DR =====================
+3~5문장 핵심 요약 + 기여 카드 그리드 (card-grid: 2열, card-grid-3: 3열) -->
+<section id="tldr">
+<div class="container">
+  <div class="section-label">00 · TL;DR</div>
+  <h2>핵심 요약</h2>
+  <p>이 논문이 무엇을 왜 어떻게 했고, 결과가 무엇인지 3~5문장으로.</p>
+  <div class="card-grid">
+    <div class="card"><h4>CONTRIBUTION 1</h4><p>설명</p></div>
+    <div class="card"><h4>CONTRIBUTION 2</h4><p>설명</p></div>
+  </div>
+  <div class="callout"><strong>핵심 통찰:</strong> 한 문장으로 요약한 논문의 본질.</div>
+</div>
+</section>
+
+<!-- ===================== 01 개념 =====================
+논문 이해에 필요한 사전 개념. 대화 중 질문이 나왔던 기초 개념을 여기에 반영.
+부가 설명은 details/summary 토글로 접어둠 -->
+<section id="concepts">
+<div class="container">
+  <div class="section-label">01 · 개념</div>
+  <h2>사전 개념</h2>
+  <p>본문 설명. 기술 용어는 영어 그대로 유지.</p>
+  <div class="pill-row">
+    <span class="badge badge-blue">Input</span>
+    <span class="badge badge-green">Output</span>
+    <span class="badge badge-purple">Latent</span>
+  </div>
+  <details>
+    <summary>부가 개념 — 왜 이 방식이 필요한가?</summary>
+    <div class="details-body"><p>접어두는 심화 설명.</p></div>
+  </details>
+</div>
+</section>
+
+<!-- ===================== 02 배경 =====================
+선행 연구 흐름은 timeline 컴포넌트로 -->
+<section id="background">
+<div class="container">
+  <div class="section-label">02 · 배경</div>
+  <h2>Background</h2>
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-year">2023</div>
+      <div class="timeline-title">선행 연구 A</div>
+      <div class="timeline-desc">한 줄 설명</div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-year">2024</div>
+      <div class="timeline-title">선행 연구 B</div>
+      <div class="timeline-desc">한 줄 설명</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== 03 방법론 =====================
+아키텍처는 SVG 다이어그램(diagram-wrap 내부, CSS 변수 색상 사용).
+논문 원본 figure를 넣을 자리는 paper-fig + paper-fig-caption -->
+<section id="methodology">
+<div class="container">
+  <div class="section-label">03 · 방법론</div>
+  <h2>Methodology</h2>
+  <h3>모델 아키텍처</h3>
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 700 160" xmlns="http://www.w3.org/2000/svg" style="width:100%">
+      <rect x="20" y="50" width="160" height="60" rx="8" fill="rgba(26,111,212,0.06)" stroke="#1a6fd4"/>
+      <text x="100" y="85" text-anchor="middle" font-size="13" fill="#1a1d23">Input Encoder</text>
+      <line x1="180" y1="80" x2="270" y2="80" stroke="#6b717e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="270" y="50" width="160" height="60" rx="8" fill="rgba(99,64,176,0.06)" stroke="#6340b0"/>
+      <text x="350" y="85" text-anchor="middle" font-size="13" fill="#1a1d23">Backbone</text>
+      <line x1="430" y1="80" x2="520" y2="80" stroke="#6b717e" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="520" y="50" width="160" height="60" rx="8" fill="rgba(26,143,90,0.06)" stroke="#1a8f5a"/>
+      <text x="600" y="85" text-anchor="middle" font-size="13" fill="#1a1d23">Head</text>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#6b717e" stroke-width="1.5"/></marker></defs>
+    </svg>
+    <div class="diagram-caption">Fig. 아키텍처 개요 — 데이터 흐름</div>
+  </div>
+  <!-- 논문 원본 그림: <img class="paper-fig" src="..."> + 아래 캡션 -->
+  <div class="paper-fig-caption"><strong>Figure 1 (논문 원본).</strong> 캡션을 한국어로 해설.</div>
+</div>
+</section>
+
+<!-- ===================== 04 실험 =====================
+주요 결과는 result-bar(가로 막대) 또는 table.
+비교 대상 중 이 논문의 결과 행은 highlight-row -->
+<section id="experiments">
+<div class="container">
+  <div class="section-label">04 · 실험</div>
+  <h2>Experiments</h2>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num">83.5%</div><div class="stat-label">Success Rate</div></div>
+    <div class="stat-box"><div class="stat-num">4×</div><div class="stat-label">Speedup</div></div>
+  </div>
+  <div class="result-bar-row">
+    <div class="result-bar-label"><span class="name">Baseline</span><span class="val">55.0%</span></div>
+    <div class="result-bar-track"><div class="result-bar-fill" style="width:55%; background:var(--muted)"></div></div>
+  </div>
+  <div class="result-bar-row">
+    <div class="result-bar-label"><span class="name">This Paper</span><span class="val">71.5%</span></div>
+    <div class="result-bar-track"><div class="result-bar-fill" style="width:71.5%; background:var(--accent)"></div></div>
+  </div>
+  <table>
+    <thead><tr><th>Method</th><th>Params</th><th>Metric</th></tr></thead>
+    <tbody>
+      <tr><td>Baseline</td><td class="num">55B</td><td class="num">55.0</td></tr>
+      <tr class="highlight-row"><td>This Paper</td><td class="num">7B</td><td class="num">71.5</td></tr>
+    </tbody>
+  </table>
+  <div class="callout success"><strong>핵심 결과:</strong> 무엇이 왜 좋아졌는지 한 문장.</div>
+</div>
+</section>
+
+<!-- ===================== 05 한계 =====================
+limit-list: 아이콘 + 제목 + 설명. 논문이 명시한 한계와
+리뷰 과정에서 발견한 한계를 구분해 표기 -->
+<section id="limitations">
+<div class="container">
+  <div class="section-label">05 · 한계</div>
+  <h2>Limitations</h2>
+  <ul class="limit-list">
+    <li><span class="limit-icon">⚠️</span><div class="limit-content"><h4>한계 1 (논문 명시)</h4><p>설명</p></div></li>
+    <li><span class="limit-icon">🔍</span><div class="limit-content"><h4>한계 2 (리뷰 중 발견)</h4><p>설명</p></div></li>
+  </ul>
+  <div class="callout warn"><strong>주의:</strong> 논문이 주장하지 않은 것 — 스코프 경계 명시.</div>
+</div>
+</section>
+
+<!-- ===================== 06 후속 연구 =====================
+웹 검색 기반으로 최신 후속 연구 정리. 카드 그리드 + arXiv 링크 -->
+<section id="followup">
+<div class="container">
+  <div class="section-label">06 · 후속 연구</div>
+  <h2>후속 연구 &amp; 더 읽을거리</h2>
+  <h3>이 논문의 한계를 직접 해결한 연구</h3>
+  <div class="card-grid">
+    <div class="card"><h4>FOLLOW-UP A (2025)</h4><p>어떤 한계를 어떻게 해결했는지. arXiv:XXXX.XXXXX</p></div>
+    <div class="card"><h4>FOLLOW-UP B (2026)</h4><p>설명. arXiv:XXXX.XXXXX</p></div>
+  </div>
+</div>
+</section>
+
+</body>
+</html>

@@ -793,6 +793,24 @@ async def paper_generate_pipeline(slug: str, body: GenQBody):
     return await generate_pipeline(d, body.model)
 
 
+@app.post("/paper/{slug}/generate-report")
+async def paper_generate_report(slug: str, body: GenQBody):
+    """Build the structured single-file review report (최종 정리) on demand."""
+    from .analyze import generate_report
+
+    d = _paper_dir(slug)
+    return await generate_report(d, body.model)
+
+
+@app.get("/paper/{slug}/report")
+def paper_report(slug: str) -> FileResponse:
+    """Serve the generated report.html (shown in the Summary view)."""
+    p = _paper_dir(slug) / "report.html"
+    if not p.exists():
+        raise HTTPException(404, "report not generated yet")
+    return FileResponse(p, media_type="text/html")
+
+
 @app.post("/paper/{slug}/publish")
 def paper_publish(slug: str):
     import re as _re

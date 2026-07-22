@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.4.0
+
+### Added
+- **Structured review report (최종 정리) in the Summary view.** A "구조화
+  리포트 생성" button builds a single-file report.html from the finished
+  review — 00 TL;DR → 01 개념 → 02 배경 → 03 방법론 → 04 실험 → 05 한계 →
+  06 후속 연구, with hero key numbers, prior-work timeline, result bars /
+  stat boxes, paper figures (same-origin), scope-discipline callouts,
+  ⚠️ 논문 명시 / 🔍 리뷰 중 발견 limitation split, and WebSearch-backed
+  follow-up papers. The reviewer's 내 정리/Q&A are woven in. Summary tab
+  shows the report once generated (새 탭/재생성 bar); until then it keeps
+  the label-filtered summary with a generate banner. Template adapted from
+  the team review guide (+ dark mode).
+
+### Changed
+- **Scope discipline in analysis prompts.** Section analysis and the
+  paper-review skill now separate the paper's claims from general-knowledge
+  inference ("논문 밖 일반론", "논문에 명시되지 않음"), require symbol
+  definitions/concrete numbers in method sections, and structure experiment
+  summaries as 실험 목적 → 결과 → 해석.
+
+
 ## 2.3.0
 
 ### Added

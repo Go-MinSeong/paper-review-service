@@ -465,6 +465,160 @@ Steps:
                 proc.kill()
 
 
+_REPORT_TEMPLATE = (
+    Path(__file__).resolve().parent.parent
+    / "_paper_reader"
+    / "references"
+    / "report_template.html"
+)
+
+
+def _figure_index_hint(paper_dir: Path) -> str:
+    """Compact 'id — caption' list so the report can reference real figures
+    without the model reading the (huge, base64) figures.json."""
+    files = sorted(paper_dir.glob("*_figures.json"))
+    if not files:
+        return "(no extracted figures)"
+    try:
+        data = json.loads(files[0].read_text())
+    except Exception:
+        return "(no extracted figures)"
+    items = data if isinstance(data, list) else data.get("figures", [])
+    lines = []
+    for f in items:
+        if isinstance(f, dict) and f.get("id"):
+            cap = (f.get("caption_en") or f.get("label") or "").strip()[:110]
+            kind = "table" if str(f.get("id")).startswith("tbl") else "figure"
+            lines.append(f"- {f['id']} ({kind}): {cap}")
+    return "\n".join(lines) or "(no extracted figures)"
+
+
+async def generate_report(
+    paper_dir: Path, model: Optional[str], timeout: int = 900
+) -> dict:
+    """On-demand: build the structured single-file report (report.html) from the
+    finished review — the '최종 정리' step of the team review guide."""
+    slug = paper_dir.name
+    prompt = f"""Create the FINAL structured review report for this paper as a single
+self-contained HTML file at report.html (in the current directory).
+
+Materials (read in this order):
+1. {_REPORT_TEMPLATE} — the HTML template. Copy its <style> and component
+   vocabulary EXACTLY (hero, card-grid, stats-row/stat-box, timeline,
+   result-bar, table + highlight-row, callout / warn / success,
+   details/summary, diagram-wrap SVG, paper-fig, limit-list, sticky nav).
+2. workbench.md — the finished review. This is the PRIMARY source: it contains
+   the reviewer's own notes (내 정리), Q&A, Reader's Notes. WEAVE those
+   insights into the matching sections — the report must reflect the review
+   conversation, not just re-summarize the paper.
+3. {slug}_source.txt — the paper itself, for numbers/details the workbench
+   lacks (hyperparameters, exact metrics, dataset sizes).
+
+Structure (exactly these sections, sticky-nav anchored):
+00 TL;DR → 01 개념 → 02 배경 → 03 방법론 → 04 실험 → 05 한계 → 06 후속 연구
+
+Content rules:
+- Korean prose; technical terms stay English (KV cache, draft model, …).
+- Hero: venue/arXiv tag, title with <span> keyword highlight, 3–4 hero-meta
+  key numbers taken from the paper.
+- 01 개념: prerequisite concepts (사전지식 카드 as base); fold deep-dives into
+  details/summary toggles.
+- 02 배경: prior-work flow as a timeline.
+- 03 방법론: equations with symbol definitions and concrete numbers (model /
+  data sizes, hyperparameters). Write math as plain HTML (italic vars,
+  <sub>/<sup>) — NO external math libraries. Draw the core mechanism as an
+  inline SVG inside diagram-wrap using the CSS variable colors.
+- 04 실험: each key result as "무엇을 보여주는 실험 → 결과 → 해석"; use
+  result-bar or table (this paper's row = highlight-row) + stat-box for
+  headline numbers; success callout for the key takeaway.
+- SCOPE DISCIPLINE (every section): distinguish what the PAPER claims/compares
+  from general-knowledge inference — mark the latter explicitly (e.g. a warn
+  callout "논문 밖 일반론"). If something isn't in the paper, say
+  "논문에 명시되지 않음".
+- 05 한계: limit-list items, each tagged (논문 명시) with ⚠️ or
+  (리뷰 중 발견) with 🔍 — mine 리뷰 중 발견 from the workbench's Reader's
+  Notes / 내 정리 / Q&A.
+- 06 후속 연구: use WebSearch to find real follow-up papers (cite arXiv IDs,
+  2025–2026 preferred). If search fails, keep the section with the workbench's
+  후속으로 읽을 논문 and note the limitation.
+- Paper figures: reference them as <img class="paper-fig" src="/paper/{slug}/fig/<id>">
+  (the report is served same-origin, so these URLs work). Available figures:
+
+{_figure_index_hint(paper_dir)}
+
+  Pick only genuinely useful ones, each with a paper-fig-caption in Korean.
+- Title the page "{slug} — 리뷰 리포트". No external JS; fonts/CSS from the
+  template only.
+
+Write the COMPLETE file with the Write tool to report.html, then reply
+EXACTLY '✓ report done'."""
+
+    system_ctx = (
+        f"You are inside {paper_dir}, a paper-review workspace. Build the final "
+        "review report HTML. Use Read/WebSearch to gather, then ONE Write to "
+        "report.html. Output minimal chat."
+    )
+    cmd = [
+        "claude",
+        "-p",
+        prompt,
+        # no --continue: the report is self-contained (reads its own materials),
+        # and a fresh session works even in folders without a prior claude run.
+        "--append-system-prompt",
+        system_ctx,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--max-turns",
+        "40",
+        "--permission-mode",
+        "acceptEdits",
+        "--allowedTools",
+        "WebSearch",
+    ]
+    if model:
+        cmd += ["--model", model]
+
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        limit=16 * 1024 * 1024,
+        cwd=str(paper_dir),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    start = time.time()
+    try:
+        assert proc.stdout is not None
+        while True:
+            if time.time() - start > timeout:
+                proc.terminate()
+                return {"ok": False, "error": "timeout"}
+            try:
+                line = await asyncio.wait_for(proc.stdout.readline(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            if not line:
+                break
+        await proc.wait()
+        created = (paper_dir / "report.html").exists()
+        err = ""
+        if proc.returncode != 0 and proc.stderr:
+            err = (await proc.stderr.read()).decode("utf-8", "replace")[-500:]
+        return {
+            "ok": proc.returncode == 0 and created,
+            "code": proc.returncode,
+            "created": created,
+            "error": err or None,
+        }
+    finally:
+        if proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=2)
+            except asyncio.TimeoutError:
+                proc.kill()
+
+
 def _build_section_prompt(heading: str, line_range: str, paper_dir: Path) -> str:
     slug = paper_dir.name
     range_hint = (
@@ -490,7 +644,10 @@ Steps:
 
    **요약**
    <4-6 sentences in Korean — what the section ACTUALLY says (key claims, key
-    numbers, key comparisons). NOT meta-commentary. For fast reading.>
+    numbers, key comparisons). NOT meta-commentary. For fast reading.
+    Method sections: include symbol definitions and concrete numbers (model /
+    data sizes, hyperparameters) when the section states them.
+    Experiment sections: structure as "무엇을 보여주는 실험인지 → 결과 → 해석".>
 
    **Claude 1차 번역**
    <paragraphs, faithful KO translation — preserve $...$ math, preserve key terms
@@ -500,7 +657,10 @@ Steps:
 
    **Claude Reader's Notes**
    <1 short callout: intuition / historical context / implementation note /
-    unstated assumption. 200-400자. Skip if no genuine insight.>
+    unstated assumption. 200-400자. Skip if no genuine insight.
+    SCOPE DISCIPLINE: keep the paper's claims separate from your own inference —
+    mark general-knowledge reasoning as such (e.g. "…는 논문 밖 일반론"), and if
+    something the note relies on isn't in the paper, say "논문에 명시되지 않음".>
 
 3. Preserve the <!-- section_id ... --> comment in the section header. Do not
    touch the ## Q&A section or any other section.
