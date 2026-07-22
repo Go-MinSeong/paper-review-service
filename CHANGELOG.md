@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.3
+
+### Added
+- **Pretty URL: http://paper-review.local/** — serve now also binds port 80
+  (unprivileged on macOS) and registers the mDNS name via `dns-sd -P`,
+  advertising the LAN IP so phones on the same Wi-Fi can use the same
+  address. Menubar menu/open use it when available; falls back to
+  http://127.0.0.1:7300 when port 80 or dns-sd is unavailable.
+
+
 ## 2.4.2
 
 ### Fixed

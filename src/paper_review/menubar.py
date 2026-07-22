@@ -227,6 +227,8 @@ class PaperReviewMenubarApp:
         if ready:
             self._set_status(f"●  running on :{self.port}", "green")
             self.menu_toggle.title = "Stop Server"
+            _wait_port(80, timeout=2)  # pretty-URL listener (best effort)
+            self._refresh_url_items()
             if self.auto_open:
                 self._open_gallery()
         else:
@@ -284,11 +286,20 @@ class PaperReviewMenubarApp:
         rumps.quit_application()
 
     # ─── Helpers ────────────────────────────────────────────────────────
+    def _gallery_url(self) -> str:
+        """Pretty URL when the port-80 listener is up, else the plain one."""
+        if _port_in_use(80):
+            return "http://paper-review.local"
+        return f"http://127.0.0.1:{self.port}"
+
+    def _refresh_url_items(self) -> None:
+        self.menu_url.title = self._gallery_url()
+
     def _open_gallery(self) -> None:
         if not _port_in_use(self.port):
             self._start_server()
             time.sleep(0.5)
-        webbrowser.open(f"http://127.0.0.1:{self.port}")
+        webbrowser.open(self._gallery_url())
 
     def _set_status(self, text: str, color: str) -> None:
         self.menu_status.title = text

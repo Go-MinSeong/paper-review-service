@@ -187,15 +187,49 @@ def rm(slug: str, yes: bool) -> None:
 @click.option("--host", default="127.0.0.1")
 @click.option("--port", default=DEFAULT_PORT, type=int)
 def serve(host: str, port: int) -> None:
-    """Start the local FastAPI server (read-only gallery + paper detail)."""
+    """Start the local FastAPI server (read-only gallery + paper detail).
+
+    Also binds port 80 (unprivileged on macOS) and registers the mDNS name
+    paper-review.local, so the pretty URL http://paper-review.local/ works on
+    this Mac and on phones in the same Wi-Fi — best effort, silently skipped
+    when the port or dns-sd is unavailable.
+    """
     try:
         import uvicorn
     except ImportError:
         raise click.ClickException("uvicorn not installed. Run: uv pip install -e .")
+    import asyncio
+
+    from .pretty_host import start_mdns_proxy
     from .server.app import app as fastapi_app
 
     click.secho(f"→ paper-review serve on http://{host}:{port}", fg="cyan")
-    uvicorn.run(fastapi_app, host=host, port=port, reload=False)
+
+    async def _run() -> None:
+        servers = [
+            uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=port))
+        ]
+        if port != 80:
+            try:  # pretty URL listener — optional
+                import socket
+
+                probe = socket.socket()
+                probe.bind((host, 80))
+                probe.close()
+                servers.append(
+                    uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=80))
+                )
+                click.secho("→ pretty URL: http://paper-review.local/", fg="cyan")
+            except OSError as e:
+                click.secho(f"· port 80 unavailable ({e}) — pretty URL off", fg="yellow")
+        mdns = start_mdns_proxy() if len(servers) > 1 else None
+        try:
+            await asyncio.gather(*(s.serve() for s in servers))
+        finally:
+            if mdns is not None:
+                mdns.terminate()
+
+    asyncio.run(_run())
 
 
 @main.command()
