@@ -42,6 +42,22 @@ from .tags import (
 
 app = FastAPI(title="paper-review")
 
+
+@app.middleware("http")
+async def _port80_loopback_only(request, call_next):
+    """The pretty-URL listener (:80) must not widen network exposure: macOS
+    only lets unprivileged binds use the wildcard address, so we reject any
+    non-loopback client that arrives via port 80. The main port keeps its
+    configured policy (e.g. LAN access for phones on :7300)."""
+    server = request.scope.get("server") or ("", 0)
+    client = request.client.host if request.client else ""
+    # "testclient" = starlette TestClient (in-process, not a network peer)
+    if server[1] == 80 and client not in ("127.0.0.1", "::1", "testclient", ""):
+        from fastapi.responses import PlainTextResponse
+
+        return PlainTextResponse("local access only", status_code=403)
+    return await call_next(request)
+
 _HERE = Path(__file__).parent
 _TEMPLATES_DIR = _HERE / "templates"
 _STATIC_DIR = _HERE / "static"

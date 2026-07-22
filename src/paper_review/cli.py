@@ -210,16 +210,20 @@ def serve(host: str, port: int) -> None:
             uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=port))
         ]
         if port != 80:
-            try:  # pretty URL listener — optional
+            # Pretty-URL listener. macOS only allows unprivileged low-port
+            # binds on the WILDCARD address (127.0.0.1:80 → EACCES), so the
+            # socket is 0.0.0.0 — but an app middleware rejects any non-
+            # loopback client on port 80, keeping it effectively local-only.
+            try:
                 import socket
 
                 probe = socket.socket()
-                probe.bind((host, 80))
+                probe.bind(("0.0.0.0", 80))
                 probe.close()
                 servers.append(
-                    uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=80))
+                    uvicorn.Server(uvicorn.Config(fastapi_app, host="0.0.0.0", port=80))
                 )
-                click.secho("→ pretty URL: http://paper-review.local/", fg="cyan")
+                click.secho("→ pretty URL: http://paper-review.local/ (this Mac only)", fg="cyan")
             except OSError as e:
                 click.secho(f"· port 80 unavailable ({e}) — pretty URL off", fg="yellow")
         mdns = start_mdns_proxy() if len(servers) > 1 else None

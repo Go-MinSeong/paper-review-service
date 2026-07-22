@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.4
+
+### Security
+- **Pretty URL is now this-Mac-only.** 2.4.3's port-80 listener followed the
+  main --host (0.0.0.0) and advertised the LAN IP over mDNS — widening LAN
+  exposure. macOS only permits unprivileged low-port binds on the wildcard
+  address, so the :80 socket stays wildcard but a middleware now rejects any
+  non-loopback client on port 80 (403), and mDNS advertises 127.0.0.1. The
+  main :7300 keeps its existing policy (LAN access for phones) unchanged.
+
+
 ## 2.4.3
 
 ### Added
