@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.4.6
+
+### Fixed
+- **Report pane STILL visible at the bottom of Detail (root cause).** The
+  `hidden` attribute relies on the UA's `display: none`, but our author rule
+  `.pane.report { display: flex }` overrides UA styles by cascade origin — so
+  every `hidden` toggle on the pane silently never worked (behind all the
+  "창이 여전히 열려 있다" reports). Added `[hidden] { display: none
+  !important; }` so the attribute always wins; verified with computed styles
+  this time.
+
+
 ## 2.4.5
 
 ### Changed (review-page UX)
