@@ -756,7 +756,7 @@
   const viewToggle = document.getElementById("view-toggle");
   const reportPane = document.getElementById("report-pane");
   const reportFrame = document.getElementById("report-frame");
-  const reportEmpty = document.getElementById("report-empty");
+  const btnReport = document.getElementById("btn-report");
   let reportExists = null;   // null = unknown yet
   let reportGenBusy = false;
 
@@ -769,39 +769,42 @@
     } catch (e) { reportExists = false; }
     return reportExists;
   }
+  // The report controls live in the TOPBAR (no in-pane bars/banners): the
+  // button reads 리포트 생성 / 리포트 재생성 and only shows in summary mode.
+  function refreshReportBtn() {
+    const summary = document.getElementById("wb").dataset.view === "summary";
+    btnReport.hidden = !summary;
+    if (reportGenBusy) { btnReport.textContent = "리포트 생성 중…"; btnReport.disabled = true; }
+    else { btnReport.textContent = reportExists ? "리포트 재생성" : "리포트 생성"; btnReport.disabled = false; }
+  }
   function showReportPane() {
     // Guard against async races (checkReport/generateReport resolving after
     // the user already switched back): only ever show in summary mode.
     if (document.getElementById("wb").dataset.view !== "summary") return;
-    reportPane.hidden = false;
-    reportPane.classList.toggle("full", !!reportExists);
     if (reportExists) {
       // report replaces the workbench in summary mode
+      reportPane.hidden = false;
       document.getElementById("wb").style.display = "none";
-      reportEmpty.hidden = true;
-      reportFrame.hidden = false;
       const url = `/paper/${slug}/report`;
       if (!reportFrame.src) reportFrame.src = url;
       document.getElementById("report-open").href = url;
     } else {
-      // no report yet: keep the label-filtered summary, show a generate banner
+      // no report yet: just the label-filtered summary — generation lives in
+      // the topbar button, no banner.
+      reportPane.hidden = true;
       document.getElementById("wb").style.display = "";
-      reportFrame.hidden = true;
-      reportEmpty.hidden = false;
     }
-    // the bar's 새 탭/재생성 only make sense with an existing report
-    document.querySelector("#report-pane .report-bar").style.display =
-      reportExists ? "" : "none";
+    refreshReportBtn();
   }
   function hideReportPane() {
     reportPane.hidden = true;
     document.getElementById("wb").style.display = "";
+    refreshReportBtn();
   }
-  async function generateReport(statusEl, btn) {
+  async function generateReport() {
     if (reportGenBusy) return;
     reportGenBusy = true;
-    if (btn) { btn.disabled = true; btn.textContent = "생성 중… (수 분 소요)"; }
-    if (statusEl) statusEl.textContent = "워크벤치·원문을 읽고 리포트를 작성하는 중…";
+    refreshReportBtn();
     try {
       const r = await fetch(`/paper/${slug}/generate-report`, {
         method: "POST",
@@ -812,22 +815,31 @@
       if (!r.ok || !j.ok) throw new Error(j.error || j.detail || ("HTTP " + r.status));
       reportExists = true;
       reportFrame.src = `/paper/${slug}/report?t=` + Date.now();
+      reportGenBusy = false;
       showReportPane();
     } catch (err) {
-      if (statusEl) statusEl.textContent = "";
-      UIDialog.alert("리포트 생성 실패: " + (err.message || err), { title: "오류" });
-    } finally {
       reportGenBusy = false;
-      if (btn) { btn.disabled = false; btn.textContent = "구조화 리포트 생성"; }
-      if (statusEl) statusEl.textContent = "";
+      refreshReportBtn();
+      UIDialog.alert("리포트 생성 실패: " + (err.message || err), { title: "오류" });
     }
   }
-  document.getElementById("report-gen").addEventListener("click", (e) =>
-    generateReport(document.getElementById("report-gen-status"), e.currentTarget));
-  document.getElementById("report-regen").addEventListener("click", async () => {
-    const ok = await UIDialog.confirm("리포트를 다시 생성할까요? (수 분 소요)",
-      { okLabel: "재생성", cancelLabel: "취소" });
-    if (ok) generateReport(null, null);
+  btnReport.addEventListener("click", async () => {
+    if (reportExists) {
+      const ok = await UIDialog.confirm("리포트를 다시 생성할까요? (수 분 소요)",
+        { okLabel: "재생성", cancelLabel: "취소" });
+      if (!ok) return;
+    }
+    generateReport();
+  });
+
+  // Per-pane fullscreen (원문 / 리뷰 / 리포트) via the hover ⛶ buttons.
+  document.querySelectorAll("[data-fs]").forEach(b => {
+    b.addEventListener("click", () => {
+      const el = document.querySelector(b.dataset.fs);
+      if (!el) return;
+      if (document.fullscreenElement === el) document.exitFullscreen();
+      else el.requestFullscreen().catch(() => {});
+    });
   });
 
   // View choice is PER PAPER — a global key made every paper open in the
@@ -1060,23 +1072,7 @@
     else document.documentElement.requestFullscreen().catch(() => {});
   }
   document.getElementById("btn-fullscreen").addEventListener("click", toggleFullscreen);
-  // Push this paper to the remote slot (replaces whatever is there).
-  document.getElementById("btn-remote-push").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    const ok = await UIDialog.confirm(
-      "이 페이퍼로 원격(모바일) 슬롯을 교체할까요?\n기존 슬롯 내용은 사라집니다.",
-      { okLabel: "보내기", cancelLabel: "취소" });
-    if (!ok) return;
-    btn.disabled = true;
-    try {
-      const r = await fetch(`/paper/${slug}/remote-push`, { method: "POST" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.detail || ("HTTP " + r.status));
-      UIDialog.alert(`원격 슬롯에 푸시됨 (rev ${j.rev}).\n모바일에서 열기: ${j.url}`, { title: "📱 완료" });
-    } catch (err) {
-      UIDialog.alert("푸시 실패: " + (err.message || err), { title: "오류" });
-    } finally { btn.disabled = false; }
-  });
+  // (모바일 push는 갤러리 카드의 📱 버튼으로 이동)
   document.querySelectorAll("#modal-figs [data-close]").forEach(el =>
     el.addEventListener("click", closeFigures)
   );
@@ -1921,7 +1917,15 @@
   const btnPdf = document.getElementById('btn-pdf');
   if (btnPdf) btnPdf.addEventListener('click', () => {
     if (editing) { UIDialog.alert('편집 중에는 PDF로 내보낼 수 없습니다. 저장 후 다시 시도하세요.'); return; }
-    const prevView = document.getElementById('wb').dataset.view;
+    const view = document.getElementById('wb').dataset.view;
+    // Export WHAT'S ON SCREEN: in summary mode with a report, print the report
+    // iframe; otherwise print the (detail) workbench.
+    if (view === 'summary' && reportExists && !reportPane.hidden) {
+      try { reportFrame.contentWindow.focus(); reportFrame.contentWindow.print(); }
+      catch (e) { window.open(`/paper/${slug}/report`, '_blank'); }
+      return;
+    }
+    const prevView = view;
     if (prevView !== 'detail') setView('detail');
     const restore = () => { if (prevView && prevView !== 'detail') setView(prevView); window.removeEventListener('afterprint', restore); };
     window.addEventListener('afterprint', restore);

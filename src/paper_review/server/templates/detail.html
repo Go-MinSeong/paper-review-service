@@ -58,6 +58,7 @@
 
     <button class="btn" id="btn-analyze" title="Analyze incomplete sections">Analyze</button>
     <button class="btn" id="btn-edit" title="Edit markdown">Edit</button>
+    <button class="btn" id="btn-report" title="리뷰(내 정리·Q&A)를 반영한 00~06 구조화 리포트 (수 분 소요)" hidden>리포트 생성</button>
     <button class="btn btn-primary" id="btn-publish" title="Export as Velog draft">Publish</button>
 
     <span class="topbar-div"></span>
@@ -75,9 +76,6 @@
     <button class="iconbtn" id="btn-chat" title="Chat (C)">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.4 8.4 0 0 1 21 11.5z"/></svg>
     </button>
-    <button class="iconbtn" id="btn-remote-push" title="모바일로 보내기 (원격 슬롯 교체)">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
-    </button>
     <button class="iconbtn" id="btn-fullscreen" title="전체화면 (F)">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
     </button>
@@ -92,25 +90,24 @@
       </div>
       <ul class="nav-list" id="nav-list"></ul>
     </aside>
-    <section class="pane pdf">
+    <section class="pane pdf" id="pdf-pane">
+      <div class="pane-hover-actions">
+        <button class="hoverbtn" data-fs="#pdf-pane" title="원문 전체화면">⛶</button>
+      </div>
       <iframe src="__SOURCE_SRC__#toolbar=0" title="원문"></iframe>
     </section>
     <div class="gutter" id="gutter" title="드래그하여 좌/우 너비 조절 · 더블클릭 초기화" role="separator" aria-orientation="vertical"></div>
     <div class="wb-stack">
+      <div class="pane-hover-actions wb-hover-actions">
+        <button class="hoverbtn" data-fs="#wb" title="리뷰 전체화면">⛶</button>
+      </div>
       <section class="pane wb" id="wb" tabindex="0"></section>
       <section class="pane report" id="report-pane" hidden>
-        <div class="report-bar">
-          <span class="hint">구조화 리포트 — 워크벤치 리뷰(내 정리·Q&A)를 반영해 생성됩니다</span>
-          <span class="spacer"></span>
-          <a class="btn-mini" id="report-open" href="#" target="_blank">새 탭</a>
-          <button class="btn-mini" id="report-regen">재생성</button>
+        <div class="pane-hover-actions">
+          <a class="hoverbtn" id="report-open" href="#" target="_blank" title="새 탭에서 열기">⧉</a>
+          <button class="hoverbtn" data-fs="#report-pane" title="전체화면">⛶</button>
         </div>
-        <div class="report-empty" id="report-empty" hidden>
-          <span class="hint">구조화 리포트 없음 — 리뷰(내 정리·Q&A)를 반영해 00 TL;DR~06 후속 연구 리포트를 만듭니다 (수 분)</span>
-          <button class="btn-mini" id="report-gen">구조화 리포트 생성</button>
-          <span class="hint" id="report-gen-status"></span>
-        </div>
-        <iframe id="report-frame" title="리뷰 리포트" hidden></iframe>
+        <iframe id="report-frame" title="리뷰 리포트"></iframe>
       </section>
       <aside class="chat" id="chat" data-collapsed="1">
         <div class="chat-head" id="chat-head" title="click to collapse">

@@ -312,6 +312,7 @@
             <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
             <span class="type-badge t-${escapeHtml(p.content_type || 'paper')}">${escapeHtml(p.content_type || 'paper')}</span>
             <button class="card-log" data-log="${escapeHtml(p.slug)}" title="분석 로그">▤</button>
+            <button class="card-remote" data-remote="${escapeHtml(p.slug)}" title="모바일로 보내기 (원격 슬롯 교체)">📱</button>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
@@ -443,6 +444,29 @@
     e.stopPropagation();
     openTagEditor(tbtn.dataset.tagedit);
   });
+  // Mobile push — replace the remote slot with this paper (moved here from the
+  // detail topbar: slot swapping is a list-level action).
+  grid.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-remote]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const slug = b.dataset.remote;
+    const ok = await UIDialog.confirm(
+      '이 페이퍼로 원격(모바일) 슬롯을 교체할까요?\n기존 슬롯 내용은 사라집니다.',
+      { okLabel: '보내기', cancelLabel: '취소' });
+    if (!ok) return;
+    b.disabled = true;
+    try {
+      const r = await fetch(`/paper/${encodeURIComponent(slug)}/remote-push`, { method: 'POST' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      UIDialog.alert(`원격 슬롯에 푸시됨 (rev ${j.rev}).\n모바일에서 열기: ${j.url}`, { title: '📱 완료' });
+    } catch (err) {
+      UIDialog.alert('푸시 실패: ' + (err.message || err), { title: '오류' });
+    } finally { b.disabled = false; }
+  });
+
   // Analyze-log launcher — open the run log straight from the list (the
   // "분석 중" pulse or a "⚠ 분석 실패" chip), without leaving the gallery.
   grid.addEventListener('click', (e) => {

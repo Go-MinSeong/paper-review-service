@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.4.5
+
+### Changed (review-page UX)
+- **No more report bars/banners.** The in-pane "구조화 리포트 —…" bar and the
+  "구조화 리포트 없음 —…" banner are gone. Report generation/regeneration is a
+  single topbar button shown only in Summary; open-in-tab / fullscreen are
+  hover-only overlay buttons on the report pane.
+- **PDF export follows the screen.** In Summary with a report, the PDF button
+  prints the report; in Detail it prints the workbench (as before).
+- **Per-pane fullscreen.** Hover ⛶ on the 원문 pane, the review pane, and the
+  report pane fullscreens just that pane (the topbar F button still
+  fullscreens the whole page).
+- **Mobile push moved to the gallery.** The 📱 button now lives on each list
+  card (slot swapping is a list-level action); removed from the detail topbar.
+
+
 ## 2.4.4
 
 ### Security

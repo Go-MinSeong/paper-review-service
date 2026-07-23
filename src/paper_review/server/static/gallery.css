@@ -534,6 +534,17 @@
   }
   .card:hover .card-log { opacity: 1; transform: scale(1); }
   .card-log:hover { background: var(--accent); }
+  .card-remote {
+    position: absolute; top: 8px; left: 104px; z-index: 3;
+    width: 26px; height: 26px; border-radius: 7px;
+    border: 0; cursor: pointer; font-size: 12px; line-height: 1;
+    background: rgba(0,0,0,.5); color: white;
+    backdrop-filter: blur(8px);
+    opacity: 0; transform: scale(.85); transition: opacity .12s, transform .12s, background .12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card:hover .card-remote { opacity: 1; transform: scale(1); }
+  .card-remote:hover { background: var(--accent); }
   /* Star rating overlay (bottom-right of the thumbnail) */
   .card-rating {
     position: absolute; bottom: 8px; right: 8px; z-index: 3;
@@ -939,7 +950,7 @@
   }
   .btn-new:active, .theme-toggle:active, .modal-tab:active, .settings-tab:active,
   .btn-mini:active, .dash-toggle:active, .view-switch button:active,
-  .card-del:active, .card-tagedit:active, .card-log:active, .illust-del:active, .theme-card:active {
+  .card-del:active, .card-tagedit:active, .card-log:active, .card-remote:active, .illust-del:active, .theme-card:active {
     transform: scale(0.96);
   }
 
