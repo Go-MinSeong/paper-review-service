@@ -236,6 +236,34 @@ def _inline_web_figures(body: str, paper_dir: Path) -> str:
     return "\n".join(out)
 
 
+def report_to_summary_draft(
+    workbench_md: Path,
+    dest: Path,
+    *,
+    paper_dir: Path,
+    vault_root: Path | None = None,
+) -> None:
+    """Turn the generated report.md into a standalone velog summary draft:
+    frontmatter (tagged `summary`) + the report body, with figure refs
+    materialized into the vault like the detail draft."""
+    report_md = paper_dir / "report.md"
+    if not report_md.exists():
+        raise FileNotFoundError(
+            "report.md not found — (re)generate the report first (older reports "
+            "only produced report.html)"
+        )
+    wb = parse(workbench_md)
+    draft = (
+        _render_frontmatter(wb, _labels(wb), variant="summary")
+        + "\n"
+        + report_md.read_text()
+    )
+    draft = _materialize_figures(
+        draft, paper_dir=paper_dir, draft_md=dest, vault_root=vault_root
+    )
+    dest.write_text(draft)
+
+
 def render(wb: Workbench, *, paper_dir: Path) -> str:
     labels = _labels(wb)
     fm = _render_frontmatter(wb, labels)
@@ -256,7 +284,7 @@ def _post_title(wb: Workbench, labels: dict) -> str:
     return wb.frontmatter.get("title_ko", "").strip() or labels["fallback_title"]
 
 
-def _render_frontmatter(wb: Workbench, labels: dict) -> str:
+def _render_frontmatter(wb: Workbench, labels: dict, variant: str = "detail") -> str:
     title = _post_title(wb, labels)
     paper_url = wb.frontmatter.get("paper_url", "")
     primary = labels["primary_tag"]
@@ -266,6 +294,10 @@ def _render_frontmatter(wb: Workbench, labels: dict) -> str:
     tags = [primary]
     if category and category.lower() not in {primary, "", "other"}:
         tags.append(category.lower())
+    if variant == "summary":
+        # summary post: distinguished from the detail post by tag + title
+        tags.append("summary")
+        title = f"{title} (Summary)"
 
     lines = [
         "---",

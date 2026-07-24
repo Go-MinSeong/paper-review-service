@@ -779,10 +779,10 @@
   function refreshReportBtn() {
     const summary = document.getElementById("wb").dataset.view === "summary";
     btnReport.hidden = !summary;
-    if (reportGenBusy) { btnReport.textContent = "리포트 생성 중…"; btnReport.disabled = true; return; }
+    if (reportGenBusy) { btnReport.textContent = "Generating…"; btnReport.disabled = true; return; }
     btnReport.disabled = false;
-    btnReport.textContent = !reportExists ? "리포트 생성"
-      : reportStale ? "리포트 재생성 · 변경됨" : "리포트 재생성";
+    btnReport.textContent = !reportExists ? "Generate Report"
+      : reportStale ? "Regenerate · outdated" : "Regenerate Report";
     btnReport.classList.toggle("attn", !!(reportExists && reportStale));
     btnReport.title = reportStale
       ? "리뷰가 리포트 생성 이후 수정되었습니다 — 다시 생성하면 반영됩니다"
@@ -1883,17 +1883,49 @@
   }).catch(() => {});
 
   // ───────────────────────────────────────────────────────── Publish
-  document.getElementById('btn-publish').addEventListener('click', async () => {
-    if (!await UIDialog.confirm('~/Documents/velog-vault/drafts/<slug>.md 로 내보냅니다.', { title: 'Velog draft export', okLabel: 'Export' })) return;
+  // Publish → pick what to export: Detail (full review), Summary (report), or
+  // both. Each becomes its own velog draft in the configured drafts folder.
+  let _pubMenu = null;
+  function closePubMenu() { if (_pubMenu) { _pubMenu.remove(); _pubMenu = null; } }
+  document.addEventListener('click', (e) => {
+    if (_pubMenu && !_pubMenu.contains(e.target) && e.target.id !== 'btn-publish') closePubMenu();
+  }, true);
+  async function doPublish(targets) {
+    closePubMenu();
     try {
-      const res = await fetch(`/paper/${slug}/publish`, { method: 'POST' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const kb = (data.size / 1024).toFixed(1);
-      UIDialog.alert(`✓ Velog draft 생성됨\n\n경로: ${data.draft_path}\n크기: ${kb} KB\n\n터미널에서: velog publish drafts/${slug}.md`);
+      const res = await fetch(`/paper/${slug}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+      const lines = Object.entries(data.results)
+        .map(([k, p]) => `· ${k}: ${p}`).join('\n');
+      UIDialog.alert(`✓ Velog draft 생성됨\n\n${lines}\n\n터미널에서: velog sync (또는 velog publish <file>)`);
     } catch (e) {
       UIDialog.alert('✗ ' + (e.message || e));
     }
+  }
+  document.getElementById('btn-publish').addEventListener('click', (e) => {
+    if (_pubMenu) { closePubMenu(); return; }
+    const menu = document.createElement('div');
+    menu.className = 'status-menu pub-menu';
+    menu.innerHTML = `
+      <button class="status-opt" data-pub="detail">Detail — full review</button>
+      <button class="status-opt" data-pub="summary">Summary — report</button>
+      <button class="status-opt" data-pub="both">Both</button>`;
+    document.body.appendChild(menu);
+    const r = e.currentTarget.getBoundingClientRect();
+    menu.style.top = Math.round(r.bottom + 6) + 'px';
+    menu.style.left = Math.round(Math.min(r.left, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+    _pubMenu = menu;
+    menu.addEventListener('click', (ev) => {
+      const opt = ev.target.closest('[data-pub]');
+      if (!opt) return;
+      const t = opt.dataset.pub;
+      doPublish(t === 'both' ? ['detail', 'summary'] : [t]);
+    });
   });
 
   // ───────────────────────────────────────────────────────── Chat

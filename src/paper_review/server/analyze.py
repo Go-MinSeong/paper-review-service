@@ -564,13 +564,26 @@ Content rules:
 - Title the page "{slug} — 리뷰 리포트". No external JS; fonts/CSS from the
   template only.
 
-Write the COMPLETE file with the Write tool to report.html, then reply
-EXACTLY '✓ report done'."""
+Write the COMPLETE file with the Write tool to report.html.
+
+THEN write a second file report.md: the same report as VELOG-COMPATIBLE
+markdown (it gets published as a standalone summary post later):
+- Same section order (00 TL;DR … 06 후속 연구) as `##` headings; NO frontmatter,
+  NO <style>/<script>, NO html layout divs.
+- Degrade visual components: hero numbers → a `**핵심 수치**` bullet list;
+  timeline → bullets "**연도** — 제목: 설명"; result-bar/stat-box → markdown
+  tables (bold this paper's row); callouts → `> **…:** ` blockquotes;
+  details/summary → plain subsections; SVG diagrams → omit.
+- Paper figures: keep the SAME `![caption](/paper/{slug}/fig/<id>)` refs (the
+  publish pipeline materializes them); math as $…$ (velog renders KaTeX).
+- Keep the scope-discipline markings and the ⚠️/🔍 limitation split.
+
+Then reply EXACTLY '✓ report done'."""
 
     system_ctx = (
         f"You are inside {paper_dir}, a paper-review workspace. Build the final "
-        "review report HTML. Use Read/WebSearch to gather, then ONE Write to "
-        "report.html. Output minimal chat."
+        "review report. Use Read/WebSearch to gather, then Write report.html "
+        "and report.md. Output minimal chat."
     )
     cmd = [
         "claude",

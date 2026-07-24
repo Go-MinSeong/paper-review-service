@@ -872,26 +872,48 @@ def paper_report(slug: str) -> FileResponse:
     )
 
 
+class PublishBody(BaseModel):
+    # "detail" = full review draft (<slug>.md), "summary" = structured-report
+    # summary draft (<slug>-summary.md, tagged `summary`). Both go to drafts/.
+    targets: list[str] = ["detail"]
+
+
 @app.post("/paper/{slug}/publish")
-def paper_publish(slug: str):
+def paper_publish(slug: str, body: PublishBody | None = None):
     import re as _re
     from ..config import get_drafts_dir
-    from ..publish.transform import workbench_to_draft
+    from ..publish.transform import report_to_summary_draft, workbench_to_draft
 
+    targets = (body.targets if body else None) or ["detail"]
+    if not set(targets) <= {"detail", "summary"}:
+        raise HTTPException(400, f"invalid targets: {targets}")
     d = _paper_dir(slug)
     wb = d / "workbench.md"
     if not wb.exists():
         raise HTTPException(404, "workbench missing")
     drafts_dir = get_drafts_dir()
     drafts_dir.mkdir(parents=True, exist_ok=True)
-    dest = drafts_dir / f"{slug}.md"
-    workbench_to_draft(wb, dest, paper_dir=d)
-    # Bump workbench status to 'exported'
-    text = wb.read_text()
-    new_text = _re.sub(r"^status:\s*\S+", "status: exported", text, flags=_re.MULTILINE)
-    if new_text != text:
-        wb.write_text(new_text)
-    return {"ok": True, "draft_path": str(dest), "size": dest.stat().st_size}
+
+    results: dict = {}
+    if "summary" in targets:
+        sdest = drafts_dir / f"{slug}-summary.md"
+        try:
+            report_to_summary_draft(wb, sdest, paper_dir=d)
+        except FileNotFoundError as e:
+            raise HTTPException(400, str(e))
+        results["summary"] = str(sdest)
+    if "detail" in targets:
+        dest = drafts_dir / f"{slug}.md"
+        workbench_to_draft(wb, dest, paper_dir=d)
+        results["detail"] = str(dest)
+        # Bump workbench status to 'exported' (detail is the primary artifact)
+        text = wb.read_text()
+        new_text = _re.sub(
+            r"^status:\s*\S+", "status: exported", text, flags=_re.MULTILINE
+        )
+        if new_text != text:
+            wb.write_text(new_text)
+    return {"ok": True, "results": results}
 
 
 @app.get("/paper/{slug}/events")

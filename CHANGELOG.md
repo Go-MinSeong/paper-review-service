@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.5.0
+
+### Added
+- **Publish exports Detail and Summary separately.** The Publish button now
+  opens a target menu (Detail — full review / Summary — report / Both). The
+  summary draft comes from a new velog-compatible report.md that report
+  generation writes alongside report.html (degraded visuals: tables/bullets,
+  same-origin figure refs materialized into the vault). Both drafts land in
+  the configured drafts folder — <slug>.md and <slug>-summary.md — with the
+  summary tagged `summary` and titled "… (Summary)". Older reports without
+  report.md get a clear 400 asking to regenerate.
+
+### Changed
+- **Report button labels are English** (Generate Report / Generating… /
+  Regenerate Report / Regenerate · outdated) per the English-UI rule.
+
+
 ## 2.4.7
 
 ### Fixed

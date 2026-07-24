@@ -1283,3 +1283,18 @@
   /* Report button when the review changed after the report was built */
   #btn-report.attn { border-color: #f59e0b; color: #b45309; }
   @media (prefers-color-scheme: dark) { #btn-report.attn { color: #fbbf24; } }
+
+  /* Publish target menu (Detail / Summary / Both) */
+  .pub-menu {
+    position: fixed; z-index: 200; min-width: 190px;
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: 10px; padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .pub-menu .status-opt {
+    font: inherit; font-size: 13px; text-align: left;
+    padding: 8px 12px; border: 0; border-radius: 7px; cursor: pointer;
+    background: transparent; color: var(--text-primary);
+  }
+  .pub-menu .status-opt:hover { background: var(--bg-hover, rgba(127,127,127,.12)); }
