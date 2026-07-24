@@ -192,12 +192,26 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
         if job.status == "running":
             job.status = "done"
             job.log.append("✓ 완료")
+            # The structured report goes stale as soon as the workbench gains
+            # new sections. If one exists, rebuild it in the background so the
+            # Summary tab shows current content instead of the old report.
+            if job.succeeded_sections and (paper_dir / "report.html").exists():
+                job.log.append("↻ 리포트 자동 재생성 시작 (백그라운드)")
+                asyncio.create_task(_regen_report_after_analysis(paper_dir, body.model))
     except Exception as e:
         job.status = "error"
         job.error = str(e)
         job.log.append(f"✗ {e}")
     finally:
         job.finished_at = time.time()
+
+
+async def _regen_report_after_analysis(paper_dir: Path, model: Optional[str]) -> None:
+    """Best-effort report refresh after a successful analyze run."""
+    try:
+        await generate_report(paper_dir, model)
+    except Exception:
+        pass  # the stale flag on /report still tells the UI to offer 재생성
 
 
 async def _analyze_one_section(

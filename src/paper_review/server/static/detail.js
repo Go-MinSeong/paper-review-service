@@ -758,14 +758,19 @@
   const reportFrame = document.getElementById("report-frame");
   const btnReport = document.getElementById("btn-report");
   let reportExists = null;   // null = unknown yet
+  let reportStale = false;   // workbench changed after the report was built
+  let reportMtime = 0;       // versions the iframe URL → auto-reload on rebuild
   let reportGenBusy = false;
 
   async function checkReport() {
-    if (reportExists !== null) return reportExists;
+    // Re-check on every summary entry: analyze may have rebuilt the report
+    // (or made it stale) since the last look.
     try {
       // GET, not HEAD — FastAPI's GET routes don't auto-answer HEAD (405)
-      const r = await fetch(`/paper/${slug}/report`);
+      const r = await fetch(`/paper/${slug}/report`, { cache: "no-store" });
       reportExists = r.ok;
+      reportStale = r.headers.get("X-Report-Stale") === "1";
+      reportMtime = +(r.headers.get("X-Report-Mtime") || 0);
     } catch (e) { reportExists = false; }
     return reportExists;
   }
@@ -774,20 +779,27 @@
   function refreshReportBtn() {
     const summary = document.getElementById("wb").dataset.view === "summary";
     btnReport.hidden = !summary;
-    if (reportGenBusy) { btnReport.textContent = "리포트 생성 중…"; btnReport.disabled = true; }
-    else { btnReport.textContent = reportExists ? "리포트 재생성" : "리포트 생성"; btnReport.disabled = false; }
+    if (reportGenBusy) { btnReport.textContent = "리포트 생성 중…"; btnReport.disabled = true; return; }
+    btnReport.disabled = false;
+    btnReport.textContent = !reportExists ? "리포트 생성"
+      : reportStale ? "리포트 재생성 · 변경됨" : "리포트 재생성";
+    btnReport.classList.toggle("attn", !!(reportExists && reportStale));
+    btnReport.title = reportStale
+      ? "리뷰가 리포트 생성 이후 수정되었습니다 — 다시 생성하면 반영됩니다"
+      : "리뷰(내 정리·Q&A)를 반영한 00~06 구조화 리포트 (수 분 소요)";
   }
   function showReportPane() {
     // Guard against async races (checkReport/generateReport resolving after
     // the user already switched back): only ever show in summary mode.
     if (document.getElementById("wb").dataset.view !== "summary") return;
     if (reportExists) {
-      // report replaces the workbench in summary mode
+      // report replaces the workbench in summary mode; the mtime version makes
+      // the iframe reload automatically after a rebuild (e.g. post-analyze).
       reportPane.hidden = false;
       document.getElementById("wb").style.display = "none";
-      const url = `/paper/${slug}/report`;
-      if (!reportFrame.src) reportFrame.src = url;
-      document.getElementById("report-open").href = url;
+      const url = `/paper/${slug}/report?v=${reportMtime}`;
+      if (reportFrame.src !== location.origin + url) reportFrame.src = url;
+      document.getElementById("report-open").href = `/paper/${slug}/report`;
     } else {
       // no report yet: just the label-filtered summary — generation lives in
       // the topbar button, no banner.
@@ -813,8 +825,7 @@
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) throw new Error(j.error || j.detail || ("HTTP " + r.status));
-      reportExists = true;
-      reportFrame.src = `/paper/${slug}/report?t=` + Date.now();
+      await checkReport();   // pick up the new mtime (+clears stale)
       reportGenBusy = false;
       showReportPane();
     } catch (err) {

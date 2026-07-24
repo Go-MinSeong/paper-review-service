@@ -854,11 +854,22 @@ async def paper_generate_report(slug: str, body: GenQBody):
 
 @app.get("/paper/{slug}/report")
 def paper_report(slug: str) -> FileResponse:
-    """Serve the generated report.html (shown in the Summary view)."""
-    p = _paper_dir(slug) / "report.html"
+    """Serve the generated report.html (shown in the Summary view).
+
+    X-Report-Stale: 1 when the workbench changed after the report was built,
+    so the UI can flag/re-load it. X-Report-Mtime versions the iframe URL."""
+    d = _paper_dir(slug)
+    p = d / "report.html"
     if not p.exists():
         raise HTTPException(404, "report not generated yet")
-    return FileResponse(p, media_type="text/html")
+    mtime = int(p.stat().st_mtime)
+    wb = d / "workbench.md"
+    stale = wb.exists() and wb.stat().st_mtime > p.stat().st_mtime
+    return FileResponse(
+        p,
+        media_type="text/html",
+        headers={"X-Report-Mtime": str(mtime), "X-Report-Stale": "1" if stale else "0"},
+    )
 
 
 @app.post("/paper/{slug}/publish")

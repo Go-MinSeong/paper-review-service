@@ -76,7 +76,7 @@ app = BUNDLE(  # noqa: F821
     info_plist={
         "CFBundleName": "paper-review",
         "CFBundleDisplayName": "paper-review",
-        "CFBundleShortVersionString": "2.4.6",
+        "CFBundleShortVersionString": "2.4.7",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
     },

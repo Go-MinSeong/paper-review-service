@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.4.7
+
+### Fixed
+- **Stale report after Analyze.** Running Analyze updated the workbench but
+  the Summary tab kept serving the old report. Now: (1) a successful analyze
+  run automatically rebuilds an existing report in the background (logged in
+  the analyze log); (2) /report returns X-Report-Stale / X-Report-Mtime, the
+  Summary button shows "리포트 재생성 · 변경됨" (amber) when the review
+  changed after the report was built, and the iframe URL is mtime-versioned
+  so a rebuilt report reloads automatically on the next Summary visit.
+
+
 ## 2.4.6
 
 ### Fixed
