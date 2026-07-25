@@ -15,7 +15,8 @@ class Section:
     line_range: str
     raw_excerpt: str = ""  # **원문 발췌** 블록
     summary: str = ""  # **요약** 블록 (4-6 문장)
-    claude_translation: str = ""  # **Claude 1차 번역** 블록
+    claude_translation: str = ""  # **Claude 1차 번역** 블록 (legacy, 2.6.0 이전)
+    explanation: str = ""  # **핵심 해설** 블록 (2.6.0+, 요약+번역 통합)
     claude_notes: str = ""  # **Claude Reader's Notes** 블록
     user_answer: str = ""  # legacy — kept for backward compat
     done: bool = False
@@ -54,7 +55,8 @@ class Workbench:
 # real field, so this boundary is a no-op for well-formed sections.
 _NEXT_SECTION = r"(?:\*\*[^\n*]+\*\*\s*)?<!--\s*section_id:"
 _BLOCK_PATTERNS = {
-    "raw_excerpt": rf"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "raw_excerpt": rf"\*\*원문 발췌\*\*[^\n]*\n(.+?)(?=\*\*핵심 해설\*\*|\*\*요약\*\*|\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
+    "explanation": rf"\*\*핵심 해설\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
     "summary": rf"\*\*요약\*\*\s*\n(.+?)(?=\*\*Claude 1차 번역\*\*|\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
     "claude_translation": rf"\*\*Claude 1차 번역\*\*\s*\n(.+?)(?=\*\*Claude Reader's Notes\*\*|{_NEXT_SECTION}|\Z)",
     "claude_notes": rf"\*\*Claude Reader's Notes\*\*\s*\n(.+?)(?={_NEXT_SECTION}|\Z)",
@@ -152,7 +154,7 @@ def _section_from_segment(heading: str, seg: str) -> Section:
         m = re.search(pat, seg, flags=re.DOTALL)
         if m:
             setattr(sec, field_name, m.group(1).strip())
-    sec.done = bool(sec.claude_translation or sec.user_answer)
+    sec.done = bool(sec.explanation or sec.claude_translation or sec.user_answer)
     return sec
 
 

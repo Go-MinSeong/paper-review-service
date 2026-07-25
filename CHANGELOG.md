@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.6.0
+
+### Changed
+- **Sections are now ONE block: `핵심 해설`.** The old `요약` + `Claude 1차 번역`
+  pair made you read the same content twice. Analysis now writes a single
+  self-contained Korean explanation per section — source order preserved but
+  written, not transliterated (~50-70% of a literal translation, load-bearing
+  phrases bolded, numbers/symbols/comparisons kept). Applies to NEW analysis;
+  already-reviewed papers keep 요약+번역 and still render/publish as before.
+- **Wrap-up trimmed to `한 줄 contribution`.** `가장 약한 부분` and `후속으로
+  읽을 논문` are gone (the report's 05 한계 / 06 후속 연구 cover them), as is
+  메타's `마지막 세션`. /finalize now asks one question. Publish still renders
+  those fields for older papers that have them.
+- **Pipeline auto-generation archived.** The structured report replaced that
+  need: the generate card, route and prompt are removed. Existing ```pipeline
+  blocks still render, animate and export to GIF for publish.
+
+
 ## 2.5.0
 
 ### Added

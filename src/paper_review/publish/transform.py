@@ -442,6 +442,7 @@ def _render_sections(wb: Workbench, *, paper_dir: Path) -> list[str]:
             v and not _is_placeholder(v)
             for v in (
                 sec.user_answer,
+                sec.explanation,
                 sec.summary,
                 sec.claude_translation,
                 sec.claude_notes,
@@ -470,17 +471,20 @@ def _render_sections(wb: Workbench, *, paper_dir: Path) -> list[str]:
             parts.append(f"> {user_text}")
             parts.append("")
 
-        # Summary (요약)
-        if sec.summary and not _is_placeholder(sec.summary):
-            parts.append("**요약**")
+        # Body. 2.6.0+ sections carry ONE consolidated 핵심 해설 block; older
+        # ones have 요약 + Claude 1차 번역 (kept for already-reviewed papers).
+        if sec.explanation and not _is_placeholder(sec.explanation):
+            parts.append(_clean(sec.explanation))
             parts.append("")
-            parts.append(_clean(sec.summary))
-            parts.append("")
-
-        # Body — Claude translation (main content)
-        if sec.claude_translation and not _is_placeholder(sec.claude_translation):
-            parts.append(_clean(sec.claude_translation))
-            parts.append("")
+        else:
+            if sec.summary and not _is_placeholder(sec.summary):
+                parts.append("**요약**")
+                parts.append("")
+                parts.append(_clean(sec.summary))
+                parts.append("")
+            if sec.claude_translation and not _is_placeholder(sec.claude_translation):
+                parts.append(_clean(sec.claude_translation))
+                parts.append("")
 
         # Reader's Notes — callout
         if sec.claude_notes and not _is_placeholder(sec.claude_notes):

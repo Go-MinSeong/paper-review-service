@@ -39,10 +39,11 @@ description: Collaborative section-by-section review of an engineering / release
 - 내 환경/문제에 **적용**한다면 무엇이 걸림돌인가
 - 재현/검증 가능한가 (코드·벤치마크 공개 여부)
 
-`/finalize` 마무리 질문 3개:
+`/finalize` 마무리 질문 1개 (Wrap-up 의 `한 줄 contribution` 을 채운다):
 1. 이 글의 핵심 주장을 한 줄로?
-2. 가장 미심쩍거나 과장으로 보이는 부분은?
-3. 내가 실제로 도입/시도한다면 다음 행동은? (또는 더 읽을 자료)
+
+의심스러운 지점·도입 판단은 구조화 리포트(Summary)의 `05 한계` /
+`06 후속 연구` 에서 다룬다.
 
 ## 참고
 

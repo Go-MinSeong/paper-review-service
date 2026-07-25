@@ -38,10 +38,11 @@ description: Collaborative section-by-section review of a general WEB ARTICLE �
 - 상관관계를 인과로 비약한 곳은 없는가
 - (제품/테크 리뷰면) 장단점이 균형 있게 다뤄졌는가, 비교 기준은 공정한가
 
-`/finalize` 마무리 질문 3개:
+`/finalize` 마무리 질문 1개 (Wrap-up 의 `한 줄 contribution` 을 채운다):
 1. 글의 핵심 주장을 한 줄로?
-2. 가장 약한 근거 / 동의하기 어려운 지점은?
-3. 내 생각은 어떻게 바뀌었나? (또는 더 확인할 자료)
+
+약한 근거·생각의 변화는 구조화 리포트(Summary)의 `05 한계` /
+`06 후속 연구` 에서 다룬다.
 
 ## 참고
 

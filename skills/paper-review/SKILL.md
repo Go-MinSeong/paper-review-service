@@ -35,10 +35,11 @@ description: Collaborative section-by-section review of an academic PAPER (conte
 - 결과를 다른 해석으로 설명할 여지
 - 재현성(데이터·하이퍼파라미터·코드)
 
-`/finalize` 마무리 질문 3개:
+`/finalize` 마무리 질문 1개 (Wrap-up 의 `한 줄 contribution` 을 채운다):
 1. 이 논문의 핵심 contribution 을 한 줄로?
-2. 가장 약한 부분 / 의심스러운 부분은?
-3. 후속으로 읽어야 할 논문 3개?
+
+약점·후속 논문은 Wrap-up 에서 제거됐다 — 구조화 리포트(Summary)의
+`05 한계` / `06 후속 연구` 가 그 역할을 대신한다.
 
 **스코프 구분 (모든 답변·노트에 적용)**:
 - 논문이 명시적으로 주장/비교한 것과 일반 지식에서 오는 추론을 구분해 표기

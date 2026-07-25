@@ -43,8 +43,9 @@ cwd 가 콘텐츠 폴더이고 `workbench.md` 가 있으면, frontmatter 의 `co
 **원문 발췌** (lines {range})
 > {1-2 representative sentences, from paragraphs[0]}
 
-**Claude 1차 번역**
-{paragraphs[].text_ko 줄줄이}
+**핵심 해설**
+{한 덩어리 한국어 해설 — 요약과 번역을 분리하지 않는다. 원문 순서를 따르되
+압축해 쓰고, 핵심 문장은 굵게. 수치·기호·비교는 빠뜨리지 않는다.}
 
 **Claude Reader's Notes**
 {readers_notes_md if non-empty}

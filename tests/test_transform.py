@@ -98,3 +98,56 @@ def test_figure_export_rejects_traversal(tmp_path):
         draft, paper_dir=tmp_path, draft_md=tmp_path / "d.md", vault_root=tmp_path
     )
     assert out == draft  # unchanged — escape rejected
+
+
+def _wb_file(tmp_path, section_body: str, wrap: str = "- **한 줄 contribution**: 한 줄.\n"):
+    p = tmp_path / "workbench.md"
+    p.write_text(
+        "---\nslug: t\ncontent_type: paper\ntitle_en: \"T\"\n---\n# T\n\n"
+        "## 섹션별 리뷰\n\n### 1. Intro\n\n"
+        "<!-- section_id: intro | lines: 1-9 -->\n\n" + section_body +
+        "\n## Q&A\n\n## Wrap-up\n\n" + wrap + "\n## 메타\n\n- **총 소요 시간**:\n"
+    )
+    return p
+
+
+def test_explanation_block_renders_without_summary_label(tmp_path):
+    from paper_review.publish.parser import parse
+
+    wb_md = _wb_file(
+        tmp_path,
+        "**원문 발췌** (lines 1-9)\n> Quote.\n\n"
+        "**핵심 해설**\n**이 절은 문제를 정의한다.** 상세 설명.\n\n"
+        "**Claude Reader's Notes**\n노트.\n",
+    )
+    wb = parse(wb_md)
+    sec = wb.sections[0]
+    assert sec.explanation.startswith("**이 절은") and sec.done
+    body = "\n".join(T._render_sections(wb, paper_dir=tmp_path))
+    assert "**이 절은 문제를 정의한다.**" in body
+    assert "**요약**" not in body          # no duplicate summary label
+    assert "노트." in body
+
+
+def test_legacy_summary_translation_still_renders(tmp_path):
+    from paper_review.publish.parser import parse
+
+    wb_md = _wb_file(
+        tmp_path,
+        "**원문 발췌** (lines 1-9)\n> Quote.\n\n"
+        "**요약**\n요약 문장.\n\n"
+        "**Claude 1차 번역**\n번역 본문.\n",
+    )
+    wb = parse(wb_md)
+    body = "\n".join(T._render_sections(wb, paper_dir=tmp_path))
+    assert "**요약**" in body and "요약 문장." in body and "번역 본문." in body
+
+
+def test_wrap_up_without_weakness_followups(tmp_path):
+    from paper_review.publish.parser import parse
+
+    wb_md = _wb_file(tmp_path, "**핵심 해설**\n해설.\n")
+    wb = parse(wb_md)
+    assert wb.wrap_one_line == "한 줄." and not wb.wrap_weakness and not wb.wrap_followups
+    body = T.render(wb, paper_dir=tmp_path)
+    assert "## 정리" in body and "한계 / 약점" not in body

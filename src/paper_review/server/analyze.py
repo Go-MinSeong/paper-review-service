@@ -390,95 +390,8 @@ Steps:
                 proc.kill()
 
 
-async def generate_pipeline(
-    paper_dir: Path, model: Optional[str], timeout: int = 360
-) -> dict:
-    """On-demand: auto-generate the ```pipeline animation spec from the paper."""
-    prompt = """Generate an animated-pipeline spec for THIS paper and insert it into workbench.md.
-
-Steps:
-1. Read sections.txt and source.txt (and workbench.md) to understand the paper's core process.
-2. Decide what the pipeline should depict:
-   - Architecture / method papers → the model's inference (or training) pipeline: input → … → output.
-   - Analysis / empirical papers → the experimental / diagnostic flow: intervention → measure → analyze.
-   - If the paper genuinely has NO single pipeline worth diagramming, reply EXACTLY '✓ pipeline skipped' and do NOT edit anything.
-3. Build a JSON spec with 4–7 stages, ordered left→right. Each stage:
-   {"label": "짧은 제목\\n부가설명(선택)", "icon": "<icon>", "caption": "한국어 1–2문장 설명"}
-   - label: VERY short. Use \\n for an optional 2nd line. Korean or short English terms.
-   - icon — pick the closest of: image (이미지 입력), eye (인코더·지각), layers (projection·변환),
-     chip (LLM·핵심 모델), bolt (출력·액션·생성), robot (로봇·에이전트), data (데이터셋),
-     text (텍스트·언어), target (평가·지표), arrow (기타).
-   - caption: Korean, concrete (what this stage does, key detail).
-4. Insert into workbench.md a section placed RIGHT BEFORE '## 섹션별 리뷰':
-
-   ## 파이프라인
-
-   ```pipeline
-   {"title": "<모델명 또는 핵심> 파이프라인", "stages": [ … ]}
-   ```
-
-   If a '## 파이프라인' section already exists, REPLACE its body.
-5. The fenced block MUST be valid JSON — double quotes, no trailing commas, no comments, no markdown inside strings.
-6. Touch ONLY the 파이프라인 section. Reply EXACTLY '✓ pipeline done'."""
-
-    system_ctx = (
-        f"You are inside {paper_dir}, a paper-review workspace. Generate the "
-        "pipeline spec only. Use the Edit tool on workbench.md. Output minimal chat."
-    )
-    cmd = [
-        "claude",
-        "-p",
-        prompt,
-        "--continue",
-        "--append-system-prompt",
-        system_ctx,
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        "--max-turns",
-        "20",
-        "--permission-mode",
-        "acceptEdits",
-    ]
-    if model:
-        cmd += ["--model", model]
-
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        limit=16 * 1024 * 1024,
-        cwd=str(paper_dir),
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    start = time.time()
-    try:
-        assert proc.stdout is not None
-        while True:
-            if time.time() - start > timeout:
-                proc.terminate()
-                return {"ok": False, "error": "timeout"}
-            try:
-                line = await asyncio.wait_for(proc.stdout.readline(), timeout=1.0)
-            except asyncio.TimeoutError:
-                continue
-            if not line:
-                break
-        await proc.wait()
-        wb = paper_dir / "workbench.md"
-        created = bool(
-            wb.exists()
-            and re.search(r"```pipeline\s*\n", wb.read_text(encoding="utf-8"))
-        )
-        return {"ok": proc.returncode == 0, "code": proc.returncode, "created": created}
-    finally:
-        if proc.returncode is None:
-            proc.terminate()
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=2)
-            except asyncio.TimeoutError:
-                proc.kill()
-
-
+# NOTE: pipeline auto-generation was archived in 2.6.0 (the structured report
+# covers that need). Existing ```pipeline blocks still render and export.
 _REPORT_TEMPLATE = (
     Path(__file__).resolve().parent.parent
     / "_paper_reader"
@@ -553,8 +466,8 @@ Content rules:
   (리뷰 중 발견) with 🔍 — mine 리뷰 중 발견 from the workbench's Reader's
   Notes / 내 정리 / Q&A.
 - 06 후속 연구: use WebSearch to find real follow-up papers (cite arXiv IDs,
-  2025–2026 preferred). If search fails, keep the section with the workbench's
-  후속으로 읽을 논문 and note the limitation.
+  2025–2026 preferred). If search fails, keep the section but say the search
+  could not be completed.
 - Paper figures: reference them as <img class="paper-fig" src="/paper/{slug}/fig/<id>">
   (the report is served same-origin, so these URLs work). Available figures:
 
@@ -653,7 +566,7 @@ def _build_section_prompt(heading: str, line_range: str, paper_dir: Path) -> str
         if line_range
         else ""
     )
-    return f"""Translate paper section {heading!r} INLINE (no subagent dispatch).
+    return f"""Explain paper section {heading!r} in Korean INLINE (no subagent dispatch).
 
 {range_hint}
 
@@ -669,18 +582,21 @@ Steps:
    **원문 발췌** (lines {line_range})
    > <1-2 representative sentences in English from the section>
 
-   **요약**
-   <4-6 sentences in Korean — what the section ACTUALLY says (key claims, key
-    numbers, key comparisons). NOT meta-commentary. For fast reading.
-    Method sections: include symbol definitions and concrete numbers (model /
-    data sizes, hyperparameters) when the section states them.
-    Experiment sections: structure as "무엇을 보여주는 실험인지 → 결과 → 해석".>
-
-   **Claude 1차 번역**
-   <paragraphs, faithful KO translation — preserve $...$ math, preserve key terms
-    in English with "한글(English)" on first occurrence per the paper-review skill
-    translation-guide. This is the detailed view — the user can skim summary or
-    read fully here.>
+   **핵심 해설**
+   <ONE self-contained Korean explanation of the section — the reader should get
+    everything from this single block (no separate summary to read first).
+    - Follow the source's order so it maps onto the original, but WRITE, don't
+      transliterate: compress filler/repetition, drop citation boilerplate, and
+      keep every substantive claim, number, symbol definition, and comparison.
+      Aim for roughly 50-70% the length of a literal translation.
+    - Open with one bold sentence stating what this section establishes, then
+      the details as paragraphs (use short bullets only for genuine enumerations).
+    - Bold the load-bearing phrases so a re-read can skim them.
+    - Preserve $...$ math verbatim; key terms in English with "한글(English)" on
+      first occurrence (see the review skill's translation-guide).
+    - Method sections: include symbol definitions and concrete numbers (model /
+      data sizes, hyperparameters) when stated.
+    - Experiment sections: structure as "무엇을 보여주는 실험인지 → 결과 → 해석".>
 
    **Claude Reader's Notes**
    <1 short callout: intuition / historical context / implementation note /

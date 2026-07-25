@@ -834,15 +834,6 @@ async def paper_generate_questions(slug: str, body: GenQBody):
     return await generate_questions(d, body.model)
 
 
-@app.post("/paper/{slug}/generate-pipeline")
-async def paper_generate_pipeline(slug: str, body: GenQBody):
-    """Auto-generate the ```pipeline animation spec from the paper (on demand)."""
-    from .analyze import generate_pipeline
-
-    d = _paper_dir(slug)
-    return await generate_pipeline(d, body.model)
-
-
 @app.post("/paper/{slug}/generate-report")
 async def paper_generate_report(slug: str, body: GenQBody):
     """Build the structured single-file review report (최종 정리) on demand."""
