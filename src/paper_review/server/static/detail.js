@@ -720,6 +720,33 @@
   const reportPane = document.getElementById("report-pane");
   const reportFrame = document.getElementById("report-frame");
   const btnReport = document.getElementById("btn-report");
+  // Embedded reports drop their own big header: the topbar already shows the
+  // paper title, and the detail view has no such header — without this the two
+  // views' tops differ by ~400px and switching jerks the page. The standalone
+  // report (새 탭 / PDF) keeps its full hero.
+  const REPORT_EMBED_CSS = `
+    /* Generated reports vary in class names, so target the cover elements by
+       role: the sticky anchor nav and the hero cover block. Both duplicate what
+       the review page already provides (title in the topbar) and are what made
+       Summary start ~400px lower than Detail. */
+    @media screen {
+      nav { display: none !important; }
+      .hero, header.hero, div.hero { display: none !important; }
+      section:first-of-type { padding-top: 26px !important; }
+    }
+  `;
+  function applyReportEmbedCss() {
+    try {
+      const d = reportFrame.contentDocument;
+      if (!d || d.getElementById("pr-embed-css")) return;
+      const st = d.createElement("style");
+      st.id = "pr-embed-css";
+      st.textContent = REPORT_EMBED_CSS;
+      d.head.appendChild(st);
+    } catch (e) { /* cross-origin or not loaded — harmless */ }
+  }
+  reportFrame.addEventListener("load", applyReportEmbedCss);
+
   let reportExists = null;   // null = unknown yet
   let reportStale = false;   // workbench changed after the report was built
   let reportMtime = 0;       // versions the iframe URL → auto-reload on rebuild

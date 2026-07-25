@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.6.1
+
+### Fixed
+- **Summary↔Detail no longer jerks the top of the page.** Both views repeated
+  the paper title that the topbar already shows, at very different heights —
+  Detail's workbench H1 (~150px) vs the report's sticky nav + hero cover
+  (~615px), a ~400px jump on every toggle. The workbench H1 is now hidden on
+  screen (print/PDF keeps it) and the embedded report hides its nav + hero via
+  injected screen-only CSS, so both views open on TL;DR (4px apart). The
+  standalone report (새 탭) and printed PDFs keep the full cover.
+
+
 ## 2.6.0
 
 ### Changed

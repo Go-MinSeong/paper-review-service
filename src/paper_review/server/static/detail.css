@@ -1277,3 +1277,10 @@
     background: transparent; color: var(--text-primary);
   }
   .pub-menu .status-opt:hover { background: var(--bg-hover, rgba(127,127,127,.12)); }
+
+  /* The topbar already carries the paper title, so the workbench's own H1 is a
+     duplicate that also made Summary/Detail start at very different heights.
+     Hidden on screen only — print/PDF keeps the title page. */
+  @media screen {
+    .wb > h1 { display: none; }
+  }
