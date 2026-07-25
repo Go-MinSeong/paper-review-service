@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.6.2
+
+### Changed
+- **Model picker updated for the Claude 5 generation**: Opus 5 (new default),
+  Opus 4.8, Sonnet 5, Fable 5, Haiku 4.5. Every entry is now a pinned model id
+  instead of a floating alias — the old list showed "Sonnet 4.6" while the
+  `sonnet` alias already served Sonnet 5, so the label lied about what ran.
+  Legacy saved values migrate (opus/sonnet/haiku → the pinned ids, retired
+  Opus 4.7 → default), and installs still sitting on the previous default get a
+  one-time bump to Opus 5; an explicit pick after that is never overridden.
+  (Tag suggestion in ingest keeps the `haiku` alias on purpose — cheapest,
+  not user-facing.)
+
+
 ## 2.6.1
 
 ### Fixed

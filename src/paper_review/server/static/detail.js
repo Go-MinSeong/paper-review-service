@@ -1006,10 +1006,23 @@
 
   // ───────────────────────────────────────────────────────── Model picker
   const modelPicker = document.getElementById("model-picker");
-  // Migrate legacy values to the new explicit IDs
-  const MODEL_MIGRATE = { "opus": "claude-opus-4-8" };
-  let savedModel = localStorage.getItem("pr-model") || "claude-opus-4-8";
+  const DEFAULT_MODEL = "claude-opus-5";
+  // Aliases float to whatever is newest, which made the label lie ("Sonnet 4.6"
+  // while the alias already served Sonnet 5) — pin them to explicit IDs.
+  const MODEL_MIGRATE = {
+    "opus": DEFAULT_MODEL,
+    "sonnet": "claude-sonnet-5",
+    "haiku": "claude-haiku-4-5-20251001",
+  };
+  let savedModel = localStorage.getItem("pr-model") || DEFAULT_MODEL;
   savedModel = MODEL_MIGRATE[savedModel] || savedModel;
+  // One-time bump off the previous default so existing installs pick up the new
+  // flagship (same tier, so no cost surprise). Explicit choices made after this
+  // are never touched again.
+  if (savedModel === "claude-opus-4-8" && !localStorage.getItem("pr-model-bumped-v5")) {
+    savedModel = DEFAULT_MODEL;
+  }
+  localStorage.setItem("pr-model-bumped-v5", "1");
   // Fall back to first option if the saved value is no longer offered
   const known = Array.from(modelPicker.options).map(o => o.value);
   if (!known.includes(savedModel)) savedModel = modelPicker.options[0].value;
