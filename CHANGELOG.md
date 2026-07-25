@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.8.0
+
+### Added
+- **Launch screen for the desktop app.** Double-clicking the .app used to show
+  nothing for several seconds (bundle unpack + uvicorn boot). The window now
+  appears immediately with the paper-review mark and reports what it is doing
+  (installing skills… → starting local server… → opening library…), then swaps
+  itself over to the gallery. If the server never comes up, the splash turns
+  into a readable error instead of leaving a blank window. Self-contained HTML
+  (no CDN), light/dark aware, and the window background matches the system
+  appearance so dark-mode users get no white flash.
+
+
 ## 2.7.1
 
 ### Fixed (first-run experience for other people)

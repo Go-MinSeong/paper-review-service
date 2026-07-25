@@ -49,3 +49,40 @@ def test_drafts_dir_resolution(tmp_path, monkeypatch):
     # env wins over settings
     monkeypatch.setenv("PAPER_REVIEW_DRAFTS_DIR", "/tmp/env-vault/drafts")
     assert str(C.get_drafts_dir()) == "/tmp/env-vault/drafts"
+
+
+def test_splash_boot_sequence(monkeypatch):
+    """The launch screen must report progress, hand over to the gallery, and
+    surface failures instead of leaving a blank window."""
+    from paper_review import app as A
+
+    class W:
+        def __init__(self):
+            self.js, self.url = [], None
+
+        def evaluate_js(self, s):
+            self.js.append(s)
+
+        def load_url(self, u):
+            self.url = u
+
+    monkeypatch.setattr(A, "_install_skills", lambda: None)
+    monkeypatch.setattr(A, "start_server", lambda port: None)
+
+    monkeypatch.setattr(A, "_wait_server", lambda port, timeout=20.0: True)
+    ok = W()
+    A._boot(ok, 7777)
+    assert ok.url == "http://127.0.0.1:7777/"
+    assert any("prStatus" in j for j in ok.js) and not any("prFail" in j for j in ok.js)
+
+    monkeypatch.setattr(A, "_wait_server", lambda port, timeout=20.0: False)
+    bad = W()
+    A._boot(bad, 7777)
+    assert bad.url is None and any("prFail" in j for j in bad.js)
+
+
+def test_splash_fail_js_escapes_newlines():
+    from paper_review.splash import fail_js
+
+    js = fail_js('line1\nline2 "quoted"')
+    assert "\\n" in js and "\n" not in js  # real newline would break the JS literal

@@ -99,27 +99,86 @@ def start_server(port: int) -> threading.Thread:
     return t
 
 
+def _appearance_bg() -> str:
+    """Window background before the splash paints — matching the system
+    appearance avoids a white flash for dark-mode users."""
+    if sys.platform == "darwin":
+        try:
+            import subprocess
+
+            out = subprocess.run(
+                ["defaults", "read", "-g", "AppleInterfaceStyle"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+            )
+            if "dark" in out.stdout.strip().lower():
+                return "#0C0D0E"  # keep in sync with splash.py --bg (dark)
+        except Exception:
+            pass
+    return "#FFFFFF"
+
+
+def _boot(window, port: int) -> None:
+    """Runs after the splash is on screen: prepare, start the server, then swap
+    the window over to the gallery. Failures stay visible on the splash instead
+    of leaving a blank window behind."""
+    from . import splash
+
+    def say(text: str) -> None:
+        try:
+            window.evaluate_js(splash.status_js(text))
+        except Exception:
+            pass
+
+    try:
+        say(splash.STEP_SKILLS)
+        _install_skills()
+        # Best-effort first-run install of the named subagents into ~/.claude/agents.
+        try:
+            from ._paper_reader import runner
+
+            runner.install_subagents()
+        except Exception:
+            pass
+
+        say(splash.STEP_SERVER)
+        start_server(port)
+        if not _wait_server(port):
+            window.evaluate_js(
+                splash.fail_js(
+                    "로컬 서버를 시작하지 못했습니다.\n"
+                    "메뉴바 앱이 같은 포트를 쓰고 있는지 확인하거나, 앱을 다시 실행해 주세요."
+                )
+            )
+            return
+        say(splash.STEP_READY)
+        window.load_url(f"http://127.0.0.1:{port}/")
+    except Exception as e:  # never leave the splash spinning forever
+        try:
+            window.evaluate_js(splash.fail_js(f"시작 중 오류가 발생했습니다.\n{e}"))
+        except Exception:
+            print(f"paper-review: startup failed: {e}", file=sys.stderr)
+
+
 def run_app(port: int | None = None) -> None:
     _augment_path()
-    _install_skills()
-    # Best-effort first-run install of the named subagents into ~/.claude/agents.
-    try:
-        from ._paper_reader import runner
-
-        runner.install_subagents()
-    except Exception:
-        pass
     port = port or _free_port()
-    start_server(port)
-    if not _wait_server(port):
-        print("paper-review: server failed to start", file=sys.stderr)
-        sys.exit(1)
+
     import webview
 
-    webview.create_window(
-        WINDOW_TITLE, f"http://127.0.0.1:{port}/", width=1280, height=860
+    from . import splash
+
+    # Show the launch screen FIRST — on a cold start (bundle unpack + uvicorn
+    # boot) the window used to sit blank for several seconds.
+    window = webview.create_window(
+        WINDOW_TITLE,
+        html=splash.SPLASH_HTML,
+        width=1280,
+        height=860,
+        background_color=_appearance_bg(),
     )
-    webview.start()
+    webview.start(_boot, (window, port))
 
 
 def desktop_main() -> None:
