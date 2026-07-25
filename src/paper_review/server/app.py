@@ -175,6 +175,7 @@ def _list_papers() -> list[dict]:
                 "paper_url": meta.get("paper_url", ""),
                 "category": meta.get("category", ""),
                 "review_started": meta.get("review_started", ""),
+                "exported_at": meta.get("exported_at", ""),
                 "sections_total": total,
                 "sections_done": done,
                 "figures_count": fig_count,
@@ -886,6 +887,7 @@ def paper_publish(slug: str, body: PublishBody | None = None):
     drafts_dir.mkdir(parents=True, exist_ok=True)
 
     results: dict = {}
+    stamp_export_date = True
     if "summary" in targets:
         sdest = drafts_dir / f"{slug}-summary.md"
         try:
@@ -904,7 +906,28 @@ def paper_publish(slug: str, body: PublishBody | None = None):
         )
         if new_text != text:
             wb.write_text(new_text)
+    if stamp_export_date and results:
+        _stamp_exported_at(wb)
     return {"ok": True, "results": results}
+
+
+def _stamp_exported_at(wb: Path) -> None:
+    """Record/refresh `exported_at` in the frontmatter — the Export dashboard
+    groups by this date (the workbench mtime keeps changing on edits)."""
+    import re as _re
+    from datetime import date
+
+    today = date.today().isoformat()
+    text = wb.read_text()
+    line = f"exported_at: {today}"
+    if _re.search(r"^exported_at:.*$", text, flags=_re.MULTILINE):
+        new = _re.sub(r"^exported_at:.*$", line, text, count=1, flags=_re.MULTILINE)
+    elif _re.search(r"^status:.*$", text, flags=_re.MULTILINE):
+        new = _re.sub(r"^(status:.*)$", rf"\1\n{line}", text, count=1, flags=_re.MULTILINE)
+    else:
+        new = _re.sub(r"^---\n", f"---\n{line}\n", text, count=1)
+    if new != text:
+        wb.write_text(new)
 
 
 @app.get("/paper/{slug}/events")

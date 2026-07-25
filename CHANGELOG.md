@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.7.0
+
+### Changed
+- **Dashboard split into Intake and Export, both monthly.** Tabs at the top of
+  the dashboard switch between the two views (choice remembered):
+  - **Intake** — papers by the month they arrived: Papers / Sections /
+    Avg rating KPIs, review-status funnel, monthly intake chart, rating
+    distribution, top tags.
+  - **Export** — papers by the month they were exported: Exported count /
+    export rate / median days intake→export, recent exports list, monthly
+    export chart, and rating/top tags restricted to exported papers.
+  The 52-week activity heatmap is replaced by a 12-month bar chart in both.
+  Dashboard labels are English, matching the rest of the UI.
+
+### Added
+- **`exported_at` in the workbench frontmatter**, stamped on every publish —
+  the Export dashboard needs a stable export date (the workbench mtime moves
+  on any later edit). Existing exported papers were backfilled from their
+  vault draft/published file mtime; papers with no vault file are counted as
+  "undated" in the chart subtitle.
+
+
 ## 2.6.2
 
 ### Changed

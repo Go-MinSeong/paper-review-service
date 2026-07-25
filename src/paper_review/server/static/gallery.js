@@ -728,63 +728,90 @@
       + `<span class="bar"><i class="${cls || ''}" style="width:${Math.max(4, Math.round(n / max * 100))}%"></i></span>`
       + `<span class="val">${n}</span></div>`).join('');
   }
-  function weekStartTs(ms) {
+  // ── Dashboard (two views, both monthly) ──────────────────────────────
+  // Intake  = when papers arrived (folder creation, else review_started)
+  // Export  = when papers were exported (frontmatter exported_at)
+  let dashTab = localStorage.getItem('pr-dash-tab') || 'intake';
+  const MONTHS = 12;
+
+  function monthKey(ms) {
     const d = new Date(ms);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back to Monday
-    return d.getTime();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
-  function renderDashboard() {
-    if (!dashEl) return;
+  function lastMonthKeys(n) {
+    const now = new Date(), out = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    return out;
+  }
+  function intakeMs(p) {
+    if (p.created_at) return p.created_at * 1000;
+    if (/^\d{4}-\d{2}-\d{2}/.test(p.review_started || '')) return new Date(p.review_started + 'T00:00:00').getTime();
+    return 0;
+  }
+  function exportMs(p) {
+    return /^\d{4}-\d{2}-\d{2}/.test(p.exported_at || '')
+      ? new Date(p.exported_at + 'T00:00:00').getTime() : 0;
+  }
+  function monthChart(map, cls) {
+    const keys = lastMonthKeys(MONTHS);
+    const max = Math.max(1, ...keys.map(k => map[k] || 0));
+    const cols = keys.map(k => {
+      const n = map[k] || 0;
+      const h = n ? Math.max(6, Math.round(n / max * 76)) : 2;
+      const mm = +k.split('-')[1];
+      return `<span class="mcol" title="${k} · ${n}">`
+        + `<span class="m-val">${n || ''}</span>`
+        + `<i class="${n ? (cls || '') : 'zero'}" style="height:${h}px"></i>`
+        + `<span class="m-lbl">${mm}</span></span>`;
+    }).join('');
+    return `<div class="mchart">${cols}</div>`;
+  }
+  function monthRangeLabel() {
+    const keys = lastMonthKeys(MONTHS);
+    const f = k => k.replace('-', '.');
+    return `${f(keys[0])} – ${f(keys[keys.length - 1])}`;
+  }
+  function ratingRows(list) {
+    const dist = [5, 4, 3, 2, 1].map(r => [r + '★', list.filter(p => p.rating === r).length]);
+    return { dist, max: Math.max(1, ...dist.map(d => d[1])), rated: list.filter(p => (p.rating || 0) > 0) };
+  }
+  function topTagRows(list, n = 6) {
+    const c = {};
+    list.forEach(p => (p.tags || []).forEach(t => { c[t] = (c[t] || 0) + 1; }));
+    const rows = Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, n);
+    return { rows, max: Math.max(1, ...rows.map(r => r[1])) };
+  }
+
+  function dashIntakeHtml() {
     const N = papers.length;
     const STAT = [
-      { k: 'to_read', label: '읽을 예정', cls: 'to_read' },
-      { k: 'in_progress', label: '리뷰 중', cls: 'in_progress' },
-      { k: 'review_done', label: '완료', cls: 'review_done' },
-      { k: 'exported', label: '발행', cls: 'exported' },
-      { k: 'archived', label: '보관', cls: 'archived' },
+      { k: 'to_read', label: 'Reading', cls: 'to_read' },
+      { k: 'in_progress', label: 'In progress', cls: 'in_progress' },
+      { k: 'review_done', label: 'Reviewed', cls: 'review_done' },
+      { k: 'exported', label: 'Exported', cls: 'exported' },
+      { k: 'archived', label: 'Archived', cls: 'archived' },
     ].map(s => ({ ...s, n: papers.filter(p => p.status === s.k).length }));
     let secDone = 0, secTotal = 0;
     papers.forEach(p => { secDone += p.sections_done || 0; secTotal += p.sections_total || 0; });
     const secPct = secTotal ? Math.round(secDone / secTotal * 100) : 0;
-    const rated = papers.filter(p => (p.rating || 0) > 0);
+    const { dist, max: maxRD, rated } = ratingRows(papers);
     const avg = rated.length ? (rated.reduce((a, p) => a + p.rating, 0) / rated.length) : 0;
-    const ratingDist = [5, 4, 3, 2, 1].map(r => [r + '★', papers.filter(p => p.rating === r).length]);
-    const maxRD = Math.max(1, ...ratingDist.map(d => d[1]));
-    const tagCount = {};
-    papers.forEach(p => (p.tags || []).forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; }));
-    const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    const maxTag = Math.max(1, ...topTags.map(t => t[1]));
+    const { rows: tagRows, max: maxTag } = topTagRows(papers);
 
-    // Weekly activity heatmap ("잔디") — one cell per week, last 52 weeks,
-    // laid out as a 4-row × 13-col block (column-major, oldest→newest).
-    // An activity = a paper started or last-edited in that week.
-    const weekMap = {};
-    papers.forEach(p => {
-      const evs = [];
-      if (/^\d{4}-\d{2}-\d{2}/.test(p.review_started || '')) evs.push(new Date(p.review_started + 'T00:00:00').getTime());
-      if (p.updated_at) evs.push(p.updated_at * 1000);
-      evs.forEach(ms => { const w = weekStartTs(ms); weekMap[w] = (weekMap[w] || 0) + 1; });
-    });
-    const WK = 52, thisWeek = weekStartTs(Date.now());
-    const level = n => n === 0 ? 0 : n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 3 : 4;
-    const cells = [];
-    for (let i = WK - 1; i >= 0; i--) {
-      const ws = thisWeek - i * 7 * 86400000;
-      const n = weekMap[ws] || 0;
-      const d = new Date(ws);
-      cells.push(`<span class="cell l${level(n)}" title="${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} 주 · ${n}건"></span>`);
-    }
-    const totalActs = Object.values(weekMap).reduce((a, b) => a + b, 0);
+    const map = {}; let undated = 0;
+    papers.forEach(p => { const ms = intakeMs(p); if (ms) map[monthKey(ms)] = (map[monthKey(ms)] || 0) + 1; else undated++; });
+    const inWindow = lastMonthKeys(MONTHS).reduce((a, k) => a + (map[k] || 0), 0);
 
-    dashEl.innerHTML = `
-      <div class="dash-bar"><button class="dash-close" id="dash-close" title="Close (Esc)">✕ Close</button></div>
+    return `
       <div class="dash-row dash-row1">
-        <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">전체 논문</div></div>
-        <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">섹션 완료 · ${secDone}/${secTotal}</div></div>
-        <div class="kpi"><div class="kpi-num">${avg ? avg.toFixed(1) : '–'}${avg ? '<span class="u gold">★</span>' : ''}</div><div class="kpi-lbl">평균 별점 · ${rated.length}개</div></div>
+        <div class="kpi"><div class="kpi-num">${N}</div><div class="kpi-lbl">Papers</div></div>
+        <div class="kpi"><div class="kpi-num">${secPct}<span class="u">%</span></div><div class="kpi-lbl">Sections · ${secDone}/${secTotal}</div></div>
+        <div class="kpi"><div class="kpi-num">${avg ? avg.toFixed(1) : '–'}${avg ? '<span class="u gold">★</span>' : ''}</div><div class="kpi-lbl">Avg rating · ${rated.length}</div></div>
         <div class="dash-card c-status">
-          <div class="dash-title">리뷰 진행 상태</div>
+          <div class="dash-title">Review status</div>
           <div class="dash-funnel">
             ${STAT.filter(s => s.n).map(s => `<span class="seg s-${s.cls}" style="flex:${s.n}" title="${s.label} ${s.n}"></span>`).join('') || '<span class="seg" style="flex:1;background:var(--border-default)"></span>'}
           </div>
@@ -794,21 +821,94 @@
         </div>
       </div>
       <div class="dash-row dash-row2">
-        <div class="dash-card c-grass">
-          <div class="dash-title">주간 활동 <span class="dash-sub">최근 1년 · 한 칸 = 1주 · 총 ${totalActs}건</span></div>
-          <div class="grass">${cells.join('')}</div>
-          <div class="grass-legend"><span>적음</span><span class="cell l0"></span><span class="cell l1"></span><span class="cell l2"></span><span class="cell l3"></span><span class="cell l4"></span><span>많음</span></div>
+        <div class="dash-card c-month">
+          <div class="dash-title">Monthly intake <span class="dash-sub">${monthRangeLabel()} · ${inWindow} papers${undated ? ` · ${undated} undated` : ''}</span></div>
+          ${monthChart(map)}
         </div>
         <div class="dash-card c-rating">
-          <div class="dash-title">별점 분포</div>
-          ${rated.length ? dashBars(ratingDist, maxRD, 'gold') : '<div class="dash-empty">아직 평가한 논문이 없어요</div>'}
+          <div class="dash-title">Rating distribution</div>
+          ${rated.length ? dashBars(dist, maxRD, 'gold') : '<div class="dash-empty">No ratings yet</div>'}
         </div>
         <div class="dash-card c-tags">
-          <div class="dash-title">태그 Top</div>
-          ${topTags.length ? dashBars(topTags, maxTag) : '<div class="dash-empty">태그 없음</div>'}
+          <div class="dash-title">Top tags</div>
+          ${tagRows.length ? dashBars(tagRows, maxTag) : '<div class="dash-empty">No tags</div>'}
         </div>
       </div>`;
   }
+
+  function dashExportHtml() {
+    const exported = papers.filter(p => p.status === 'exported' || exportMs(p));
+    const dated = exported.filter(p => exportMs(p));
+    const rate = papers.length ? Math.round(exported.length / papers.length * 100) : 0;
+    // median days intake → export (only papers where both dates are known)
+    const spans = dated.map(p => {
+      const a = intakeMs(p), b = exportMs(p);
+      return a && b && b >= a ? Math.round((b - a) / 86400000) : null;
+    }).filter(v => v !== null).sort((x, y) => x - y);
+    const median = spans.length
+      ? (spans.length % 2 ? spans[(spans.length - 1) / 2]
+        : Math.round((spans[spans.length / 2 - 1] + spans[spans.length / 2]) / 2))
+      : null;
+
+    const map = {};
+    dated.forEach(p => { const k = monthKey(exportMs(p)); map[k] = (map[k] || 0) + 1; });
+    const inWindow = lastMonthKeys(MONTHS).reduce((a, k) => a + (map[k] || 0), 0);
+    const undated = exported.length - dated.length;
+
+    const { dist, max: maxRD, rated } = ratingRows(exported);
+    const { rows: tagRows, max: maxTag } = topTagRows(exported);
+    const recent = dated.slice().sort((a, b) => exportMs(b) - exportMs(a)).slice(0, 5);
+
+    return `
+      <div class="dash-row dash-row1">
+        <div class="kpi"><div class="kpi-num">${exported.length}</div><div class="kpi-lbl">Exported</div></div>
+        <div class="kpi"><div class="kpi-num">${rate}<span class="u">%</span></div><div class="kpi-lbl">of ${papers.length} papers</div></div>
+        <div class="kpi"><div class="kpi-num">${median === null ? '–' : median}${median === null ? '' : '<span class="u">d</span>'}</div><div class="kpi-lbl">Median intake→export</div></div>
+        <div class="dash-card c-status">
+          <div class="dash-title">Recent exports</div>
+          ${recent.length ? `<div class="dash-recent">${recent.map(p =>
+            `<span><b>${p.exported_at}</b> ${escapeHtml((p.title_ko || p.title_en || p.slug).slice(0, 46))}</span>`).join('')}</div>`
+            : '<div class="dash-empty">No exports yet</div>'}
+        </div>
+      </div>
+      <div class="dash-row dash-row2">
+        <div class="dash-card c-month">
+          <div class="dash-title">Monthly exports <span class="dash-sub">${monthRangeLabel()} · ${inWindow} exports${undated ? ` · ${undated} undated` : ''}</span></div>
+          ${monthChart(map, 'exp')}
+        </div>
+        <div class="dash-card c-rating">
+          <div class="dash-title">Rating · exported</div>
+          ${rated.length ? dashBars(dist, maxRD, 'gold') : '<div class="dash-empty">No ratings yet</div>'}
+        </div>
+        <div class="dash-card c-tags">
+          <div class="dash-title">Top tags · exported</div>
+          ${tagRows.length ? dashBars(tagRows, maxTag) : '<div class="dash-empty">No tags</div>'}
+        </div>
+      </div>`;
+  }
+
+  function renderDashboard() {
+    if (!dashEl) return;
+    const tab = (t, label) =>
+      `<button data-dtab="${t}" class="${dashTab === t ? 'active' : ''}">${label}</button>`;
+    dashEl.innerHTML = `
+      <div class="dash-bar">
+        <div class="dash-tabs">${tab('intake', 'Intake')}${tab('export', 'Export')}</div>
+        <span class="dash-spacer"></span>
+        <button class="dash-close" id="dash-close" title="Close (Esc)">✕ Close</button>
+      </div>
+      ${dashTab === 'export' ? dashExportHtml() : dashIntakeHtml()}`;
+  }
+  if (dashEl) {
+    dashEl.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-dtab]');
+      if (!t) return;
+      dashTab = t.dataset.dtab;
+      localStorage.setItem('pr-dash-tab', dashTab);
+      renderDashboard();
+    });
+  }
+
   if (dashToggle && dashEl) {
     const setDash = (open) => {
       dashEl.hidden = !open;
