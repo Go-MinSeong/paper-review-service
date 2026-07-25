@@ -10,8 +10,9 @@ set -euo pipefail
 
 LABEL="com.paper-review.menubar"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
-VENV_BIN="$HOME/Projects/paper-review-service/.venv/bin/paper-review"
-LOG_DIR="$HOME/Projects/paper-review-service/_logs"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_BIN="$REPO_DIR/.venv/bin/paper-review"
+LOG_DIR="$REPO_DIR/_logs"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   launchctl unload "$PLIST" 2>/dev/null || true

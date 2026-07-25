@@ -129,9 +129,7 @@
   // added/removed illustrations show up on cards. The hardcoded list is the
   // fallback if the fetch fails.
   let CHARACTERS = [
-    "fennec.jpg", "penguin.jpg", "dolphin.jpg", "badger.jpg", "redpanda.jpg",
-    "corgi.jpg", "calcifer.jpg", "squirtle.jpg", "soot.jpg", "venom.jpg",
-    "venom2.jpg", "agumon.jpg", "shinchan.jpg", "shinchan2.jpg",
+    "badger.jpg", "corgi.jpg", "dolphin.jpg", "fennec.jpg", "penguin.jpg", "redpanda.jpg",
   ];
   function hashStr(s) {
     // djb2 — better spread than a per-step modulo (slugs are mostly digits)
@@ -919,7 +917,8 @@
     dashToggle.addEventListener('click', () => setDash(dashEl.hidden));
     dashEl.addEventListener('click', (e) => { if (e.target.closest('#dash-close')) setDash(false); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dashEl.hidden) setDash(false); });
-    if (localStorage.getItem('pr-dash-open') === '1') setDash(true);
+    const dashParam = new URLSearchParams(location.search).get('dash');
+    if (dashParam === '1' || (dashParam === null && localStorage.getItem('pr-dash-open') === '1')) setDash(true);
   }
 
   // ─── Grid / List view toggle ─────────────────────────────────────

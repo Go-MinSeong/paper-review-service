@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.7.1
+
+### Fixed (first-run experience for other people)
+- **Cloning anywhere but `~/Projects/paper-review-service` broke the library.**
+  `SERVICE_ROOT` was a hardcoded path, so a checkout elsewhere read/wrote
+  papers in a folder that didn't exist. Source installs now resolve to their
+  own checkout; the frozen .app keeps the legacy location and
+  `PAPER_REVIEWS_ROOT` still overrides both.
+- **`install-menubar.sh` hardcoded the author's clone path** — now derived from
+  the script location like the other installers.
+- **The illustration fallback list named images that aren't in the repo** (the
+  IP-character files are gitignored), so a fresh clone could show broken
+  thumbnails if `/illustrations` ever failed. It now lists only shipped art.
+- **`__version__` was still `0.1.0`** while the product shipped 2.x.
+
+### Added
+- **`?dash=1`** deep-links straight to the dashboard (also used for the docs
+  screenshots).
+- **README rewritten** for newcomers: badges, hero + report/dashboard/review
+  screenshots, a feature table, install paths, architecture diagram, CLI
+  reference, FAQ, roadmap and contributing notes.
+
+
 ## 2.7.0
 
 ### Changed
