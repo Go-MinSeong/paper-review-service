@@ -803,6 +803,9 @@
     document.getElementById("wb").style.display = "";
     refreshReportBtn();
   }
+  // Generation takes minutes, so it runs as a job: the request returns at once
+  // and progress shows in the analyze toast/log (a spinning button told the
+  // user nothing about what was happening).
   async function generateReport() {
     if (reportGenBusy) return;
     reportGenBusy = true;
@@ -814,10 +817,8 @@
         body: JSON.stringify({ model: modelPicker.value }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) throw new Error(j.error || j.detail || ("HTTP " + r.status));
-      await checkReport();   // pick up the new mtime (+clears stale)
-      reportGenBusy = false;
-      showReportPane();
+      if (!r.ok) throw new Error(j.detail || ("HTTP " + r.status));
+      pollAnalyze();   // drives the toast, then refreshes the report on finish
     } catch (err) {
       reportGenBusy = false;
       refreshReportBtn();
@@ -1686,7 +1687,8 @@
       const min = Math.max(1, Math.round(preview.estimated_seconds / 60));
       const cost = preview.estimated_cost_usd;
       const pre = preview.needs_prelude ? ' (TL;DR+contribution+사전지식 자동 생성 포함)' : '';
-      msg = `${preview.pending_sections}개 섹션 분석${pre}\n예상 시간: ~${min}분 · 예상 비용: ~$${cost.toFixed(2)}${bg}\n\n진행할까요?`;
+      msg = `${preview.pending_sections}개 섹션 분석${pre}\n섹션이 끝나면 Summary 리포트까지 이어서 생성합니다.`
+          + `\n예상 시간: ~${min}분 + 리포트 · 예상 비용: ~$${cost.toFixed(2)} + 리포트${bg}\n\n진행할까요?`;
     }
     if (!await UIDialog.confirm(msg, { title: '자동 분석', okLabel: '시작' })) return;
     try {
@@ -1727,9 +1729,19 @@
       try {
         const r = await fetch(`/paper/${slug}/analyze/status`);
         const s = await r.json();
+        // The report is the job's closing phase — keep the topbar button in
+        // sync so it reads Generating… whoever started the run.
+        reportGenBusy = s.status === 'running' && s.phase === 'report';
+        refreshReportBtn();
         updateAnalyzeButton(s);
         if (s.status === 'done' || s.status === 'error' || s.status === 'cancelled' || s.status === 'idle') {
           analyzePolling = false;
+          reportGenBusy = false;
+          // A finished run rewrote the report (analyze builds Detail+Summary):
+          // pick up the new mtime so the Summary iframe reloads.
+          await checkReport();
+          if (document.getElementById('wb').dataset.view === 'summary') showReportPane();
+          else refreshReportBtn();
           break;
         }
       } catch {}
@@ -1798,7 +1810,7 @@
 
   function updateAnalyzeButton(s) {
     if (s.status === 'running') {
-      btnAnalyze.textContent = `${s.current}/${s.total}`;
+      btnAnalyze.textContent = s.phase === 'report' ? 'Report…' : `${s.current}/${s.total}`;
       btnAnalyze.style.background = 'var(--status-in_progress)';
       btnAnalyze.style.color = 'white';
       btnAnalyze.title = `분석 중: ${s.current_heading} (클릭하여 취소)`;
@@ -1824,12 +1836,14 @@
 
   function renderAnalyzeToast(s) {
     const failed = (s.failed_sections || []).length;
-    aLabel.textContent = s.status === 'running' ? 'Analyzing'
+    aLabel.textContent = s.status === 'running'
+                         ? (s.phase === 'report' ? 'Building Summary' : 'Analyzing')
                        : s.status === 'done' ? (failed ? `⚠ Done (${failed} failed)` : '✓ Done')
                        : s.status === 'cancelled' ? '⏹ Cancelled'
                        : s.status === 'error' ? '✗ Error'
                        : '—';
-    aFrac.textContent = `${s.current}/${s.total}`;
+    // The report is one long step, so a fraction would sit at 1/1 the whole time.
+    aFrac.textContent = s.phase === 'report' ? '' : `${s.current}/${s.total}`;
     aSub.textContent = s.current_heading || '';
     aLog.innerHTML = '';
     (s.log_tail || []).slice(-12).forEach(line => {

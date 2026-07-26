@@ -288,8 +288,12 @@
       const activeMeta = activeJobs.get(p.slug);
       // While a background analysis runs, the progress bar tracks the live job
       // (current/total); otherwise it shows the workbench done count.
-      const live = isActive && activeMeta && activeMeta.status === 'running' && activeMeta.total > 0;
-      const failedJob = isActive && activeMeta && !live &&
+      const running = isActive && activeMeta && activeMeta.status === 'running';
+      // Report phase has no per-section fraction (and a report-only job has
+      // total 0), so it gets its own pill instead of a stuck 100% bar.
+      const reportPhase = running && activeMeta.phase === 'report';
+      const live = running && !reportPhase && activeMeta.total > 0;
+      const failedJob = isActive && activeMeta && !running &&
         (activeMeta.status === 'error' || (activeMeta.failed || 0) > 0);
       const dispDone = live ? activeMeta.current : done;
       const dispTotal = live ? activeMeta.total : total;
@@ -304,7 +308,7 @@
         : '';
       const isToRead = p.status === 'to_read';
       return `
-        <a class="card${live ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
+        <a class="card${running ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
           <div class="card-thumb char-bg-${ci}">
             <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
@@ -314,6 +318,7 @@
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
+          ${reportPhase ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">Summary 생성 중</span>` : ''}
             ${starsHTML(p.rating, p.slug)}
           </div>
           <div class="card-body">
@@ -632,7 +637,8 @@
       // Only re-render if set changed
       const same = next.size === activeJobs.size &&
         [...next.keys()].every(k => activeJobs.has(k) &&
-          activeJobs.get(k).current === next.get(k).current);
+          activeJobs.get(k).current === next.get(k).current &&
+          activeJobs.get(k).phase === next.get(k).phase);
       activeJobs = next;
       if (!same || finalized) renderCards();
     } catch {}

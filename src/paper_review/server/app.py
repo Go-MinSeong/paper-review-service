@@ -58,6 +58,7 @@ async def _port80_loopback_only(request, call_next):
         return PlainTextResponse("local access only", status_code=403)
     return await call_next(request)
 
+
 _HERE = Path(__file__).parent
 _TEMPLATES_DIR = _HERE / "templates"
 _STATIC_DIR = _HERE / "static"
@@ -702,7 +703,9 @@ def put_settings(body: SettingsBody):
     if val:
         p = Path(val).expanduser()
         if not p.is_absolute():
-            raise HTTPException(400, "절대 경로를 입력하세요 (예: ~/Documents/my-vault/drafts)")
+            raise HTTPException(
+                400, "절대 경로를 입력하세요 (예: ~/Documents/my-vault/drafts)"
+            )
         s["drafts_dir"] = str(p)
     else:
         s.pop("drafts_dir", None)
@@ -769,6 +772,7 @@ def papers_active_jobs():
         {
             "slug": j.slug,
             "status": j.status,
+            "phase": j.phase,
             "current": j.current,
             "total": j.total,
             "current_heading": j.current_heading,
@@ -837,11 +841,12 @@ async def paper_generate_questions(slug: str, body: GenQBody):
 
 @app.post("/paper/{slug}/generate-report")
 async def paper_generate_report(slug: str, body: GenQBody):
-    """Build the structured single-file review report (최종 정리) on demand."""
-    from .analyze import generate_report
+    """Start building the structured review report (최종 정리). Returns as soon as
+    the job starts — follow it via /analyze/status (phase == "report")."""
+    from .analyze import start_report
 
     d = _paper_dir(slug)
-    return await generate_report(d, body.model)
+    return await start_report(slug, d, body.model)
 
 
 @app.get("/paper/{slug}/report")
@@ -923,7 +928,9 @@ def _stamp_exported_at(wb: Path) -> None:
     if _re.search(r"^exported_at:.*$", text, flags=_re.MULTILINE):
         new = _re.sub(r"^exported_at:.*$", line, text, count=1, flags=_re.MULTILINE)
     elif _re.search(r"^status:.*$", text, flags=_re.MULTILINE):
-        new = _re.sub(r"^(status:.*)$", rf"\1\n{line}", text, count=1, flags=_re.MULTILINE)
+        new = _re.sub(
+            r"^(status:.*)$", rf"\1\n{line}", text, count=1, flags=_re.MULTILINE
+        )
     else:
         new = _re.sub(r"^---\n", f"---\n{line}\n", text, count=1)
     if new != text:

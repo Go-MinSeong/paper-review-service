@@ -30,6 +30,7 @@ class AnalysisJob:
     job_id: str
     slug: str
     status: Status = "idle"
+    phase: str = "sections"  # "sections" → "report" (same job, one progress UI)
     total: int = 0
     current: int = 0
     current_heading: str = ""
@@ -66,7 +67,13 @@ async def start_analysis(slug: str, paper_dir: Path, body: AnalyzeBody) -> dict:
 def get_status(slug: str) -> dict:
     job = _jobs.get(slug)
     if not job:
-        return {"status": "idle", "current": 0, "total": 0, "log_tail": []}
+        return {
+            "status": "idle",
+            "phase": "sections",
+            "current": 0,
+            "total": 0,
+            "log_tail": [],
+        }
     return _serialize(job)
 
 
@@ -156,8 +163,11 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
         job.total = len(sections_with_range)
         job.log.append(f"미진행 섹션 {job.total}개")
         if not sections_with_range:
-            job.status = "done"
             job.log.append("이미 모든 섹션이 완료됨")
+            # Nothing new to explain, but the Summary may still be missing.
+            if not (paper_dir / "report.html").exists():
+                await _report_step(job, paper_dir, body.model)
+            job.status = "cancelled" if job.cancel_event.is_set() else "done"
             return
 
         for i, (sec_heading, line_range) in enumerate(sections_with_range):
@@ -190,14 +200,14 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
             _snapshot_baseline(paper_dir, job.succeeded_sections)
 
         if job.status == "running":
-            job.status = "done"
-            job.log.append("✓ 완료")
-            # The structured report goes stale as soon as the workbench gains
-            # new sections. If one exists, rebuild it in the background so the
-            # Summary tab shows current content instead of the old report.
-            if job.succeeded_sections and (paper_dir / "report.html").exists():
-                job.log.append("↻ 리포트 자동 재생성 시작 (백그라운드)")
-                asyncio.create_task(_regen_report_after_analysis(paper_dir, body.model))
+            job.log.append("✓ 섹션 해설 완료")
+            # Detail (sections) and Summary (report) are built by the same run:
+            # a report from before this analyze describes fewer sections, so
+            # leaving the old one is always wrong.
+            if job.succeeded_sections:
+                await _report_step(job, paper_dir, body.model)
+            job.status = "cancelled" if job.cancel_event.is_set() else "done"
+            job.log.append("✓ 완료" if job.status == "done" else "⏹ 취소됨")
     except Exception as e:
         job.status = "error"
         job.error = str(e)
@@ -206,12 +216,45 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
         job.finished_at = time.time()
 
 
-async def _regen_report_after_analysis(paper_dir: Path, model: Optional[str]) -> None:
-    """Best-effort report refresh after a successful analyze run."""
+async def _report_step(job: AnalysisJob, paper_dir: Path, model: Optional[str]) -> None:
+    """Build the Summary report as the closing phase of the job, so its progress
+    shows in the same toast/log as the sections. A failure here doesn't fail the
+    analyze — the sections are already written."""
+    if job.cancel_event.is_set():
+        return
+    job.phase = "report"
+    job.current_heading = "구조화 리포트 (Summary)"
+    job.log.append("━━ [report] Summary 리포트 생성")
     try:
-        await generate_report(paper_dir, model)
-    except Exception:
-        pass  # the stale flag on /report still tells the UI to offer 재생성
+        res = await generate_report(paper_dir, model, job=job)
+    except Exception as e:
+        job.log.append(f"   ⚠ 리포트 실패: {e}")
+        return
+    if not res.get("ok") and not job.cancel_event.is_set():
+        job.log.append(f"   ⚠ 리포트 실패: {res.get('error') or res.get('code')}")
+
+
+async def start_report(slug: str, paper_dir: Path, model: Optional[str]) -> dict:
+    """Report-only run, as a job — the request returns immediately and the UI
+    follows it through /analyze/status (generation takes minutes)."""
+    existing = _jobs.get(slug)
+    if existing and existing.status == "running":
+        return {"job_id": existing.job_id, "already_running": True}
+    job = AnalysisJob(job_id=uuid.uuid4().hex[:12], slug=slug, status="running")
+    _jobs[slug] = job
+
+    async def _run() -> None:
+        try:
+            await _report_step(job, paper_dir, model)
+            job.status = "cancelled" if job.cancel_event.is_set() else "done"
+        except Exception as e:
+            job.status = "error"
+            job.error = str(e)
+        finally:
+            job.finished_at = time.time()
+
+    asyncio.create_task(_run())
+    return {"job_id": job.job_id, "already_running": False}
 
 
 async def _analyze_one_section(
@@ -421,7 +464,10 @@ def _figure_index_hint(paper_dir: Path) -> str:
 
 
 async def generate_report(
-    paper_dir: Path, model: Optional[str], timeout: int = 900
+    paper_dir: Path,
+    model: Optional[str],
+    timeout: int = 900,
+    job: Optional[AnalysisJob] = None,
 ) -> dict:
     """On-demand: build the structured single-file report (report.html) from the
     finished review — the '최종 정리' step of the team review guide."""
@@ -519,6 +565,10 @@ Then reply EXACTLY '✓ report done'."""
     if model:
         cmd += ["--model", model]
 
+    report = paper_dir / "report.html"
+    # A regeneration starts with a report.html already there, so "the file
+    # exists" proves nothing — the run only counts if the file actually moved.
+    before = report.stat().st_mtime if report.exists() else 0
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         limit=16 * 1024 * 1024,
@@ -530,7 +580,13 @@ Then reply EXACTLY '✓ report done'."""
     try:
         assert proc.stdout is not None
         while True:
+            if job and job.cancel_event.is_set():
+                job.log.append("   ⏹ killing claude…")
+                proc.terminate()
+                return {"ok": False, "error": "cancelled"}
             if time.time() - start > timeout:
+                if job:
+                    job.log.append(f"   ⏱ timeout ({timeout}s) — killing")
                 proc.terminate()
                 return {"ok": False, "error": "timeout"}
             try:
@@ -539,11 +595,19 @@ Then reply EXACTLY '✓ report done'."""
                 continue
             if not line:
                 break
+            if job:
+                _consume_stream_line(line, job)
         await proc.wait()
-        created = (paper_dir / "report.html").exists()
+        created = report.exists() and report.stat().st_mtime > before
         err = ""
         if proc.returncode != 0 and proc.stderr:
             err = (await proc.stderr.read()).decode("utf-8", "replace")[-500:]
+            if job:
+                _hint_auth_failure(err, job)
+        elif proc.returncode == 0 and not created:
+            err = "claude finished without writing report.html"
+        if job and proc.returncode == 0 and created:
+            job.log.append("   ✓ report done")
         return {
             "ok": proc.returncode == 0 and created,
             "code": proc.returncode,
@@ -848,6 +912,7 @@ def _serialize(job: AnalysisJob) -> dict:
         "job_id": job.job_id,
         "slug": job.slug,
         "status": job.status,
+        "phase": job.phase,
         "total": job.total,
         "current": job.current,
         "current_heading": job.current_heading,

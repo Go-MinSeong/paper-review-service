@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.9.0
+
+### Changed
+- **Analyze now builds Detail AND Summary in one run.** The structured report
+  used to be a separate button, so a freshly analyzed paper showed a Summary
+  built from *fewer* sections — the old report kept filling the tab. Report
+  generation is now the closing phase of the analyze job, so Detail and Summary
+  always describe the same review. A paper whose sections are all done but has
+  no report gets one backfilled; a report failure never fails the analyze (the
+  sections are already written).
+- **Report generation shows progress.** It used to be a request that blocked for
+  minutes with nothing but a "Generating…" button — no way to tell whether it
+  was working. It now runs as a job like analyze: the request returns
+  immediately and the toast shows the phase ("Building Summary"), the live tool
+  log (Read / WebSearch / Write report.html), and can be cancelled. The gallery
+  card shows a "Summary 생성 중" pill, and the progress survives a page reload.
+
+
 ## 2.8.0
 
 ### Added
