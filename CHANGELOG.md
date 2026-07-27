@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.10.1
+
+### Fixed
+- **Summary was empty on the phone.** Push only sent `report.md`, but reports
+  built before that file existed are html-only — the slot's paper was one of
+  them, so mobile got an empty Summary for a paper that clearly had one. Those
+  now go as html and render in an iframe, restyled for a phone (nav/hero
+  dropped, container widths capped, tables scrollable).
+- **Tables were broken images on mobile — in both views.** Figures extracted as
+  HTML tables (most `tbl*` entries) carry `html`, not `data_uri`, and the push
+  payload dropped everything without a `data_uri`. Tables are now sent and
+  rendered in place. Reports referencing extracted files by relative path get
+  those inlined as data URIs, and anything still unresolvable (e.g. arXiv
+  bundle paths inside extracted table HTML) shows a note instead of a broken
+  image icon.
+
+
 ## 2.10.0
 
 ### Added

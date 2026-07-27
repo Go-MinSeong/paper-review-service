@@ -85,6 +85,13 @@
   .views button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   #summary { padding-top: 10px; }
   #summary .ro-note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+  /* html-only reports (pre-report.md) render in their own document */
+  .fig-table { overflow-x: auto; margin: 12px 0; }
+  .fig-table table { border-collapse: collapse; font-size: 13px; }
+  .fig-table th, .fig-table td { border: 1px solid var(--border); padding: .3rem .5rem; }
+  .fig-missing { color: var(--muted); font-size: 12.5px; font-style: italic; }
+  #rep-frame { width: 100%; height: 78vh; border: 1px solid var(--border);
+               border-radius: 10px; background: #fff; }
   #toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom));
     transform: translateX(-50%); background: var(--fg); color: var(--bg);
     padding: 9px 16px; border-radius: 999px; font-size: 13px; display: none; z-index: 20; }
@@ -120,6 +127,7 @@
   let doc = null;          // { slug, title, md, figures, rev }
   let sections = null;     // [{head, body}] — [0] is the pre-### preamble (head="")
   let figById = {};
+  let figHtmlById = {};   // tables are extracted as HTML, not as an image
 
   const $ = id => document.getElementById(id);
   const token = () => localStorage.getItem("pr-remote-token") || "";
@@ -155,10 +163,44 @@
         { displayMode: disp, throwOnError: false, strict: "ignore" }); }
       catch (e) { return raw.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
     });
-    // figure refs → embedded data URIs
+    return resolveFigures(html);
+  }
+
+  // /paper/<slug>/fig/<id> only resolves on the local server: swap image refs
+  // for their data URI, and table refs for the extracted table itself.
+  function resolveFigures(html) {
+    html = html.replace(/<img\b[^>]*src="\/paper\/[^/"]+\/fig\/([^/"?#]+)"[^>]*>/g,
+      (m, id) => figHtmlById[id] ? `<div class="fig-table">${figHtmlById[id]}</div>` : m);
     html = html.replace(/src="(?:\/paper\/[^/"]+\/fig\/([^/"?#]+))"/g,
       (m, id) => figById[id] ? `src="${figById[id]}"` : m);
-    return html;
+    // Anything left can't load on a phone: /fig/ routes need the local server,
+    // and extracted table HTML can carry arXiv-bundle paths that exist on no
+    // machine at all. Say so instead of showing broken-image icons.
+    html = html.replace(/<img\b[^>]*src="\/paper\/[^/"]+\/fig\/([^/"?#]+)"[^>]*>/g,
+      (m, id) => `<span class="fig-missing">(${id} — 로컬에서 보기)</span>`);
+    return html.replace(/<img\b[^>]*>/g,
+      m => /src="(?:data:|https?:)/.test(m) ? m : '<span class="fig-missing">(이미지 없음)</span>');
+  }
+
+  // The report was laid out for a desktop pane: give it a mobile viewport, drop
+  // the sticky nav/hero (the header above already names the paper), and resolve
+  // its /paper/<slug>/fig/<id> refs — those URLs only exist on the local server.
+  function mobilizeReport(html) {
+    const patched = resolveFigures(html);
+    const inject = `<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  nav, .hero, header.hero { display: none !important; }
+  html, body { max-width: 100% !important; overflow-x: hidden; }
+  body { margin: 0 !important; padding: 0 12px 40px !important; font-size: 15px; }
+  .wrap, .container, main, section, article { max-width: 100% !important;
+    padding-left: 0 !important; padding-right: 0 !important; }
+  img, svg { max-width: 100% !important; height: auto !important; }
+  svg { overflow: hidden !important; }   /* diagram labels overflowed the viewBox */
+  table, pre, .table-wrap { display: block; max-width: 100% !important; overflow-x: auto; }
+</style>`;
+    return /<head[^>]*>/i.test(patched)
+      ? patched.replace(/<head[^>]*>/i, m => m + inject)
+      : inject + patched;
   }
 
   function stripFrontmatter(md) {
@@ -167,8 +209,12 @@
   }
 
   function render() {
-    figById = {};
-    for (const f of doc.figures || []) if (f.id && f.data_uri) figById[f.id] = f.data_uri;
+    figById = {}; figHtmlById = {};
+    for (const f of doc.figures || []) {
+      if (!f.id) continue;
+      if (f.data_uri) figById[f.id] = f.data_uri;
+      else if (f.html) figHtmlById[f.id] = f.html;   // tables come as HTML
+    }
     sections = splitSections(doc.md);
     $("hd-title").textContent = doc.title || doc.slug || "workbench";
     $("hd-rev").textContent = "rev " + (doc.rev ?? "?");
@@ -188,14 +234,21 @@
       h.appendChild(b);
     });
     // Summary = the generated report, read-only (it's rebuilt by analyze, not
-    // hand-edited). Without one, the switch stays hidden and Detail is all.
+    // hand-edited). Reports made before report.md existed arrive as html and
+    // go in an iframe. Without either, the switch stays hidden.
     const rep = (doc.report_md || "").trim();
-    $("summary").innerHTML = rep
-      ? '<p class="ro-note">읽기 전용 — 로컬에서 Analyze 하면 갱신됩니다.</p>'
-        + renderMarkdown(rep)
-      : "";
-    $("views").hidden = !rep;
-    if (!rep) view = "detail";
+    const repHtml = (doc.report_html || "").trim();
+    const note = '<p class="ro-note">읽기 전용 — 로컬에서 Analyze 하면 갱신됩니다.</p>';
+    if (rep) {
+      $("summary").innerHTML = note + renderMarkdown(rep);
+    } else if (repHtml) {
+      $("summary").innerHTML = note + '<iframe id="rep-frame"></iframe>';
+      $("rep-frame").srcdoc = mobilizeReport(repHtml);
+    } else {
+      $("summary").innerHTML = "";
+    }
+    $("views").hidden = !(rep || repHtml);
+    if (!rep && !repHtml) view = "detail";
     $("hdr").hidden = false; $("gate").hidden = true;
     applyView();
   }

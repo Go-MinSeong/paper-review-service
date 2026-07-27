@@ -43,7 +43,12 @@ def test_push_payload(paper):
     assert seen["headers"]["x-token"] == "tkn"
     j = seen["json"]
     assert j["force"] is True and j["slug"] == "2600.00001" and j["title"] == "T"
-    assert j["figures"] == [{"id": "fig1", "data_uri": "data:image/png;base64,AA"}]
+    # tables come as HTML, not an image — they must survive too, or every table
+    # the review references shows up as a broken image on the phone
+    assert j["figures"] == [
+        {"id": "fig1", "data_uri": "data:image/png;base64,AA"},
+        {"id": "tbl1", "html": "<table></table>"},
+    ]
 
 
 def test_pull_writes_and_backs_up(paper):
@@ -129,3 +134,55 @@ def test_save_config_rejects_bad_input(tmp_path, monkeypatch):
         R.save_config("my-app.vercel.app", "t")  # no scheme
     with pytest.raises(ValueError):
         R.save_config("https://a.vercel.app", "")  # url without a token
+
+
+def test_push_inlines_report_html_and_local_images(paper):
+    """An html-only report (built before report.md existed) still has to be
+    readable on the phone: it goes as html, with its machine-local image paths
+    inlined."""
+    d = paper / "2600.00001"
+    (d / "extracted").mkdir()
+    (d / "extracted" / "plot.png").write_bytes(b"\x89PNG\r\n\x1a\nDATA")
+    (d / "report.html").write_text(
+        '<html><body><img src="extracted/plot.png">'
+        '<img src="/paper/2600.00001/fig/fig1">'
+        '<img src="https://example.com/x.png">'
+        '<img src="missing.png"></body></html>'
+    )
+    seen = {}
+
+    def handler(req):
+        seen["json"] = json.loads(req.content)
+        return httpx.Response(200, json={"ok": True, "rev": 2, "slug": "2600.00001"})
+
+    out = R.push("2600.00001", paper, client=_client(handler))
+    html = seen["json"]["report_html"]
+    assert "data:image/png;base64," in html          # local file inlined
+    assert 'src="extracted/plot.png"' not in html
+    assert 'src="/paper/2600.00001/fig/fig1"' in html  # resolved client-side
+    assert 'src="https://example.com/x.png"' in html   # remote left alone
+    assert 'src="missing.png"' in html                 # unreadable left alone
+    assert out["has_report"] is True
+
+
+def test_push_prefers_markdown_report(paper):
+    """When both exist, md wins — it renders natively instead of in an iframe."""
+    d = paper / "2600.00001"
+    (d / "report.md").write_text("## 00 TL;DR\n")
+    (d / "report.html").write_text("<html></html>")
+
+    def handler(req):
+        body = json.loads(req.content)
+        assert body["report_md"].startswith("## 00") and body["report_html"] == ""
+        return httpx.Response(200, json={"ok": True, "rev": 3, "slug": "2600.00001"})
+
+    R.push("2600.00001", paper, client=_client(handler))
+
+
+def test_inline_local_images_refuses_escaping_the_paper_dir(tmp_path):
+    secret = tmp_path / "secret.png"
+    secret.write_bytes(b"nope")
+    d = tmp_path / "paper"
+    d.mkdir()
+    html = '<img src="../secret.png">'
+    assert R._inline_local_images(html, d) == html  # unchanged, nothing leaked

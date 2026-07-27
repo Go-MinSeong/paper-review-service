@@ -90,12 +90,40 @@ def _load_figures(paper_dir: Path) -> list[dict]:
     except Exception:
         return []
     items = data if isinstance(data, list) else data.get("figures", [])
-    # only what the mobile page needs: id → data_uri
-    return [
-        {"id": f["id"], "data_uri": f["data_uri"]}
-        for f in items
-        if isinstance(f, dict) and f.get("id") and f.get("data_uri")
-    ]
+    # Only what the mobile page needs to resolve a /fig/<id> reference. Tables
+    # are extracted as HTML rather than an image — dropping them (as this used
+    # to) left broken images on the phone for every table the review cites.
+    out = []
+    for f in items:
+        if not isinstance(f, dict) or not f.get("id"):
+            continue
+        if f.get("data_uri"):
+            out.append({"id": f["id"], "data_uri": f["data_uri"]})
+        elif f.get("html"):
+            out.append({"id": f["id"], "html": f["html"]})
+    return out
+
+
+def _inline_local_images(html: str, paper_dir: Path) -> str:
+    """Reports may reference extracted files by relative path (extracted/…png)
+    instead of a /fig/<id> route. Those paths only exist on this machine, so
+    inline them as data URIs before the html goes to the phone."""
+    import base64
+    import mimetypes
+    import re
+
+    def repl(m: "re.Match[str]") -> str:
+        rel = m.group(2)
+        f = (paper_dir / rel).resolve()
+        try:
+            f.relative_to(paper_dir.resolve())  # stay inside the paper folder
+            data = f.read_bytes()
+        except (ValueError, OSError):
+            return m.group(0)
+        mime = mimetypes.guess_type(f.name)[0] or "image/png"
+        return f'{m.group(1)}"data:{mime};base64,{base64.b64encode(data).decode()}"'
+
+    return re.sub(r'(src=)"(?!https?:|data:|/)([^"]+)"', repl, html)
 
 
 def _title_of(md: str) -> str:
@@ -115,15 +143,23 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
     if not wb.exists():
         raise FileNotFoundError(f"workbench not found: {wb}")
     md = wb.read_text()
-    # The Summary (report.md) rides along read-only: the phone should show the
-    # same two views as the desktop, and it's the same renderer.
-    report = service_root / slug / "report.md"
+    # The Summary rides along read-only: the phone should show the same two
+    # views as the desktop. report.md renders natively, but reports built before
+    # it existed are html-only — send those as-is rather than showing an empty
+    # Summary for a paper that clearly has one.
+    report_md = service_root / slug / "report.md"
+    report_html = service_root / slug / "report.html"
     payload = {
         "force": True,
         "slug": slug,
         "title": _title_of(md),
         "md": md,
-        "report_md": report.read_text() if report.exists() else "",
+        "report_md": report_md.read_text() if report_md.exists() else "",
+        "report_html": (
+            _inline_local_images(report_html.read_text(), service_root / slug)
+            if report_html.exists() and not report_md.exists()
+            else ""
+        ),
         "figures": _load_figures(service_root / slug),
     }
     c = client or httpx.Client(timeout=60)
@@ -132,7 +168,7 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
         r.raise_for_status()
         out = r.json()
         out["url"] = cfg["url"]
-        out["has_report"] = bool(payload["report_md"])
+        out["has_report"] = bool(payload["report_md"] or payload["report_html"])
     finally:
         if client is None:
             c.close()

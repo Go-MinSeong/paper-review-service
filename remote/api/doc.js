@@ -54,9 +54,11 @@ export default async function handler(req, res) {
       slug: body.slug ?? cur?.slug ?? "unknown",
       title: body.title ?? cur?.title ?? "",
       md: body.md,
-      // Summary is read-only on mobile: a save carries no report_md, so keep
-      // the one the push delivered instead of dropping it.
+      // Summary is read-only on mobile: a save carries no report, so keep the
+      // one the push delivered instead of dropping it. Reports built before
+      // report.md existed arrive as html.
       report_md: body.report_md ?? cur?.report_md ?? "",
+      report_html: body.report_html ?? cur?.report_html ?? "",
       figures: body.figures ?? cur?.figures ?? [],
       rev: (cur?.rev || 0) + 1,
       pushed_at: body.force ? new Date().toISOString() : cur?.pushed_at,
