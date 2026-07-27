@@ -133,6 +133,54 @@ def render_initial(paper_dir: Path, slug: str) -> str:
     return "\n".join(fm + tldr + contrib + prereqs + section_lines + qna + wrap)
 
 
+# Wrap-up/메타 fields dropped in 2.6.0 (the structured report's 05 한계 /
+# 06 후속 연구 cover them). New workbenches never get them, but every paper
+# created before that still carries the empty placeholders.
+_LEGACY_FIELDS = ("가장 약한 부분", "후속으로 읽을 논문", "마지막 세션")
+
+
+_FIELD_RE = re.compile(r"^[-*+][ \t]+\*\*(.+?)\*\*:[ \t]*(.*)$")
+_EMPTY_ITEM_RE = re.compile(r"^[ \t]+(?:\d+\.|[-*+])[ \t]*$")  # "  1. " with no text
+
+
+def strip_legacy_wrapup_fields(text: str) -> str:
+    """Remove the retired Wrap-up/메타 placeholders — but ONLY while they are
+    empty. A field the user actually filled in is content, not cruft, and stays."""
+    lines = text.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        m = _FIELD_RE.match(lines[i])
+        if m and m.group(1).strip() in _LEGACY_FIELDS:
+            # the value may continue on the indented lines below (the numbered
+            # list under 후속으로 읽을 논문)
+            end = i + 1
+            while end < len(lines) and lines[end].startswith((" ", "\t")):
+                end += 1
+            empty = not m.group(2).strip() and all(
+                _EMPTY_ITEM_RE.match(ln) or not ln.strip() for ln in lines[i + 1 : end]
+            )
+            if empty:
+                i = end
+                continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out)
+
+
+def migrate_workbench(path: Path) -> bool:
+    """Apply pending in-place cleanups to one workbench.md. True if it changed."""
+    try:
+        text = path.read_text()
+    except OSError:
+        return False
+    new = strip_legacy_wrapup_fields(text)
+    if new == text:
+        return False
+    path.write_text(new)
+    return True
+
+
 def read_status(workbench_md: Path) -> str:
     """Read the `status:` frontmatter field from a workbench.md."""
     if not workbench_md.exists():

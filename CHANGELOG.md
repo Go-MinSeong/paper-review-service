@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.10.2
+
+### Fixed
+- **The retired Wrap-up/메타 fields finally disappear from existing papers.**
+  2.6.0 removed 가장 약한 부분 / 후속으로 읽을 논문 / 마지막 세션 from the
+  generator, but every workbench created before that kept the empty
+  placeholders — and re-analyzing can't clear them, since analyze deliberately
+  never touches Wrap-up. The gallery now strips them once per paper, *only*
+  while they are empty (a field with the user's own text stays), preserving the
+  file's mtime so old papers don't all jump to "edited just now".
+- **Tests no longer run against the developer's own library.** SERVICE_ROOT
+  defaults to the checkout, so the route tests exercised handlers over real
+  papers; harmless while everything was read-only, not once a migration writes.
+  The suite now runs against a throwaway root.
+
+
 ## 2.10.1
 
 ### Fixed

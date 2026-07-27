@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from html import escape as _escape
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 
 from .. import SERVICE_ROOT
-from ..workbench import read_status
+from ..workbench import read_status, strip_legacy_wrapup_fields
 from pydantic import BaseModel
 
 from .analyze import (
@@ -149,6 +150,21 @@ def _list_papers() -> list[dict]:
             continue
         meta = _read_frontmatter(wb)
         text = wb.read_text()
+        # One-time cleanup of the Wrap-up/메타 fields retired in 2.6.0. Analyze
+        # deliberately never touches Wrap-up, so papers created before that kept
+        # the empty placeholders forever; the gallery already reads every
+        # workbench, so this is where they get dropped (only while empty).
+        migrated = strip_legacy_wrapup_fields(text)
+        if migrated != text:
+            try:
+                st = wb.stat()
+                wb.write_text(migrated)
+                # keep the original mtime: this is housekeeping, not an edit —
+                # otherwise every old paper jumps to "edited just now" at once
+                os.utime(wb, (st.st_atime, st.st_mtime))
+                text = migrated
+            except OSError:
+                pass
         total, done = _section_progress(text)
         try:
             rating = max(0, min(5, int(str(meta.get("rating", "")).strip() or 0)))

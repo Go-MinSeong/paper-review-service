@@ -1,6 +1,6 @@
 [project]
 name = "paper-review"
-version = "2.10.1"
+version = "2.10.2"
 description = "Local service for collaborative review of papers, blogs, and web articles (→ workbench → Velog draft)"
 readme = "DESIGN.md"
 requires-python = ">=3.10"
