@@ -1233,13 +1233,22 @@
     });
 
     // — Mobile remote slot (URL + token; the token never comes back to the UI) —
+    // The gallery's HTML/JS are read from disk per request but the routes live in
+    // the running process: after an update, a server that hasn't been restarted
+    // serves THIS pane over endpoints that don't know its fields yet. The
+    // missing field is the tell — say so instead of failing with a raw 422.
+    const STALE_SERVER = '서버가 예전 버전으로 실행 중입니다 — 메뉴바에서 Restart 후 다시 시도하세요.';
     async function loadMobile() {
       const hint = document.getElementById('rm-hint');
+      const save = document.getElementById('rm-save');
       try {
         const st = await (await fetch('/settings')).json();
+        const supported = 'remote_token_set' in st;
+        save.disabled = !supported;
         document.getElementById('rm-url').value = st.remote_url || '';
         document.getElementById('rm-token').value = '';
-        hint.textContent = st.remote_from_env
+        hint.textContent = !supported ? STALE_SERVER
+          : st.remote_from_env
           ? '환경변수(PAPER_REVIEW_REMOTE_URL/TOKEN)가 설정되어 있어 그것이 우선합니다.'
           : st.remote_token_set ? '토큰이 저장되어 있습니다 — 비워두면 그대로 유지됩니다.'
           : '아직 토큰이 없습니다 — URL과 함께 입력하세요.';
@@ -1259,6 +1268,8 @@
           body: JSON.stringify(body),
         });
         const j = await r.json().catch(() => ({}));
+        // 422 = the running server's route doesn't accept these fields yet
+        if (r.status === 422) throw new Error(STALE_SERVER);
         if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
         tokenEl.value = '';
         document.getElementById('rm-hint').textContent =
