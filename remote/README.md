@@ -22,13 +22,18 @@
 
 ## 로컬 설정 (최초 1회)
 
-`~/.config/paper-review/remote.json` 생성 (repo 밖 — 커밋 금지):
-
-```json
-{ "url": "https://<앱>.vercel.app", "token": "<REMOTE_TOKEN 값>" }
-```
+갤러리 우측 상단 ⚙ → **설정 → 모바일**에서 배포 URL과 `REMOTE_TOKEN` 값을 입력한다.
+`~/.config/paper-review/remote.json`(권한 600, repo 밖)에 저장되며, 저장 후 화면으로
+다시 표시되지 않는다. 직접 쓰거나 환경변수(`PAPER_REVIEW_REMOTE_URL` /
+`PAPER_REVIEW_REMOTE_TOKEN`, 이쪽이 우선)를 써도 된다.
 
 모바일에서 배포 URL을 열고 같은 토큰 입력(기기에 저장됨).
+
+## 모바일 화면
+
+- **Detail** — 워크벤치. `###` 섹션 단위 ✏️ 편집, ⚙ 로 frontmatter/서문 편집.
+- **Summary** — push 시점의 `report.md`. **읽기 전용**(리포트는 로컬 Analyze가 생성).
+  리포트가 없는 페이퍼는 전환 버튼이 나오지 않는다.
 
 ## 주의
 

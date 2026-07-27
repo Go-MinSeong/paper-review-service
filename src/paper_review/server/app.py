@@ -135,6 +135,9 @@ def _list_papers() -> list[dict]:
     if not SERVICE_ROOT.exists():
         return []
     views = _load_views()
+    from ..remote import slot_state
+
+    on_phone = slot_state(SERVICE_ROOT).get("slug", "")
     rows: list[dict] = []
     for d in sorted(
         SERVICE_ROOT.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True
@@ -188,6 +191,7 @@ def _list_papers() -> list[dict]:
                 ),
                 "published_ym": _published_ym(d.name, d),
                 "last_viewed": int(views.get(d.name, 0)),
+                "on_remote": d.name == on_phone,
             }
         )
     return rows
@@ -678,38 +682,57 @@ def patch_status(slug: str, body: StatusPatchBody):
 
 
 class SettingsBody(BaseModel):
-    drafts_dir: str
+    # Every field is optional: each Settings pane saves only what it owns.
+    drafts_dir: str | None = None
+    remote_url: str | None = None
+    remote_token: str | None = None  # None = keep the stored one
 
 
 @app.get("/settings")
 def get_settings():
-    """User settings + effective paths (for the gallery settings panel)."""
+    """User settings + effective paths (for the gallery settings panel).
+    The remote token is never sent back — only whether one is stored."""
     from ..config import DEFAULT_DRAFTS_DIR, get_drafts_dir, load_settings
+    from ..remote import read_config
 
+    rc = read_config()
     return {
         "drafts_dir": load_settings().get("drafts_dir", ""),
         "effective_drafts_dir": str(get_drafts_dir()),
         "default_drafts_dir": str(DEFAULT_DRAFTS_DIR),
+        "remote_url": rc["url"],
+        "remote_token_set": rc["token_set"],
+        "remote_from_env": rc["from_env"],
     }
 
 
 @app.put("/settings")
 def put_settings(body: SettingsBody):
-    """Set the publish output dir (obsidian/velog vault drafts). Empty = default."""
+    """Save the panes' settings. Publish dir: empty = default. Mobile slot:
+    empty URL clears the config, and an omitted token keeps the stored one."""
     from ..config import get_drafts_dir, load_settings, save_settings
+    from ..remote import save_config
 
-    s = load_settings()
-    val = body.drafts_dir.strip()
-    if val:
-        p = Path(val).expanduser()
-        if not p.is_absolute():
-            raise HTTPException(
-                400, "절대 경로를 입력하세요 (예: ~/Documents/my-vault/drafts)"
-            )
-        s["drafts_dir"] = str(p)
-    else:
-        s.pop("drafts_dir", None)
-    save_settings(s)
+    if body.drafts_dir is not None:
+        s = load_settings()
+        val = body.drafts_dir.strip()
+        if val:
+            p = Path(val).expanduser()
+            if not p.is_absolute():
+                raise HTTPException(
+                    400, "절대 경로를 입력하세요 (예: ~/Documents/my-vault/drafts)"
+                )
+            s["drafts_dir"] = str(p)
+        else:
+            s.pop("drafts_dir", None)
+        save_settings(s)
+
+    if body.remote_url is not None:
+        try:
+            save_config(body.remote_url, body.remote_token)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
     return {"ok": True, "effective_drafts_dir": str(get_drafts_dir())}
 
 

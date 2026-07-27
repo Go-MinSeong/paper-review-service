@@ -26,9 +26,51 @@ def load_config() -> dict:
         if cfg.get("url") and cfg.get("token"):
             return cfg
     raise RuntimeError(
-        f"remote not configured — write {CONFIG_PATH} as "
-        '{"url": "https://<app>.vercel.app", "token": "<REMOTE_TOKEN>"}'
+        "모바일 원격 슬롯이 설정되지 않았습니다 — 설정 → 모바일에서 "
+        "URL과 토큰을 입력하세요."
     )
+
+
+def read_config() -> dict:
+    """Stored config for the Settings UI ({} when unset). Never returns the
+    token itself — only whether one is set."""
+    cfg = {}
+    if CONFIG_PATH.exists():
+        try:
+            cfg = json.loads(CONFIG_PATH.read_text())
+        except ValueError:
+            cfg = {}
+    env_url = os.environ.get("PAPER_REVIEW_REMOTE_URL")
+    env_token = os.environ.get("PAPER_REVIEW_REMOTE_TOKEN")
+    return {
+        "url": env_url or cfg.get("url", ""),
+        "token_set": bool(env_token or cfg.get("token")),
+        "from_env": bool(env_url and env_token),
+    }
+
+
+def save_config(url: str, token: str | None) -> None:
+    """Write the slot config. `token=None` keeps the stored one (so the UI can
+    save a URL change without ever handling the secret); an empty url clears
+    the whole config."""
+    cur = {}
+    if CONFIG_PATH.exists():
+        try:
+            cur = json.loads(CONFIG_PATH.read_text())
+        except ValueError:
+            cur = {}
+    url = url.strip()
+    token = cur.get("token", "") if token is None else token.strip()
+    if not url:
+        CONFIG_PATH.unlink(missing_ok=True)
+        return
+    if not url.startswith(("http://", "https://")):
+        raise ValueError("URL은 https://<app>.vercel.app 형식이어야 합니다")
+    if not token:
+        raise ValueError("토큰을 입력하세요")
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps({"url": url.rstrip("/"), "token": token}))
+    CONFIG_PATH.chmod(0o600)  # it holds a shared secret
 
 
 def _api(cfg: dict) -> str:
@@ -73,11 +115,15 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
     if not wb.exists():
         raise FileNotFoundError(f"workbench not found: {wb}")
     md = wb.read_text()
+    # The Summary (report.md) rides along read-only: the phone should show the
+    # same two views as the desktop, and it's the same renderer.
+    report = service_root / slug / "report.md"
     payload = {
         "force": True,
         "slug": slug,
         "title": _title_of(md),
         "md": md,
+        "report_md": report.read_text() if report.exists() else "",
         "figures": _load_figures(service_root / slug),
     }
     c = client or httpx.Client(timeout=60)
@@ -86,10 +132,36 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
         r.raise_for_status()
         out = r.json()
         out["url"] = cfg["url"]
-        return out
+        out["has_report"] = bool(payload["report_md"])
     finally:
         if client is None:
             c.close()
+    _write_slot_state(service_root, {"slug": slug, "rev": out.get("rev")})
+    return out
+
+
+SLOT_STATE = ".remote-slot.json"
+
+
+def _write_slot_state(service_root: Path, state: dict) -> None:
+    """Remember which paper the slot holds, so the gallery can mark it without
+    a network round-trip. Best-effort — losing it only costs the badge."""
+    import time
+
+    state = {**state, "pushed_at": int(time.time())}
+    try:
+        (service_root / SLOT_STATE).write_text(json.dumps(state))
+    except OSError:
+        pass
+
+
+def slot_state(service_root: Path) -> dict:
+    """Which paper is currently on the phone ({} if none / never pushed)."""
+    try:
+        s = json.loads((service_root / SLOT_STATE).read_text())
+        return s if isinstance(s, dict) and s.get("slug") else {}
+    except (OSError, ValueError):
+        return {}
 
 
 def pull(service_root: Path, client: httpx.Client | None = None) -> dict:

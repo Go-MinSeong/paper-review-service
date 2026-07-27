@@ -41,7 +41,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 | 💬 **Review, don't skim** | A chat dock runs `claude -p` inside the paper's folder. Ask, challenge, record — `workbench.md` is the single source of truth and the page updates live over SSE. |
 | 📊 **Structured report** | Every analyze run ends by turning the review into a self-contained HTML report (regenerate any time): `00 TL;DR → 01 개념 → 02 배경 → 03 방법론 → 04 실험 → 05 한계 → 06 후속 연구`, with key figures, result bars, an ⚠️/🔍 limitation split and web-searched follow-up papers. |
 | 📝 **Publish** | Export the full review, the report, or both as [Velog](https://velog.io)/Obsidian drafts — figures materialized into your vault, your voice preserved. |
-| 📱 **Continue on your phone** | Push one paper to a tiny Vercel slot, read and edit sections on mobile, pull the edits back. Manual sync, no account, one shared token. |
+| 📱 **Continue on your phone** | Push one paper to a tiny Vercel slot — review *and* report — read and edit sections on mobile, pull the edits back. Manual sync, no account, one shared token, set up from **Settings → 모바일**. |
 | 🏷️ **A library that scales** | Hierarchical tags (`CV/segmentation`), star ratings, a status workflow (Reading → In progress → Reviewed → Exported → Archived), search, grid/list views, per-paper illustrations. |
 | 📈 **Dashboards** | Monthly **Intake** and **Export** views — throughput, median days from intake to export, status funnel, rating distribution, top tags. |
 | 🎨 **Themes** | Light/dark plus Stripe · Figma · Tesla · Sunset · Sage, applied across the gallery, review page and source viewer. |

@@ -145,6 +145,7 @@
         <button class="settings-tab" data-stab="skills">스킬</button>
         <button class="settings-tab" data-stab="illust">일러스트</button>
         <button class="settings-tab" data-stab="paths">경로</button>
+        <button class="settings-tab" data-stab="mobile">모바일</button>
       </div>
       <div class="settings-pane" id="spane-themes">
         <div class="theme-grid" id="theme-grid"></div>
@@ -174,6 +175,24 @@
         </div>
         <div class="modal-actions">
           <button class="btn-primary" id="paths-save">저장</button>
+        </div>
+      </div>
+      <div class="settings-pane" id="spane-mobile" hidden>
+        <div class="field">
+          <label>원격 슬롯 주소 (Vercel 앱 URL)</label>
+          <input type="text" id="rm-url" placeholder="예: https://my-paper-review.vercel.app — 비우고 저장하면 연결 해제">
+        </div>
+        <div class="field">
+          <label>액세스 토큰 (Vercel의 REMOTE_TOKEN 과 동일해야 합니다)</label>
+          <input type="password" id="rm-token" autocomplete="off" placeholder="저장된 토큰 유지 — 바꿀 때만 입력">
+          <div class="hint" id="rm-hint">…</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-primary" id="rm-save">저장</button>
+        </div>
+        <div class="hint">
+          토큰은 <code>~/.config/paper-review/remote.json</code> 에만 저장되고(600),
+          이 화면으로 다시 표시되지 않습니다. 페이퍼를 보내는 것은 목록 카드의 📱 버튼입니다.
         </div>
       </div>
       <div class="settings-pane" id="spane-illust" hidden>

@@ -22,8 +22,10 @@
     font-family: -apple-system, BlinkMacSystemFont, "Pretendard Variable", sans-serif;
     font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased;
   }
+  /* Header and the view switch share ONE sticky container: both sticking at
+     top:0 made them overlap as soon as the page scrolled. */
+  #topbar { position: sticky; top: 0; z-index: 10; background: var(--bg); }
   header {
-    position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; gap: 8px;
     padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
     background: color-mix(in srgb, var(--bg) 92%, transparent);
@@ -71,6 +73,18 @@
   #gate button { width: 100%; margin-top: 10px; font: inherit; padding: 12px;
     border-radius: 10px; border: 0; background: var(--accent); color: white; }
   .hint { color: var(--muted); font-size: 13px; }
+  /* Detail / Summary switch — the phone shows the same two views as the desktop */
+  .views {
+    display: flex; gap: 6px;
+    padding: 8px 14px; background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .views button {
+    flex: 1; font: inherit; font-size: 13px; padding: 7px 0; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  }
+  .views button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #summary { padding-top: 10px; }
+  #summary .ro-note { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
   #toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom));
     transform: translateX(-50%); background: var(--fg); color: var(--bg);
     padding: 9px 16px; border-radius: 999px; font-size: 13px; display: none; z-index: 20; }
@@ -84,13 +98,20 @@
     <button id="token-save">열기</button>
   </div>
 
+  <div id="topbar">
   <header id="hdr" hidden>
     <div class="title" id="hd-title">…</div>
     <span class="rev" id="hd-rev"></span>
     <button id="btn-front" title="frontmatter/서문 편집">⚙</button>
     <button id="btn-reload" title="새로고침">↻</button>
   </header>
+  <div class="views" id="views" hidden>
+    <button data-view="detail" class="on">Detail</button>
+    <button data-view="summary">Summary</button>
+  </div>
+  </div>
   <main id="wb" hidden></main>
+  <main id="summary" hidden></main>
   <div id="toast"></div>
 
 <script>
@@ -166,8 +187,32 @@
       b.addEventListener("click", () => openEditor(i + 1, h));
       h.appendChild(b);
     });
-    $("hdr").hidden = false; wb.hidden = false; $("gate").hidden = true;
+    // Summary = the generated report, read-only (it's rebuilt by analyze, not
+    // hand-edited). Without one, the switch stays hidden and Detail is all.
+    const rep = (doc.report_md || "").trim();
+    $("summary").innerHTML = rep
+      ? '<p class="ro-note">읽기 전용 — 로컬에서 Analyze 하면 갱신됩니다.</p>'
+        + renderMarkdown(rep)
+      : "";
+    $("views").hidden = !rep;
+    if (!rep) view = "detail";
+    $("hdr").hidden = false; $("gate").hidden = true;
+    applyView();
   }
+
+  // ── view switch ──────────────────────────────────────────────────────────
+  let view = "detail";
+  function applyView() {
+    $("wb").hidden = view !== "detail";
+    $("summary").hidden = view !== "summary";
+    $("btn-front").hidden = view !== "detail";  // it edits the workbench
+    document.querySelectorAll(".views button").forEach(b =>
+      b.classList.toggle("on", b.dataset.view === view));
+  }
+  document.querySelectorAll(".views button").forEach(b =>
+    b.addEventListener("click", () => {
+      view = b.dataset.view; closeEditor(); applyView(); scrollTo(0, 0);
+    }));
 
   // ── editing ──────────────────────────────────────────────────────────────
   let openEd = null;
@@ -229,6 +274,7 @@
   }
   function showGate(msg) {
     $("gate").hidden = false; $("hdr").hidden = true; $("wb").hidden = true;
+    $("summary").hidden = true; $("views").hidden = true;
     $("gate").querySelector(".hint").textContent =
       msg || "액세스 토큰을 입력하세요 (이 기기에 저장됩니다).";
   }

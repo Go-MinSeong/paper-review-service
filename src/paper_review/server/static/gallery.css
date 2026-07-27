@@ -545,6 +545,13 @@
   }
   .card:hover .card-remote { opacity: 1; transform: scale(1); }
   .card-remote:hover { background: var(--accent); }
+  /* The paper currently in the mobile slot keeps its badge visible — that's
+     the only way to tell from the list which one the phone is showing. */
+  .card-remote.on {
+    opacity: 1; transform: scale(1);
+    background: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
   /* Star rating overlay (bottom-right of the thumbnail) */
   .card-rating {
     position: absolute; bottom: 8px; right: 8px; z-index: 3;

@@ -57,3 +57,49 @@ def test_auth_failure_hint():
     j2 = AnalysisJob(slug="y", job_id="t2")
     _hint_auth_failure("connection reset by peer", j2)
     assert not j2.log
+
+
+def test_settings_never_returns_the_remote_token():
+    s = client.get("/settings").json()
+    assert "remote_token" not in s
+    assert isinstance(s["remote_token_set"], bool)
+
+
+def test_settings_panes_save_independently(tmp_path, monkeypatch):
+    """Each pane PUTs only its own fields — saving the mobile slot must not
+    wipe the publish path, and vice versa."""
+    from paper_review import config as C, remote as R
+
+    monkeypatch.setattr(C, "SETTINGS_PATH", tmp_path / "settings.json")
+    monkeypatch.setattr(R, "CONFIG_PATH", tmp_path / "remote.json")
+    monkeypatch.delenv("PAPER_REVIEW_REMOTE_URL", raising=False)
+    monkeypatch.delenv("PAPER_REVIEW_REMOTE_TOKEN", raising=False)
+    monkeypatch.delenv("PAPER_REVIEW_DRAFTS_DIR", raising=False)
+
+    assert (
+        client.put("/settings", json={"drafts_dir": "/tmp/vault/drafts"}).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            "/settings",
+            json={"remote_url": "https://a.vercel.app", "remote_token": "t"},
+        ).status_code
+        == 200
+    )
+
+    s = client.get("/settings").json()
+    assert s["drafts_dir"] == "/tmp/vault/drafts"  # survived the mobile save
+    assert s["remote_url"] == "https://a.vercel.app"
+    assert s["remote_token_set"] is True
+
+    # a relative publish path is still rejected
+    assert (
+        client.put("/settings", json={"drafts_dir": "relative/dir"}).status_code == 400
+    )
+    # and a URL without a token (none stored yet) is too
+    R.save_config("", None)
+    assert (
+        client.put("/settings", json={"remote_url": "https://a.vercel.app"}).status_code
+        == 400
+    )

@@ -314,7 +314,7 @@
             <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
             <span class="type-badge t-${escapeHtml(p.content_type || 'paper')}">${escapeHtml(p.content_type || 'paper')}</span>
             <button class="card-log" data-log="${escapeHtml(p.slug)}" title="분석 로그">▤</button>
-            <button class="card-remote" data-remote="${escapeHtml(p.slug)}" title="모바일로 보내기 (원격 슬롯 교체)">📱</button>
+            <button class="card-remote${p.on_remote ? ' on' : ''}" data-remote="${escapeHtml(p.slug)}" title="${p.on_remote ? '지금 모바일 슬롯에 있는 페이퍼 — 다시 보내면 최신 내용으로 갱신' : '모바일로 보내기 (원격 슬롯 교체)'}">📱</button>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}
@@ -464,7 +464,12 @@
       const r = await fetch(`/paper/${encodeURIComponent(slug)}/remote-push`, { method: 'POST' });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
-      UIDialog.alert(`원격 슬롯에 푸시됨 (rev ${j.rev}).\n모바일에서 열기: ${j.url}`, { title: '📱 완료' });
+      papers.forEach(x => x.on_remote = x.slug === slug);   // the slot moved
+      renderCards();
+      UIDialog.alert(
+        `원격 슬롯에 푸시됨 (rev ${j.rev}).` +
+        (j.has_report ? '\nSummary 리포트도 함께 전송됨.' : '\n(Summary 리포트 없음 — Analyze 후 다시 보내면 포함됩니다)') +
+        `\n모바일에서 열기: ${j.url}`, { title: '📱 완료' });
     } catch (err) {
       UIDialog.alert('푸시 실패: ' + (err.message || err), { title: '오류' });
     } finally { b.disabled = false; }
@@ -1192,9 +1197,11 @@
       document.getElementById('spane-skills').hidden = id !== 'skills';
       document.getElementById('spane-illust').hidden = id !== 'illust';
       document.getElementById('spane-paths').hidden = id !== 'paths';
+      document.getElementById('spane-mobile').hidden = id !== 'mobile';
       if (id === 'skills') loadSkills();
       if (id === 'illust') loadIllust();
       if (id === 'paths') loadPaths();
+      if (id === 'mobile') loadMobile();
     }));
 
     // — Paths (publish output → user's own Obsidian/velog vault) —
@@ -1220,6 +1227,42 @@
         if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
         document.getElementById('paths-hint').textContent =
           `저장됨 — 적용 경로: ${j.effective_drafts_dir}`;
+      } catch (e) {
+        UIDialog.alert('저장 실패: ' + (e.message || e), { title: '오류' });
+      }
+    });
+
+    // — Mobile remote slot (URL + token; the token never comes back to the UI) —
+    async function loadMobile() {
+      const hint = document.getElementById('rm-hint');
+      try {
+        const st = await (await fetch('/settings')).json();
+        document.getElementById('rm-url').value = st.remote_url || '';
+        document.getElementById('rm-token').value = '';
+        hint.textContent = st.remote_from_env
+          ? '환경변수(PAPER_REVIEW_REMOTE_URL/TOKEN)가 설정되어 있어 그것이 우선합니다.'
+          : st.remote_token_set ? '토큰이 저장되어 있습니다 — 비워두면 그대로 유지됩니다.'
+          : '아직 토큰이 없습니다 — URL과 함께 입력하세요.';
+      } catch (e) { hint.textContent = '설정을 불러오지 못했습니다: ' + e; }
+    }
+    document.getElementById('rm-save').addEventListener('click', async () => {
+      const url = document.getElementById('rm-url').value.trim();
+      const tokenEl = document.getElementById('rm-token');
+      const body = { remote_url: url };
+      if (tokenEl.value.trim()) body.remote_token = tokenEl.value.trim();
+      if (!url && !await UIDialog.confirm('원격 슬롯 연결을 해제할까요? (저장된 토큰도 삭제됩니다)',
+        { okLabel: '해제', cancelLabel: '취소', danger: true })) return;
+      try {
+        const r = await fetch('/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+        tokenEl.value = '';
+        document.getElementById('rm-hint').textContent =
+          url ? '저장됨 — 카드의 📱 버튼으로 페이퍼를 보낼 수 있습니다.' : '연결이 해제되었습니다.';
       } catch (e) {
         UIDialog.alert('저장 실패: ' + (e.message || e), { title: '오류' });
       }

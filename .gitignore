@@ -3,6 +3,7 @@
 
 # Server runtime state at the service root
 .views.json
+.remote-slot.json
 
 # But keep the package source
 !src/
