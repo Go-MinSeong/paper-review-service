@@ -45,7 +45,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 | 🏷️ **A library that scales** | Hierarchical tags (`CV/segmentation`), star ratings, a status workflow (Reading → In progress → Reviewed → Exported → Archived), search, grid/list views, per-paper illustrations. |
 | 📈 **Dashboards** | Monthly **Intake** and **Export** views — throughput, median days from intake to export, status funnel, rating distribution, top tags. |
 | 🎨 **Themes** | Light/dark plus Stripe · Figma · Tesla · Sunset · Sage, applied across the gallery, review page and source viewer. |
-| 🖥️ **Runs like an app** | macOS menubar + double-clickable launcher, pretty local URL `http://paper-review.local/`, per-pane fullscreen, PDF export of whatever is on screen. |
+| 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen — plus an optional menubar item, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
 
 <div align="center">
 <img src="docs/assets/report.png" alt="Structured review report" width="49%">
@@ -64,7 +64,10 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 ### Option A — download the app (no terminal)
 
 1. Grab `paper-review-<arch>.zip` from the [latest release](https://github.com/Go-MinSeong/paper-review-service/releases) and unzip it.
-2. Right-click **paper-review.app** → **Open** (it is ad-hoc signed, so the first launch needs this).
+2. Drag **paper-review.app** into **/Applications**.
+3. Right-click it → **Open** (it is ad-hoc signed, so the first launch needs this).
+
+It runs as a normal Dock app; right-click the Dock icon → **Options → Keep in Dock** to pin it.
 
 ### Option B — from source
 
@@ -79,9 +82,9 @@ bash install-skills.sh                # link the review skills into ~/.claude/sk
 Optional extras:
 
 ```bash
-bash install-launcher.sh --apps       # double-clickable launcher in ~/Applications
-bash install-menubar.sh               # menubar app that starts the server at login
-bash packaging/build.sh               # build your own .app + zip
+bash packaging/build.sh               # build your own .app (icon included)
+bash packaging/install-app.sh --open  # …and put it in /Applications, then launch
+bash install-menubar.sh               # optional menubar item that starts the server at login
 ```
 
 Not a terminal person? Download the ZIP of this repo and double-click **`setup.command`** — it installs `uv`, sets up the environment, links the skills and builds the launcher.

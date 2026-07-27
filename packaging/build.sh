@@ -15,6 +15,19 @@ PY="$ROOT/.venv/bin/python"
 command -v "$PY" >/dev/null || { echo "✗ $PY not found (uv venv && uv pip install -e '.[dev]')"; exit 1; }
 "$PY" -c "import PyInstaller" 2>/dev/null || { echo "✗ pyinstaller missing — uv pip install -e '.[dev]'"; exit 1; }
 
+echo "→ app icon (.icns) …"
+[ -f assets/app_icon.png ] || "$PY" assets/generate_icons.py
+# always rebuild the iconset — a cached one leaves the Dock showing the old icon
+rm -rf assets/app_icon.iconset && mkdir -p assets/app_icon.iconset
+for s in 16 32 128 256 512; do
+  sips -z $s $s assets/app_icon.png \
+    --out "assets/app_icon.iconset/icon_${s}x${s}.png" >/dev/null
+  sips -z $((s*2)) $((s*2)) assets/app_icon.png \
+    --out "assets/app_icon.iconset/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns assets/app_icon.iconset -o assets/app_icon.icns
+rm -rf assets/app_icon.iconset
+
 echo "→ PyInstaller (arch=$ARCH) …"
 rm -rf build "dist/paper-review.app"
 "$PY" -m PyInstaller --noconfirm --clean packaging/paper-review.spec
@@ -26,5 +39,6 @@ echo "→ zip …"
 ( cd dist && rm -f "paper-review-${ARCH}.zip" && ditto -c -k --keepParent "paper-review.app" "paper-review-${ARCH}.zip" )
 
 echo "✓ dist/paper-review-${ARCH}.zip"
-echo "  Install: unzip → drag paper-review.app to /Applications → first launch: right-click → Open."
+echo "  Install: bash packaging/install-app.sh   (or drag paper-review.app to /Applications)"
+echo "  First launch: right-click → Open (ad-hoc signed)."
 echo "  Review/chat still need the Claude Code CLI installed & signed in."

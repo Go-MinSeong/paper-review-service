@@ -33,6 +33,29 @@ APPLESCRIPT
 
 rm -rf "$APP"
 osacompile -o "$APP" -e "$SCRIPT"
+
+# Give the launcher the real app icon — otherwise it sits in the Dock as a
+# generic AppleScript applet. (The PyInstaller bundle from packaging/build.sh
+# gets this from its spec; this is the source-install path.)
+ICON="$REPO_DIR/assets/app_icon.icns"
+if [[ ! -f "$ICON" && -f "$REPO_DIR/assets/app_icon.png" ]]; then
+  set +e
+  ICONSET="$REPO_DIR/assets/app_icon.iconset"
+  rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+  for s in 16 32 128 256 512; do
+    sips -z $s $s "$REPO_DIR/assets/app_icon.png" \
+      --out "$ICONSET/icon_${s}x${s}.png" >/dev/null 2>&1
+    sips -z $((s*2)) $((s*2)) "$REPO_DIR/assets/app_icon.png" \
+      --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null 2>&1
+  done
+  iconutil -c icns "$ICONSET" -o "$ICON" >/dev/null 2>&1
+  rm -rf "$ICONSET"
+  set -e
+fi
+if [[ -f "$ICON" ]]; then
+  cp "$ICON" "$APP/Contents/Resources/applet.icns"
+  touch "$APP"   # nudge Finder/Dock to re-read the icon
+fi
 echo "✓ built $APP"
 
 if [[ "${1:-}" == "--apps" ]]; then

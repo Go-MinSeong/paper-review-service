@@ -13,6 +13,12 @@
 !docs/
 !docs/**
 
+# ...and the app icon source (build.sh converts the png to .icns)
+!assets/
+!assets/**
+assets/app_icon.icns
+assets/app_icon.iconset/
+
 # ...and the Claude Code skills (install-skills.sh source of truth)
 !skills/
 !skills/**
