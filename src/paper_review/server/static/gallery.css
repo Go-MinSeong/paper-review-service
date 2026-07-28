@@ -560,6 +560,23 @@
     box-shadow: 0 0 0 1px var(--accent),
                 0 2px 14px color-mix(in srgb, var(--accent) 18%, transparent);
   }
+  /* Tag admin (Settings → 태그) */
+  .tag-admin { max-height: 52vh; overflow-y: auto; }
+  .tag-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 4px; border-bottom: 1px solid var(--border-subtle);
+  }
+  .tag-row .tag-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .tag-row .tag-name {
+    flex: 1; font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 7px;
+    border: 1px solid var(--border-default); background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+  .tag-row .tag-n {
+    font-size: 12px; color: var(--text-muted); min-width: 28px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Bulk selection: a checkbox per card + a bar with the actions */
   .card-pick {
     position: absolute; top: 8px; left: 8px; z-index: 4;

@@ -172,6 +172,7 @@
         <button class="settings-tab" data-stab="illust">일러스트</button>
         <button class="settings-tab" data-stab="paths">경로</button>
         <button class="settings-tab" data-stab="mobile">모바일</button>
+        <button class="settings-tab" data-stab="tags">태그</button>
       </div>
       <div class="settings-pane" id="spane-themes">
         <div class="theme-grid" id="theme-grid"></div>
@@ -220,6 +221,13 @@
           토큰은 <code>~/.config/paper-review/remote.json</code> 에만 저장되고(600),
           이 화면으로 다시 표시되지 않습니다. 페이퍼를 보내는 것은 목록 카드의 📱 버튼입니다.
         </div>
+      </div>
+      <div class="settings-pane" id="spane-tags" hidden>
+        <div class="hint" style="margin-bottom:10px">
+          이름을 눌러 바꾸면 라이브러리 전체에 적용됩니다 — 대소문자만 다른 태그
+          (Agent / agents)를 하나로 합칠 때 씁니다. 빈 이름으로 저장하면 제거됩니다.
+        </div>
+        <div class="tag-admin" id="tag-admin">불러오는 중…</div>
       </div>
       <div class="settings-pane" id="spane-illust" hidden>
         <div class="illust-bar">

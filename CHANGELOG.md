@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.15.0
+
+### Added
+- **Bulk edits in the gallery.** Pick cards (⇧-click for a range, or select
+  everything on screen) and set the status or add/remove tags in one go. Tagging
+  an imported batch of 90 papers used to mean 90 menus.
+- **Settings → 태그.** Rename a tag across the whole library, or clear the name
+  to remove it. Free-text tags drift — `Agent` / `agent` / `agents` were three
+  separate tags here — and fixing that meant editing every paper by hand.
+
+### Security
+- **The server no longer binds the LAN by default.** The menubar path bound
+  `0.0.0.0` so a phone on the same Wi-Fi could open the gallery, but nothing is
+  authenticated: on a shared network that also exposed `DELETE /paper/<slug>`,
+  the whole library, and `POST /analyze` on your Claude quota. It's loopback
+  now; `PAPER_REVIEW_HOST=0.0.0.0` opts back in. Phones use the remote slot.
+
+### Fixed
+- **Deleting a paper called rmtree** — one misclick on a card's 🗑 destroyed a
+  review that took hours. Papers move to `_trash/<slug>-<timestamp>/` now, the
+  way illustrations already did.
+- **Saving the workbench overwrote it with no way back**, though the review is
+  the entire product. Each save snapshots the previous text into `.history/`
+  (last 5 kept).
+- **The gallery re-read the whole library on every load.** Each row parses
+  workbench.md and a `*_figures.json` that runs to several MB of base64; with
+  100+ papers that ran on every page load and every focus refresh. Rows are now
+  cached on (workbench mtime, figures mtime): **163ms → 8ms**.
+
+
 ## 2.14.0
 
 ### Fixed

@@ -1313,10 +1313,12 @@
       document.getElementById('spane-illust').hidden = id !== 'illust';
       document.getElementById('spane-paths').hidden = id !== 'paths';
       document.getElementById('spane-mobile').hidden = id !== 'mobile';
+      document.getElementById('spane-tags').hidden = id !== 'tags';
       if (id === 'skills') loadSkills();
       if (id === 'illust') loadIllust();
       if (id === 'paths') loadPaths();
       if (id === 'mobile') loadMobile();
+      if (id === 'tags') loadTagAdmin();
     }));
 
     // — Paths (publish output → user's own Obsidian/velog vault) —
@@ -1391,6 +1393,53 @@
           url ? '저장됨 — 카드의 📱 버튼으로 페이퍼를 보낼 수 있습니다.' : '연결이 해제되었습니다.';
       } catch (e) {
         UIDialog.alert('저장 실패: ' + (e.message || e), { title: '오류' });
+      }
+    });
+
+    // — Tag admin: rename/merge/remove a tag across the whole library —
+    // Free-text tags drift (Agent vs agents, LLM vs LLM inference) and fixing
+    // that meant editing every paper by hand.
+    async function loadTagAdmin() {
+      const box = document.getElementById('tag-admin');
+      box.textContent = '불러오는 중…';
+      try {
+        const { tags } = await (await fetch('/tags')).json();
+        if (!tags.length) { box.textContent = '아직 태그가 없습니다.'; return; }
+        box.innerHTML = tags.map(t => `
+          <div class="tag-row" data-tag="${escapeHtml(t.name)}">
+            <span class="tag-dot" style="background:${tagColor(t.name)}"></span>
+            <input class="tag-name" value="${escapeHtml(t.name)}">
+            <span class="tag-n">${t.count}</span>
+            <button class="btn-mini tag-apply">변경</button>
+          </div>`).join('');
+      } catch (e) { box.textContent = '태그를 불러오지 못했습니다: ' + e; }
+    }
+    document.getElementById('tag-admin').addEventListener('click', async (e) => {
+      const btn = e.target.closest('.tag-apply');
+      if (!btn) return;
+      const row = btn.closest('.tag-row');
+      const oldName = row.dataset.tag;
+      const newName = row.querySelector('.tag-name').value.trim();
+      if (newName === oldName) return;
+      const msg = newName
+        ? `"${oldName}" → "${newName}" 로 모든 페이퍼에서 바꿀까요?`
+        : `"${oldName}" 태그를 모든 페이퍼에서 제거할까요?`;
+      if (!await UIDialog.confirm(msg, { okLabel: newName ? '변경' : '제거', danger: !newName })) {
+        row.querySelector('.tag-name').value = oldName;
+        return;
+      }
+      try {
+        const r = await fetch('/tags/rename', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ old: oldName, new: newName }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+        await refreshPapers();
+        await loadTagAdmin();
+        UIDialog.alert(`${j.papers}편에 적용됨`, { title: '태그' });
+      } catch (err) {
+        UIDialog.alert('실패: ' + (err.message || err), { title: '오류' });
       }
     });
 
