@@ -8,6 +8,7 @@
   let activeTags = new Set();
   let collapsedTags = new Set();
   let sortBy = localStorage.getItem('pr-sort') || 'created';   // 등록순 default
+  const selected = new Set();   // slugs picked for a bulk edit
   // ?capture — freeze live updates (polling/SSE) so the page reaches network
   // idle for clean screenshots.
   const CAPTURE = new URLSearchParams(location.search).has('capture');
@@ -308,8 +309,9 @@
         : '';
       const isToRead = p.status === 'to_read';
       return `
-        <a class="card${running ? ' analyzing' : ''}${p.on_remote ? ' on-remote' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}" ${p.on_remote ? 'title="모바일 슬롯에 올라가 있는 페이퍼"' : ''}>
+        <a class="card${running ? ' analyzing' : ''}${p.on_remote ? ' on-remote' : ''}${selected.has(p.slug) ? ' picked' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}" ${p.on_remote ? 'title="모바일 슬롯에 올라가 있는 페이퍼"' : ''}>
           <div class="card-thumb char-bg-${ci}">
+            <button class="card-pick" data-pick="${escapeHtml(p.slug)}" title="선택 (⇧클릭: 범위 선택)">${selected.has(p.slug) ? '✓' : ''}</button>
             <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
             <span class="type-badge t-${escapeHtml(p.content_type || 'paper')}">${escapeHtml(p.content_type || 'paper')}</span>
@@ -447,6 +449,93 @@
     e.stopPropagation();
     openTagEditor(tbtn.dataset.tagedit);
   });
+  // ─── Bulk selection ──────────────────────────────────────────────
+  // One card at a time doesn't scale: tagging an imported batch of 90 meant 90
+  // menus. Pick cards, then act on all of them at once.
+  let lastPicked = null;
+  grid.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pick]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const slug = b.dataset.pick;
+    if (e.shiftKey && lastPicked) {
+      // range select over what's currently on screen, in display order
+      const order = [...grid.querySelectorAll('.card')].map(c => c.dataset.slug);
+      const a = order.indexOf(lastPicked), z = order.indexOf(slug);
+      if (a >= 0 && z >= 0) {
+        const want = !selected.has(slug);
+        for (const s2 of order.slice(Math.min(a, z), Math.max(a, z) + 1)) {
+          want ? selected.add(s2) : selected.delete(s2);
+        }
+      }
+    } else {
+      selected.has(slug) ? selected.delete(slug) : selected.add(slug);
+    }
+    lastPicked = slug;
+    renderCards();
+    renderBulkBar();
+  });
+
+  const bulkBar = document.getElementById('bulk-bar');
+  function renderBulkBar() {
+    if (!selected.size) { bulkBar.hidden = true; return; }
+    bulkBar.hidden = false;
+    document.getElementById('bulk-count').textContent = `${selected.size}편 선택됨`;
+  }
+  async function bulkEdit(payload, label) {
+    const slugs = [...selected];
+    try {
+      const r = await fetch('/papers/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slugs, ...payload }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status));
+      // reflect it locally so the grid updates without a round-trip
+      for (const p of papers) {
+        if (!slugs.includes(p.slug)) continue;
+        if (payload.status) p.status = payload.status;
+        if (payload.add_tags || payload.remove_tags) {
+          const drop = new Set((payload.remove_tags || []).map(t => t.toLowerCase()));
+          const keep = (p.tags || []).filter(t => !drop.has(t.toLowerCase()));
+          for (const t of (payload.add_tags || [])) {
+            if (!keep.some(x => x.toLowerCase() === t.toLowerCase())) keep.push(t);
+          }
+          p.tags = keep;
+        }
+      }
+      selected.clear(); lastPicked = null;
+      updateCounts(); renderTagTree(); renderCards(); renderBulkBar();
+      if (label) UIDialog.alert(`${j.changed.length}편 ${label}`, { title: '일괄 편집' });
+    } catch (err) {
+      UIDialog.alert('일괄 편집 실패: ' + (err.message || err), { title: '오류' });
+    }
+  }
+  document.getElementById('bulk-clear').addEventListener('click', () => {
+    selected.clear(); lastPicked = null; renderCards(); renderBulkBar();
+  });
+  document.getElementById('bulk-all').addEventListener('click', () => {
+    [...grid.querySelectorAll('.card')].forEach(c => selected.add(c.dataset.slug));
+    renderCards(); renderBulkBar();
+  });
+  document.getElementById('bulk-status').addEventListener('change', (e) => {
+    const v = e.target.value;
+    e.target.value = '';
+    if (v) bulkEdit({ status: v }, `→ ${v}`);
+  });
+  document.getElementById('bulk-tag-add').addEventListener('click', async () => {
+    const t = await UIDialog.prompt('추가할 태그 (쉼표로 여러 개)', { okLabel: '추가' });
+    const tags = (t || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (tags.length) bulkEdit({ add_tags: tags }, `태그 +${tags.join(', ')}`);
+  });
+  document.getElementById('bulk-tag-del').addEventListener('click', async () => {
+    const t = await UIDialog.prompt('제거할 태그 (쉼표로 여러 개)', { okLabel: '제거' });
+    const tags = (t || '').split(',').map(x => x.trim()).filter(Boolean);
+    if (tags.length) bulkEdit({ remove_tags: tags }, `태그 −${tags.join(', ')}`);
+  });
+
   // Mobile push — replace the remote slot with this paper (moved here from the
   // detail topbar: slot swapping is a list-level action).
   grid.addEventListener('click', async (e) => {
@@ -727,6 +816,7 @@
   renderTagTree();
   renderCards();
   updateClearTags();
+  renderBulkBar();
 
   // The list is embedded at render time, so a window left open (the desktop app
   // has no address bar to reload from) kept showing the library as it was at

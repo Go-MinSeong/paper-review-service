@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from .. import SERVICE_ROOT
@@ -138,3 +139,85 @@ def patch_paper_status(slug: str, body: StatusPatchBody) -> dict:
         raise HTTPException(404, f"workbench not found for {slug}")
     wb.write_text(_set_status_in_text(wb.read_text(), body.status))
     return {"ok": True, "status": body.status}
+
+
+class BulkBody(BaseModel):
+    """A bulk edit over selected papers. Every field is optional so one call can
+    do just what the user asked for."""
+
+    slugs: list[str]
+    status: str | None = None
+    add_tags: list[str] = []
+    remove_tags: list[str] = []
+
+
+def bulk_edit(body: BulkBody) -> dict:
+    """Apply status/tag changes to many papers at once.
+
+    Doing this a card at a time doesn't scale — tagging an imported batch of 90
+    meant 90 menus. Skips slugs that don't exist rather than failing the lot."""
+    changed, missing = [], []
+    for slug in body.slugs:
+        wb = SERVICE_ROOT / slug / "workbench.md"
+        if not wb.exists():
+            missing.append(slug)
+            continue
+        text = wb.read_text()
+        if body.status:
+            text = _set_status_in_text(text, body.status)
+        if body.add_tags or body.remove_tags:
+            cur = _parse_tags_value(_frontmatter_field(text, "tags"))
+            drop = {t.lower() for t in body.remove_tags}
+            tags = [t for t in cur if t.lower() not in drop]
+            for t in body.add_tags:
+                if t and t.lower() not in {x.lower() for x in tags}:
+                    tags.append(t)
+            text = _set_tags_in_text(text, tags)
+        wb.write_text(text)
+        changed.append(slug)
+    return {"ok": True, "changed": changed, "missing": missing}
+
+
+class TagRenameBody(BaseModel):
+    old: str
+    new: str = ""  # empty = remove the tag everywhere
+
+
+def rename_tag(body: TagRenameBody) -> dict:
+    """Rename (or delete) a tag across the whole library.
+
+    Free-text tags drift — Agent/agents, LLM/LLM inference — and there was no
+    way to merge them short of editing every paper."""
+    old = body.old.strip()
+    new = body.new.strip()
+    if not old:
+        raise HTTPException(400, "old tag required")
+    touched = 0
+    for d in SERVICE_ROOT.iterdir():
+        wb = d / "workbench.md" if d.is_dir() else None
+        if not (wb and wb.exists()) or d.name.startswith((".", "_")):
+            continue
+        text = wb.read_text()
+        cur = _parse_tags_value(_frontmatter_field(text, "tags"))
+        if old.lower() not in {t.lower() for t in cur}:
+            continue
+        out: list[str] = []
+        for t in cur:
+            t2 = new if t.lower() == old.lower() else t
+            if t2 and t2.lower() not in {x.lower() for x in out}:
+                out.append(t2)
+        wb.write_text(_set_tags_in_text(text, out))
+        touched += 1
+    return {"ok": True, "renamed": old, "to": new, "papers": touched}
+
+
+def _frontmatter_field(text: str, key: str) -> str:
+    if not text.startswith("---\n"):
+        return ""
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        return ""
+    for line in text[4:end].splitlines():
+        if line.startswith(f"{key}:"):
+            return line.split(":", 1)[1].strip()
+    return ""

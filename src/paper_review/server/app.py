@@ -32,10 +32,14 @@ from .chat import ChatBody, chat_route
 from .ingest import StartIngestBody, get_job, start_arxiv_job, start_pdf_job
 from .save import SaveBody, save_paper, save_pdf_paper
 from .tags import (
+    BulkBody,
     RatingPatchBody,
     StatusPatchBody,
+    TagRenameBody,
     TagsPatchBody,
+    bulk_edit,
     list_all_tags,
+    rename_tag,
     patch_paper_rating,
     patch_paper_status,
     patch_paper_tags,
@@ -857,6 +861,18 @@ def mark_viewed(slug: str):
 @app.get("/papers/jobs/{job_id}")
 def papers_job(job_id: str):
     return get_job(job_id)
+
+
+@app.post("/papers/bulk")
+def papers_bulk(body: BulkBody):
+    """Set status / add / remove tags on many papers in one call."""
+    return bulk_edit(body)
+
+
+@app.post("/tags/rename")
+def tags_rename(body: TagRenameBody):
+    """Rename a tag library-wide; an empty target removes it."""
+    return rename_tag(body)
 
 
 @app.get("/papers.json")

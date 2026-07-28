@@ -85,6 +85,22 @@
         <button class="theme-toggle" id="remote-pull-btn" title="원격(모바일)에서 가져오기">📥</button>
         <button class="theme-toggle" id="settings-btn" title="설정">⚙</button>
       </div>
+      <div class="bulk-bar" id="bulk-bar" hidden>
+        <span class="bulk-count" id="bulk-count"></span>
+        <button class="btn-mini" id="bulk-all">화면 전체 선택</button>
+        <select class="sort-select" id="bulk-status" title="상태 일괄 변경">
+          <option value="">상태 변경…</option>
+          <option value="to_read">reading</option>
+          <option value="in_progress">in_progress</option>
+          <option value="review_done">review_done</option>
+          <option value="exported">exported</option>
+          <option value="archived">archived</option>
+        </select>
+        <button class="btn-mini" id="bulk-tag-add">태그 추가</button>
+        <button class="btn-mini" id="bulk-tag-del">태그 제거</button>
+        <span class="spacer"></span>
+        <button class="btn-mini" id="bulk-clear">선택 해제</button>
+      </div>
       <section class="dashboard" id="dashboard" hidden></section>
       <div id="grid" class="grid"></div>
     </main>
