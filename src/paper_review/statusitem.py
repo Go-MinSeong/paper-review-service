@@ -17,6 +17,20 @@ import webbrowser
 _alive: list = []
 
 
+def _log(msg: str) -> None:
+    """The .app is windowed — stdout goes nowhere, so failures here were
+    invisible. Leave a breadcrumb on disk instead."""
+    try:
+        from . import SERVICE_ROOT
+
+        d = SERVICE_ROOT / "_logs"
+        d.mkdir(parents=True, exist_ok=True)
+        with open(d / "app.log", "a") as fh:
+            fh.write(f"statusitem: {msg}\n")
+    except Exception:
+        pass
+
+
 def _icon():
     from .menubar import _icon_path
 
@@ -38,7 +52,8 @@ def install(port: int, window) -> None:
     try:
         import AppKit
         from Foundation import NSObject
-    except ImportError:
+    except ImportError as e:
+        _log(f"pyobjc unavailable: {e}")
         return
 
     class _Actions(NSObject):
@@ -90,8 +105,21 @@ def install(port: int, window) -> None:
             menu.addItem_(q)
 
             item.setMenu_(menu)
+            # Visibility persists per autosave name — without this an item the
+            # system (or the user) once hid stays hidden on every later launch.
+            try:
+                item.setAutosaveName_("paper-review")
+                item.setVisible_(True)
+            except Exception:
+                pass
             _alive.extend([item, target, menu])
+            _log(f"installed (visible={item.isVisible()}, len={item.length()})")
         except Exception as e:  # never take the app down over a menubar extra
-            print(f"paper-review: status item failed: {e}")
+            _log(f"build failed: {e!r}")
 
-    AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_build)
+    try:
+        AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_build)
+        _log("enqueued on the main queue")
+    except Exception as e:
+        _log(f"enqueue failed ({e!r}) — building inline")
+        _build()
