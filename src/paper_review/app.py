@@ -119,6 +119,38 @@ def _appearance_bg() -> str:
     return "#FFFFFF"
 
 
+def _unify_titlebar(window) -> None:
+    """Let the page run under the title bar, like the sibling apps do.
+
+    pywebview paints its own grey title bar, which reads as a browser chrome bar
+    stuck above the UI. Making it transparent + full-size-content puts the app's
+    own header at the very top; the traffic lights stay where macOS wants them
+    (the pages offset their top strip for the app — see `body.in-app`).
+    """
+    try:
+        import AppKit
+
+        ns = getattr(window, "native", None)
+        if ns is None:
+            return
+
+        def _apply() -> None:
+            try:
+                ns.setTitlebarAppearsTransparent_(True)
+                ns.setTitleVisibility_(1)  # NSWindowTitleHidden
+                ns.setStyleMask_(ns.styleMask() | (1 << 15))  # FullSizeContentView
+                # undo the window-background colour pywebview paints on the bar
+                bar = ns.contentView().superview().subviews().lastObject()
+                bar.setBackgroundColor_(AppKit.NSColor.clearColor())
+            except Exception:
+                pass
+            ns.displayIfNeeded()
+
+        AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_apply)
+    except Exception:
+        pass
+
+
 def _boot(window, port: int) -> None:
     """Runs after the splash is on screen: prepare, start the server, then swap
     the window over to the gallery. Failures stay visible on the splash instead
@@ -154,6 +186,15 @@ def _boot(window, port: int) -> None:
             return
         say(splash.STEP_READY)
         window.load_url(f"http://127.0.0.1:{port}/")
+        # Menubar presence too — the Dock icon disappears behind other windows,
+        # and the status item is how you get back without hunting for it.
+        try:
+            from . import statusitem
+
+            statusitem.install(port, window)
+        except Exception:
+            pass
+        _unify_titlebar(window)
     except Exception as e:  # never leave the splash spinning forever
         try:
             window.evaluate_js(splash.fail_js(f"시작 중 오류가 발생했습니다.\n{e}"))
