@@ -22,8 +22,9 @@ SIZE = 1024.0
 SYMBOL = "doc.text.magnifyingglass"  # read a paper, closely
 HERE = Path(__file__).parent
 OUT = HERE / "app_icon.png"
-# Menubar glyph: same symbol, but the magnifier detail turns to mush at 18px.
-MENUBAR_SYMBOL = "doc.text"
+# Menubar glyph: the magnifier detail turns to mush at 18px, and the outline
+# variant read washed-out against a tinted menubar — the filled one holds up.
+MENUBAR_SYMBOL = "doc.text.fill"
 MENUBAR_PT = 16.0  # inside an 18pt slot, matching Apple's menubar metrics
 
 # the gallery's accent (Linear-ish indigo) → a darker shade for the gradient
@@ -52,10 +53,8 @@ def menubar_icons() -> int:
         print(f"SF Symbol '{MENUBAR_SYMBOL}' not found", file=sys.stderr)
         return 1
     config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
-        # Regular weight rendered noticeably thinner than the neighbouring
-        # menubar glyphs; medium matches their optical weight.
         MENUBAR_PT,
-        AppKit.NSFontWeightMedium,
+        AppKit.NSFontWeightRegular,  # the filled glyph carries its own weight
         2,  # 2 = medium scale
     ).configurationByApplyingConfiguration_(
         AppKit.NSImageSymbolConfiguration.configurationWithPaletteColors_(
@@ -75,12 +74,14 @@ def menubar_icons() -> int:
         ctx = AppKit.NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
         AppKit.NSGraphicsContext.saveGraphicsState()
         AppKit.NSGraphicsContext.setCurrentContext_(ctx)
-        # Fit the glyph inside the slot with a little breathing room.
+        # Fit the glyph inside the slot with a little breathing room. Round to
+        # whole pixels — fractional sizes/offsets made the edges soft, which is
+        # what read as a blurry menubar icon.
         s = glyph.size()
         fit = (px * 0.92) / max(s.width, s.height)
-        w, h = s.width * fit, s.height * fit
+        w, h = round(s.width * fit), round(s.height * fit)
         glyph.drawInRect_fromRect_operation_fraction_(
-            AppKit.NSMakeRect((px - w) / 2, (px - h) / 2, w, h),
+            AppKit.NSMakeRect(round((px - w) / 2), round((px - h) / 2), w, h),
             AppKit.NSZeroRect,
             AppKit.NSCompositingOperationSourceOver,
             1.0,

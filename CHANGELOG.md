@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.13.1
+
+### Fixed
+- **The menubar icon was faint and soft.** The outline glyph washed out against
+  a tinted menubar, and fitting it with a fractional scale left every edge
+  anti-aliased. It's now the filled variant, drawn on whole pixels.
+- Status-item failures used to be invisible (a windowed .app sends stdout
+  nowhere); they now land in `_logs/app.log`, along with where the icon was
+  loaded from. That is how the icon's state got confirmed inside the bundle.
+- The status item declares an autosave name and forces itself visible —
+  NSStatusItem visibility persists per name, so one that got hidden once would
+  have stayed hidden on every later launch.
+
+
 ## 2.13.0
 
 ### Added
