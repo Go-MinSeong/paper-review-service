@@ -510,7 +510,7 @@
   .card-thumb .type-badge.t-blog    { background: rgba(236,72,153,.85); }
   .card-thumb .type-badge.t-article { background: rgba(14,165,165,.85); }
   .card-del {
-    position: absolute; top: 8px; left: 8px; z-index: 3;
+    position: absolute; top: 8px; left: 40px; z-index: 3;
     width: 26px; height: 26px; border-radius: 7px;
     border: 0; cursor: pointer; font-size: 12px; line-height: 1;
     background: rgba(0,0,0,.5); color: white;
@@ -521,7 +521,7 @@
   .card:hover .card-del { opacity: 1; transform: scale(1); }
   .card-del:hover { background: rgba(239,68,68,.9); }
   .card-tagedit {
-    position: absolute; top: 8px; left: 40px; z-index: 3;
+    position: absolute; top: 8px; left: 72px; z-index: 3;
     width: 26px; height: 26px; border-radius: 7px;
     border: 0; cursor: pointer; font-size: 12px; line-height: 1;
     background: rgba(0,0,0,.5); color: white;
@@ -532,7 +532,7 @@
   .card:hover .card-tagedit { opacity: 1; transform: scale(1); }
   .card-tagedit:hover { background: var(--accent); }
   .card-log {
-    position: absolute; top: 8px; left: 72px; z-index: 3;
+    position: absolute; top: 8px; left: 104px; z-index: 3;
     width: 26px; height: 26px; border-radius: 7px;
     border: 0; cursor: pointer; font-size: 13px; line-height: 1;
     background: rgba(0,0,0,.5); color: white;
@@ -543,7 +543,7 @@
   .card:hover .card-log { opacity: 1; transform: scale(1); }
   .card-log:hover { background: var(--accent); }
   .card-remote {
-    position: absolute; top: 8px; left: 104px; z-index: 3;
+    position: absolute; top: 8px; left: 136px; z-index: 3;
     width: 26px; height: 26px; border-radius: 7px;
     border: 0; cursor: pointer; font-size: 12px; line-height: 1;
     background: rgba(0,0,0,.5); color: white;
@@ -590,11 +590,19 @@
   .card:hover .card-pick, .card.picked .card-pick { opacity: 1; }
   .card.picked .card-pick { background: var(--accent); border-color: var(--accent); }
   .card.picked { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+  /* Floating, not in flow: as a normal block it slid under the sticky header as
+     soon as you scrolled, and the actions went out of reach exactly while you
+     were scrolling to pick more cards. */
   .bulk-bar {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: max(20px, env(safe-area-inset-bottom)); z-index: 40;
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 10px 14px; margin-bottom: 14px; border-radius: 10px;
-    background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface));
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    max-width: min(92vw, 760px);
+    padding: 10px 14px; border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow: 0 8px 28px rgba(0,0,0,.22);
+    backdrop-filter: blur(10px);
   }
   .bulk-bar[hidden] { display: none; }
   .bulk-bar .bulk-count { font-size: 13px; font-weight: 600; }

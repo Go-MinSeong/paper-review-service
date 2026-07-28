@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.15.1
+
+### Fixed
+- The bulk-selection checkbox landed on the same spot as the card's **delete**
+  button, and the action bar slid under the sticky header as soon as you
+  scrolled — right when you were scrolling to pick more cards. The overlay
+  buttons each get their own column now, and the bar floats at the bottom.
+
 ## 2.15.0
 
 ### Added
