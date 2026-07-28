@@ -971,7 +971,7 @@ async def paper_generate_report(slug: str, body: GenQBody):
 
 
 @app.get("/paper/{slug}/report")
-def paper_report(slug: str) -> FileResponse:
+def paper_report(slug: str, download: int = 0) -> FileResponse:
     """Serve the generated report.html (shown in the Summary view).
 
     X-Report-Stale: 1 when the workbench changed after the report was built,
@@ -983,11 +983,16 @@ def paper_report(slug: str) -> FileResponse:
     mtime = int(p.stat().st_mtime)
     wb = d / "workbench.md"
     stale = wb.exists() and wb.stat().st_mtime > p.stat().st_mtime
-    return FileResponse(
-        p,
-        media_type="text/html",
-        headers={"X-Report-Mtime": str(mtime), "X-Report-Stale": "1" if stale else "0"},
-    )
+    headers = {
+        "X-Report-Mtime": str(mtime),
+        "X-Report-Stale": "1" if stale else "0",
+    }
+    if download:
+        # The desktop app can't print the report: pywebview's window.print()
+        # prints the top-level web view, and the report lives in an iframe, so
+        # the export button did nothing there. A real file always works.
+        headers["Content-Disposition"] = f'attachment; filename="{slug}-report.html"'
+    return FileResponse(p, media_type="text/html", headers=headers)
 
 
 class PublishBody(BaseModel):

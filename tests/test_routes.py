@@ -205,3 +205,21 @@ def test_paper_rows_are_cached_until_the_file_changes(tmp_path, monkeypatch):
     os.utime(d / "workbench.md", (time.time() + 5, time.time() + 5))
     assert A._list_papers()[0]["title_en"] == "Two", "an edit must invalidate it"
     assert parses, "…by actually re-reading the file"
+
+
+def test_report_can_be_downloaded_as_a_file():
+    """The desktop app can't print the report — pywebview's window.print()
+    prints the top-level web view and the report lives in an iframe, so the
+    export button did nothing there. A file download always works."""
+    import paper_review.server.app as A
+
+    slugs = [p["slug"] for p in A._list_papers()]
+    target = next((s for s in slugs if (A.SERVICE_ROOT / s / "report.html").exists()), None)
+    if not target:
+        return  # no report in this checkout
+    plain = client.get(f"/paper/{target}/report")
+    assert "content-disposition" not in plain.headers  # inline for the iframe
+    dl = client.get(f"/paper/{target}/report", params={"download": 1})
+    assert dl.status_code == 200
+    assert dl.headers["content-disposition"] == f'attachment; filename="{target}-report.html"'
+    assert dl.content == plain.content

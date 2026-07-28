@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2505.16854 — 리뷰 리포트</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --surface:#ffffff; --surface-2:#f0f1f3;
+    --text:#1d1d1f; --muted:#6e6e73; --border:#e3e3e6;
+    --accent:#0071e3; --accent-2:#5e5ce6;
+    --think:#5e5ce6; --nothink:#30b46b;
+    --warn:#c8860a; --warn-bg:#fdf6e7; --warn-bd:#f0dca6;
+    --success:#1a8a52; --success-bg:#eaf7f0; --success-bd:#bfe6cf;
+    --info-bg:#eaf2fd; --info-bd:#c5dcf8;
+    --radius:16px; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:var(--sans);line-height:1.72;
+    font-size:16.5px;-webkit-font-smoothing:antialiased;letter-spacing:-.01em;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;display:grid;
+    grid-template-columns:216px 1fr;gap:44px;align-items:start;}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+    padding:.12em .42em;border-radius:6px;white-space:nowrap}
+  sub,sup{font-size:.72em}
+  i,.var{font-family:Georgia,"Times New Roman",serif;font-style:italic}
+
+  /* ---- sticky nav ---- */
+  nav.side{position:sticky;top:0;height:100vh;padding:40px 0;overflow-y:auto}
+  nav.side .brand{font-size:13px;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
+  nav.side .brand b{color:var(--text);font-weight:600}
+  nav.side ol{list-style:none;margin:22px 0 0;padding:0}
+  nav.side li{margin:2px 0}
+  nav.side a{display:block;color:var(--muted);font-size:14px;padding:7px 12px;
+    border-radius:9px;border-left:2px solid transparent;transition:.15s}
+  nav.side a:hover{background:var(--surface);color:var(--text);text-decoration:none}
+  nav.side a .n{font-family:var(--mono);font-size:11.5px;color:var(--accent);margin-right:8px}
+
+  main{padding:40px 0 120px;min-width:0}
+  section{margin:0 0 30px;scroll-margin-top:24px}
+  .sec-tag{font-family:var(--mono);font-size:12px;color:var(--accent);
+    letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:6px}
+  h2{font-size:27px;font-weight:700;letter-spacing:-.02em;margin:0 0 18px;line-height:1.2}
+  h3{font-size:18px;font-weight:650;margin:26px 0 10px;letter-spacing:-.01em}
+  h4{font-size:15px;font-weight:650;margin:18px 0 6px;color:var(--text)}
+  p{margin:11px 0}
+  .lead{font-size:17.5px;color:#2c2c2e}
+
+  /* ---- hero ---- */
+  .hero{background:linear-gradient(150deg,#101014 0%,#1c1c28 55%,#241f3a 100%);
+    color:#fff;border-radius:22px;padding:40px 40px 34px;margin:8px 0 34px;
+    box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-90px;top:-90px;width:320px;height:320px;
+    background:radial-gradient(circle,rgba(94,92,230,.45),transparent 68%);pointer-events:none}
+  .hero .tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .hero .tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+    color:#eaeaf0;padding:4px 11px;border-radius:999px}
+  .hero h1{font-size:31px;line-height:1.24;font-weight:700;letter-spacing:-.02em;margin:0 0 10px;max-width:26ch}
+  .hero h1 span{color:#a6a0ff;background:linear-gradient(transparent 62%,rgba(94,92,230,.35) 62%)}
+  .hero .sub{color:#c7c7d1;font-size:15px;margin:0 0 24px}
+  .hero-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;position:relative;z-index:1}
+  .hero-meta .m{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);
+    border-radius:14px;padding:14px 16px}
+  .hero-meta .v{font-size:24px;font-weight:750;letter-spacing:-.02em;color:#fff}
+  .hero-meta .k{font-size:12px;color:#b6b6c4;margin-top:3px;line-height:1.4}
+
+  /* ---- cards ---- */
+  .card-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:16px 0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .card h4{margin:0 0 5px;font-size:14.5px}
+  .card p{margin:0;font-size:14px;color:var(--muted);line-height:1.6}
+  .card .term{color:var(--accent-2);font-family:var(--mono);font-size:13px}
+
+  /* ---- stats ---- */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
+  .stat-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:16px 18px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .stat-box .v{font-size:26px;font-weight:750;letter-spacing:-.02em;color:var(--accent)}
+  .stat-box .v.g{color:var(--success)}
+  .stat-box .k{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+  /* ---- timeline ---- */
+  .timeline{list-style:none;margin:18px 0;padding:0;position:relative}
+  .timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:2px;background:var(--border)}
+  .timeline li{position:relative;padding:0 0 18px 34px}
+  .timeline li::before{content:"";position:absolute;left:3px;top:5px;width:14px;height:14px;
+    border-radius:50%;background:var(--surface);border:3px solid var(--accent)}
+  .timeline li:last-child::before{border-color:var(--accent-2)}
+  .timeline .t{font-weight:650;font-size:15px}
+  .timeline .d{font-size:14px;color:var(--muted);margin-top:2px}
+
+  /* ---- result bars ---- */
+  .result-bar{margin:12px 0}
+  .result-bar .lab{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:5px}
+  .result-bar .lab .name{font-weight:600}
+  .result-bar .lab .num{font-family:var(--mono);color:var(--muted)}
+  .result-bar .track{background:var(--surface-2);border-radius:999px;height:22px;overflow:hidden;position:relative}
+  .result-bar .fill{height:100%;border-radius:999px;display:flex;align-items:center;
+    justify-content:flex-end;padding-right:9px;color:#fff;font-size:11.5px;font-weight:600;
+    font-family:var(--mono)}
+  .fill.grpo{background:#9a97b8}
+  .fill.ton{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+
+  /* ---- table ---- */
+  .tbl-wrap{overflow-x:auto;margin:16px 0;border-radius:14px;border:1px solid var(--border)}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:var(--surface)}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--border)}
+  th{background:var(--surface-2);font-weight:650;font-size:12.5px;color:var(--muted);
+    letter-spacing:.02em;white-space:nowrap}
+  td{font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .highlight-row td{background:linear-gradient(90deg,rgba(94,92,230,.09),rgba(0,113,227,.07));
+    font-weight:600}
+  .highlight-row td:first-child{box-shadow:inset 3px 0 0 var(--accent-2)}
+  .pos{color:var(--success);font-weight:650}
+  .neg{color:var(--accent);font-weight:650}
+
+  /* ---- callouts ---- */
+  .callout{border-radius:14px;padding:15px 18px;margin:16px 0;font-size:14.5px;
+    border:1px solid var(--info-bd);background:var(--info-bg)}
+  .callout .h{font-weight:650;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+  .callout p{margin:5px 0 0}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn-bd)}
+  .callout.warn .h{color:var(--warn)}
+  .callout.success{background:var(--success-bg);border-color:var(--success-bd)}
+  .callout.success .h{color:var(--success)}
+
+  /* ---- details ---- */
+  details{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    margin:12px 0;padding:2px 18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  details summary{cursor:pointer;font-weight:600;font-size:14.5px;padding:13px 0;list-style:none;
+    display:flex;align-items:center;gap:9px}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"›";font-family:var(--mono);color:var(--accent);
+    font-size:18px;transition:transform .2s;display:inline-block}
+  details[open] summary::before{transform:rotate(90deg)}
+  details .body{padding:0 0 15px;font-size:14px;color:#3a3a3c;border-top:1px solid var(--border);margin-top:-1px;padding-top:12px}
+  details .body p:first-child{margin-top:8px}
+
+  /* ---- equation ---- */
+  .eq{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:14px 18px;margin:14px 0;text-align:center;font-size:17px;overflow-x:auto}
+  .eq .num{float:right;color:var(--muted);font-family:var(--mono);font-size:12px}
+  .symdef{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+  .symdef b{color:var(--text)}
+  pre.code{background:#1c1c28;color:#e6e6ee;border-radius:12px;padding:15px 18px;overflow-x:auto;
+    font-family:var(--mono);font-size:13px;line-height:1.65;margin:14px 0}
+  pre.code .kw{color:#c792ea}.pre-cm{color:#7f8496}pre.code .st{color:#8ce0a4}
+
+  /* ---- diagram ---- */
+  .diagram-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:22px;margin:18px 0;box-shadow:var(--shadow)}
+  .diagram-wrap svg{width:100%;height:auto;display:block}
+  .diagram-cap{font-size:13px;color:var(--muted);text-align:center;margin-top:12px}
+
+  /* ---- figures ---- */
+  figure{margin:18px 0}
+  .paper-fig{width:100%;border:1px solid var(--border);border-radius:12px;background:#fff;display:block}
+  .paper-fig-caption{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .paper-fig-caption b{color:var(--text);font-weight:600}
+
+  /* ---- limits ---- */
+  .limit-list{list-style:none;margin:16px 0;padding:0}
+  .limit-list li{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:14px 17px;margin:10px 0;display:flex;gap:13px;align-items:flex-start;
+    box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .limit-list .ic{font-size:19px;flex-shrink:0;line-height:1.5}
+  .limit-list .tag{font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:999px;
+    margin-left:8px;vertical-align:middle;white-space:nowrap}
+  .tag-paper{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-bd)}
+  .tag-review{background:var(--info-bg);color:var(--accent);border:1px solid var(--info-bd)}
+  .limit-list .txt{font-size:14px}
+  .limit-list .txt b{font-weight:650}
+
+  .ref{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 17px;margin:10px 0}
+  .ref .t{font-weight:650;font-size:14.5px}
+  .ref .t a{}
+  .ref .aid{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .ref .why{font-size:13.5px;color:var(--muted);margin-top:4px}
+
+  hr.soft{border:none;border-top:1px solid var(--border);margin:34px 0}
+  .foot{color:var(--muted);font-size:12.5px;text-align:center;padding:20px 0 0}
+
+  @media(max-width:880px){
+    .wrap{grid-template-columns:1fr;gap:0}
+    nav.side{position:static;height:auto;padding:24px 0 8px}
+    nav.side ol{display:flex;flex-wrap:wrap;gap:4px}
+    nav.side a{font-size:13px;padding:6px 10px}
+    .hero-meta,.stats-row,.card-grid{grid-template-columns:repeat(2,1fr)}
+    .hero{padding:28px 22px}.hero h1{font-size:25px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== sticky nav ===== -->
+  <nav class="side">
+    <div class="brand"><b>2505.16854</b><br>리뷰 리포트</div>
+    <ol>
+      <li><a href="#tldr"><span class="n">00</span>TL;DR</a></li>
+      <li><a href="#concept"><span class="n">01</span>개념</a></li>
+      <li><a href="#background"><span class="n">02</span>배경</a></li>
+      <li><a href="#method"><span class="n">03</span>방법론</a></li>
+      <li><a href="#experiments"><span class="n">04</span>실험</a></li>
+      <li><a href="#limits"><span class="n">05</span>한계</a></li>
+      <li><a href="#future"><span class="n">06</span>후속 연구</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ===== HERO ===== -->
+    <header class="hero">
+      <div class="tags">
+        <span class="tag">NeurIPS 2025</span>
+        <span class="tag">arXiv:2505.16854</span>
+        <span class="tag">VLM · RL · GRPO</span>
+      </div>
+      <h1>Think or Not? <span>언제 생각할지</span>를 학습하는 선택적 추론</h1>
+      <p class="sub">Selective Reasoning via Reinforcement Learning for Vision-Language Models — Jiaqi Wang, Kevin Qinghong Lin, James Cheng, Mike Zheng Shou (CUHK · Show Lab, NUS)</p>
+      <div class="hero-meta">
+        <div class="m"><div class="v">−90%</div><div class="k">완성 길이 절감<br>(GeoQA-7B, vs GRPO)</div></div>
+        <div class="m"><div class="v">+17</div><div class="k">정확도 향상<br>(GeoQA-7B Acc)</div></div>
+        <div class="m"><div class="v">51%</div><div class="k">AITZ 질문이<br>추론 없이도 정답</div></div>
+        <div class="m"><div class="v">3.6K→0.9K</div><div class="k">AITZ 태스크당<br>출력 토큰</div></div>
+      </div>
+    </header>
+
+    <!-- ===== 00 TL;DR ===== -->
+    <section id="tldr">
+      <span class="sec-tag">00 · TL;DR</span>
+      <h2>한 문단 요약</h2>
+      <p class="lead">
+        GRPO 기반 VLM 사후학습은 <b>모든 질문에 완전한 reasoning trace를 강제</b>해 토큰·연산 비용이 과도해진다.
+        이 논문은 인간이 쉬운 문제엔 추론을 건너뛰고 어려운 문제에만 신중히 생각하듯,
+        모델이 <b>"언제 생각할지(when to think)"를 스스로 결정</b>하는 selective reasoning을 VLM에서 최초로 제안한다.
+        핵심 방법 <b>TON(Think-or-Not)</b>은 (i) reasoning trace를 확률적으로 빈 thought(<code>\n\n</code>)로 대체하는
+        <b>thought dropout SFT</b>로 "생각할지 말지" 포맷을 cold start시키고, (ii) 별도 정규화 없이 outcome reward만으로
+        <b>GRPO</b>를 돌려 언제 생각할지를 자유롭게 탐색하게 한다.
+      </p>
+      <div class="stats-row">
+        <div class="stat-box"><div class="v g">98.5%</div><div class="k">CLEVR 정확도 (GRPO 93.5)</div></div>
+        <div class="stat-box"><div class="v">−87%</div><div class="k">CLEVR 완성 길이</div></div>
+        <div class="stat-box"><div class="v g">51%</div><div class="k">GeoQA-3B 정확도 (GRPO 37)</div></div>
+        <div class="stat-box"><div class="v">2단계</div><div class="k">SFT → GRPO 프레임워크</div></div>
+      </div>
+      <div class="callout success">
+        <div class="h">핵심 발견</div>
+        <p>불필요한 추론을 건너뛰는 것이 성능을 유지할 뿐 아니라 <b>오히려 향상</b>시킬 수 있다("free-lunch").
+        학습이 진행될수록 skip-thought 비율이 reward 상승과 함께 점진적으로 증가한다.</p>
+      </div>
+
+      <h3>세 줄 기여</h3>
+      <ol>
+        <li>VLM에서 "어떻게 생각할지(how)"가 아니라 <b>"언제 생각할지(when)"</b>를 다루는 최초의 연구 — AITZ 질문의 51%가 reasoning trace 없이도 정답이라는 실증 관찰에서 출발.</li>
+        <li>reasoning trace를 확률적으로 빈 <code>\n\n</code>으로 대체하는 <b>thought dropout SFT</b>를 cold start로 삼고, 별도 길이 정규화 없이 outcome reward만으로 GRPO를 돌리는 2단계 프레임워크 <b>TON</b>.</li>
+        <li>GSM8K(LLM) · CLEVR/Super-CLEVR/GeoQA(VLM) · AITZ(agentic) 전반의 3B/7B 모델에서 완성 길이를 최대 90% 줄이며 성능 손실 없음(GeoQA +17 Acc), skip 비율이 reward와 함께 증가함을 ablation으로 검증.</li>
+      </ol>
+
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig1" alt="think or not trade-off">
+        <figcaption class="paper-fig-caption"><b>Figure 1.</b> "생각할지 말지"의 트레이드오프. 왼쪽(쉬운 질의)은 명시적 추론이 불필요해 TON이 토큰을 90%까지 절감하고, 오른쪽(어려운 질의)은 여전히 상세한 단계적 추론을 수행한다. vanilla GRPO는 난이도와 무관하게 항상 추론을 생성한다.</figcaption>
+      </figure>
+    </section>
+
+    <!-- ===== 01 개념 ===== -->
+    <section id="concept">
+      <span class="sec-tag">01 · 개념</span>
+      <h2>먼저 알아야 할 사전지식</h2>
+      <p>이 논문은 RL 사후학습(GRPO) 위에 아주 얇은 SFT 단계를 얹는 구조다. 아래 카드가 읽기 위한 최소 전제 지식이다.</p>
+
+      <div class="card-grid">
+        <div class="card"><h4><span class="term">GRPO</span> Group Relative Policy Optimization</h4>
+          <p>value function 없이 한 그룹의 여러 샘플 응답 간 <b>상대 advantage</b>로 정책을 업데이트하는 RL 기법(DeepSeek). answer verifier를 reward로 쓴다. 이 논문의 2단계 학습이 그 위에 얹힌다.</p></div>
+        <div class="card"><h4><span class="term">CoT</span> Chain-of-Thought</h4>
+          <p>답 이전에 중간 추론을 명시적으로 생성하는 패러다임. 여기서는 <code>&lt;think&gt;...&lt;/think&gt;</code> reasoning trace가 이에 해당한다.</p></div>
+        <div class="card"><h4><span class="term">SFT</span> Supervised Fine-Tuning</h4>
+          <p>정답 시퀀스에 대한 지도학습. TON의 1단계 thought dropout이 여기서 이뤄지며, RL 이전의 <b>포맷 prior</b>를 심는다.</p></div>
+        <div class="card"><h4><span class="term">format vs outcome reward</span></h4>
+          <p>rule-based reward의 두 종류. <b>format reward</b> <i>r<sub>f</sub></i>는 <code>&lt;think&gt;&lt;answer&gt;</code> 태그 형식 준수를, <b>outcome reward</b> <i>r<sub>o</sub></i>는 정답 일치 여부를 보상한다.</p></div>
+        <div class="card"><h4><span class="term">VLM</span> Vision-Language Model</h4>
+          <p>이미지와 텍스트 질문을 함께 받아 답을 생성하는 멀티모달 모델. 본 논문 backbone은 <b>Qwen-2.5-VL-Instruct 3B/7B</b>.</p></div>
+        <div class="card"><h4><span class="term">MDP</span> Markov Decision Process</h4>
+          <p>상태·행동·정책·보상으로 정의되는 순차 의사결정 프레임. 논문은 vision-language reasoning을 <i>(V, Q, S<sup>*</sup>, π, r)</i> 튜플의 MDP로 형식화한다.</p></div>
+      </div>
+
+      <details>
+        <summary>Deep-dive: RLHF → PPO → DPO → GRPO 계보</summary>
+        <div class="body">
+          <p><b>RLHF</b>는 preference annotation으로 reward model을 학습한 뒤 <b>PPO</b>로 정책을 정교화한다.
+          <b>DPO</b>는 reward model 없이 정책 업데이트를 이진 분류로 재구성해 워크플로를 단순화한다.
+          <b>GRPO</b>는 value function을 피하고 그룹 내 상대 advantage로 다양한 추론 경로·답변 품질을 높인다.
+          이 논문은 이 계보 전체가 공유하는 암묵적 가정 — <b>"모든 질문 = full thinking"</b> — 을 문제 삼는다.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Deep-dive: 실험 backbone과 벤치마크 지도</summary>
+        <div class="body">
+          <p><b>Qwen-2.5-VL 3B/7B</b>가 backbone. Qwen3는 thinking을 외부 스위치로 켜고 껐지만, 이 논문은 이를 <b>학습된 내재적 능력</b>으로 대체한다.</p>
+          <p>벤치마크는 난이도 스펙트럼을 커버한다 — <b>CLEVR/Super-CLEVR</b>(합성 3D counting, easy·OOD), <b>GeoQA</b>(중국 중학 기하 수학, hard), <b>AITZ</b>(Android-in-the-Zoo, 모바일 GUI 에이전트, multi-step), <b>GSM8K</b>(text-only LLM 확장 검증).</p>
+          <p>데이터 규모: CLEVR counting subset 1,000개 학습 / CLEVR 200 + Super-CLEVR 200 테스트, GeoQA 4,998개 중 각도·변 길이 1,000개(선택지 제거해 난이도↑), AITZ는 2,504 궤적·18.6K intention 중 General 도메인 1,000개 학습 후 Web shopping·Google apps·Install로 OOD 테스트.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Deep-dive: 왜 <code>&lt;think&gt;\n\n&lt;/think&gt;</code>가 "유효한" 출력인가</summary>
+        <div class="body">
+          <p>format reward <i>r<sub>f</sub></i>가 outcome reward와 분리돼 항상 공유된다는 설계가 열쇠다. 태그 형식 준수 자체를 별도 신호로 보상하므로, thought 내용이 비어 있어도 <code>&lt;think&gt;\n\n&lt;/think&gt;&lt;answer&gt;…&lt;/answer&gt;</code>는 여전히 <b>형식상 유효</b>하다. 즉 skip은 "포맷 위반"이 아니라 "포맷 안의 한 선택지"가 된다.</p>
+          <p class="symdef">🔍 <b>리뷰 중 발견</b> — 이 연결(3절 format reward 정의 → 4절 thought dropout의 성립 조건)은 논문이 명시적으로 이어 붙이지 않고 암묵적 전제로 작동한다.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ===== 02 배경 ===== -->
+    <section id="background">
+      <span class="sec-tag">02 · 배경</span>
+      <h2>선행 연구의 흐름</h2>
+      <p>저자들은 효율 연구가 <b>"어떻게 짧게 생각할지(how)"</b>에 머물렀다고 보고, 한 단계 앞의 <b>"애초에 생각이 필요한가(whether)"</b>로 축을 옮긴다.</p>
+
+      <ol class="timeline">
+        <li><div class="t">RLHF / PPO — 사후학습 정렬의 출발점</div><div class="d">preference annotation으로 reward model을 학습하고 PPO로 정책을 정렬한다.</div></li>
+        <li><div class="t">DPO — reward model 제거</div><div class="d">정책 업데이트를 이진 분류로 재구성해 정렬 워크플로를 단순화.</div></li>
+        <li><div class="t">GRPO (DeepSeekMath / R1 계열)</div><div class="d">value function 없이 그룹 상대 advantage로 추론 경로를 다양화. 이후 UI-R1·GUI-R1 등 VLM·GUI agent로 확산.</div></li>
+        <li><div class="t">효율 계열 — long2short · "I don't know" · token-budget</div><div class="d">디코딩 길이 압축, 비생산적 추론의 조기 종료, token-budget 인지 정책. 모두 <b>"추론은 한다"</b>는 전제를 유지하는 "how" 범주.</div></li>
+        <li><div class="t">외부 스위치 — Qwen3의 thinking on/off</div><div class="d">사용자가 thinking 모드를 켜고 끄는 <b>외부 제어</b>. 모델 스스로의 판단은 아니다.</div></li>
+        <li><div class="t">TON (본 논문, 2025)</div><div class="d">"추론이 <b>필요한지 여부</b>"를 모델이 먼저 판단하는 selective reasoning으로 축을 상위 층위("whether")로 이동 — 스위치를 <b>학습된 내재 능력</b>으로 바꾼다.</div></li>
+      </ol>
+
+      <div class="callout">
+        <div class="h">리뷰 노트 — 프레이밍의 수사</div>
+        <p>기존 efficiency 연구를 부정하지 않고 "how" 범주로 묶은 뒤, 자신을 <b>직교(orthogonal)한 축</b>인 "whether"로 위치시키는 전형적 related-work 전략이다. References의 overthinking·CoT 길이 계열 인용([6]–[9])이 이 논문의 지적 좌표를 보여준다 — "긴 추론이 항상 좋지는 않다"는 실증 흐름 위에서 한 걸음 더 밀어붙인 것.</p>
+      </div>
+      <div class="callout warn">
+        <div class="h">⚠️ 논문 밖 일반론</div>
+        <p>"whether"와 "how"가 실제로 완전히 분리 가능한지(짧게 생각하기의 극단이 안 생각하기 아닌지)는 논문에서 <b>개념적으로만 구분</b>될 뿐 정량적으로 선을 긋지 않는다 — 이 경계의 모호함은 논문에 명시되지 않음.</p>
+      </div>
+    </section>
+
+    <!-- ===== 03 방법론 ===== -->
+    <section id="method">
+      <span class="sec-tag">03 · 방법론</span>
+      <h2>TON: 2단계 선택적 추론 프레임워크</h2>
+
+      <h3>출발점이 된 관찰</h3>
+      <p>Qwen-2.5-VL-3B로 AITZ에서 추론 유무를 대조한 결과, "think"를 제거해도 <b>52.1%</b>의 답이 정답으로 유지됐고, 특히 <b>14.5%</b>는 오히려 <b>think가 없을 때에만</b> 정답이었다. 후자는 "추론이 불필요하다"를 넘어 <b>"추론이 해로울 수 있다"</b>는 더 강한 주장을 뒷받침한다 — 잘못된 CoT가 정답을 오답으로 바꾸는 경우가 실제로 존재한다는 뜻이다.</p>
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig2" alt="with vs without thinking accuracy on AITZ">
+        <figcaption class="paper-fig-caption"><b>Figure 2.</b> Qwen-2.5-VL-3B · AITZ에서 SFT 시 "thinking" 유무에 따른 정답/오답 비율. think 없이도 정답 52.1%, think가 없을 때만 정답 14.5%.</figcaption>
+      </figure>
+
+      <h3>문제 정식화 (MDP)</h3>
+      <p>비전-언어 추론 환경을 튜플 <i>(V, Q, S<sup>*</sup>, π, r)</i>의 MDP로 형식화한다. 응답 <i>O</i>는
+        <code>&lt;think&gt;T&lt;/think&gt;&lt;answer&gt;S&lt;/answer&gt;</code> 태그 형식을 따라야 하며, 이는 답 이전에 추론하도록 강제하고 regex 파싱을 쉽게 한다.</p>
+      <p class="symdef">
+        <b>V</b> 시각 컨텍스트(이미지) · <b>Q</b> 질문 · <b>S<sup>*</sup></b> 정답 · <b>π</b> 정책 ·
+        <b>r</b> 스칼라 보상. 정답이면 양의 보상, 오답이면 0.
+      </p>
+      <div class="callout warn">
+        <div class="h">🔍 리뷰 중 발견 — MDP라기보다 single-step bandit</div>
+        <p>상태 전이나 감가율이 정의되지 않고 한 번의 <i>(V,Q)→O</i> 생성 후 즉시 스칼라 보상이 주어진다. AITZ 같은 multi-step 과제도 여기서는 한 스텝 응답 단위로 다뤄진다(논문은 "bandit"이라 명시하지 않음).</p>
+      </div>
+
+      <h3>1단계 — Thought Dropout SFT</h3>
+      <p>"think" vs "non-think"를 <b>출력 포맷의 일부</b>로 보고, 학습 중 thought 성분을 확률 <code>dropout_prob</code>로 빈 <code>"\n\n"</code>으로 대체한다. 어떤 샘플을 skip해도 되는지는 모델마다 추론 능력이 달라 사전에 정하기 어려우므로 <b>random dropout</b>으로 시작하고, 실제 판단은 2단계 RL에 위임한다.</p>
+      <pre class="code"><span class="pre-cm"># Algorithm 1 — thought_dropout</span>
+<span class="kw">def</span> thought_dropout(thought, dropout_prob):
+    <span class="kw">if</span> random.random() &lt; dropout_prob:
+        thought = <span class="st">"\n\n"</span>
+    <span class="kw">return</span> thought</pre>
+      <p>cold-start thought 데이터는 외부 closed-source API 없이 확보해야 한다. 여러 번 추론해 성공 케이스만 남기는 naïve 방식은 덜 효과적이어서, 정답을 조건으로 주고 추론을 역생성하는 <b>reverse thinking</b>을 쓴다:</p>
+      <div class="eq"><i>T</i> ← <i>π<sub>θ</sub></i>(<i>V, Q, S<sup>*</sup></i>) <span class="num">(1)</span></div>
+      <p class="symdef"><b>reverse thinking</b>: 정답 <i>S<sup>*</sup></i>를 조건으로 CoT를 역생성 → forward 생성보다 정답 정합적인 궤적을 값싸게 얻는 self-distillation 트릭(프롬프트: "답은 출력하지 말고 추론 과정만 간결히 생성하라"). AITZ는 기존 chain-of-action thought(CoAT) 주석을 그대로 쓰고, CLEVR·GeoQA에만 reverse thinking을 적용한다. <b>기본 dropout_prob = 50%</b>, ablation은 {20%, 50%, 80%}.</p>
+      <p class="symdef"><b>SFT 하이퍼파라미터</b> (Llamafactory full-parameter): cutoff_len 2048 · batch 8 · grad_accum 1 · lr 1.0e-5 · cosine · warmup 0.1 · epoch 2. 3B·7B 모두 <b>15분 이내</b>로 끝나는 매우 가벼운 단계다.</p>
+
+      <h3>2단계 — GRPO Self-Exploration</h3>
+      <p>SFT는 skip 포맷은 가르치지만 <b>"언제 skip할지"</b>는 미해결로 남긴다. GRPO가 <i>N</i>개 후보 <i>{o<sub>1</sub>,…,o<sub>N</sub>}</i>를 샘플링해 그룹 내 정규화 advantage를 계산하고 정책을 업데이트한다:</p>
+      <div class="eq"><i>A<sub>i</sub></i> = ( <i>r</i>(<i>o<sub>i</sub></i>) − mean{<i>r</i>(<i>o<sub>1</sub></i>),…,<i>r</i>(<i>o<sub>N</sub></i>)} ) / std{<i>r</i>(<i>o<sub>1</sub></i>),…,<i>r</i>(<i>o<sub>N</sub></i>)} <span class="num">(2)</span></div>
+      <div class="eq" style="font-size:15px">
+        <i>J</i><sub>GRPO</sub>(<i>θ</i>) = 𝔼<sub>{o<sub>i</sub>}∼π<sub>old</sub></sub> (1/<i>N</i>) Σ<sub>i</sub> { min[<i>α<sub>i</sub>A<sub>i</sub></i>, <i>β<sub>i</sub>A<sub>i</sub></i>] − <i>β</i> D<sub>KL</sub>[<i>π<sub>θ</sub></i> ‖ <i>π<sub>ref</sub></i>] } <span class="num">(3)</span>
+      </div>
+      <p class="symdef"><i>α<sub>i</sub></i> = <i>π<sub>θ</sub></i>(<i>o<sub>i</sub></i>|<i>v,q</i>) / <i>π<sub>old</sub></i>(<i>o<sub>i</sub></i>|<i>v,q</i>) — importance ratio, &nbsp; <i>β<sub>i</sub></i> = clip(<i>α<sub>i</sub></i>, 1+<i>ε</i>, 1−<i>ε</i>) — clip된 ratio, &nbsp; <i>π<sub>ref</sub></i> — reference 정책. <b>KL 계수 β = 0.04</b>, lr 1e-6, max_completion 2048, temperature 1.0, general/agent는 num_generations 8 · 100 step, math는 num_generations 4 · 300 step. 8×NVIDIA H20 GPU, vLLM 가속.</p>
+      <div class="callout warn">
+        <div class="h">🔍 리뷰 중 발견 — 식 (3)의 표기</div>
+        <p><i>min</i>[<i>α<sub>i</sub>A<sub>i</sub></i>, <i>β<sub>i</sub>A<sub>i</sub></i>]의 부호·순서가 PPO clipped objective의 통상 형태와 다소 어긋나 보인다(원문 조판 그대로). 표준 GRPO/PPO에서는 min 안 두 항 중 하나가 clip된 ratio이며, 이 논문도 그 의도로 읽는 것이 자연스럽다 — <b>이 해석은 논문 밖 일반론</b>.</p>
+      </div>
+
+      <h4>보상 설계</h4>
+      <p>outcome reward는 두 성분의 합 <b><i>r<sub>o</sub> = r<sub>d</sub> + r<sub>c</sub></i></b>이고, 최종 보상은 <i>r</i> = <i>r<sub>f</sub></i> + <i>r<sub>o</sub></i>:</p>
+      <div class="eq"><i>r<sub>d</sub></i>(<i>s, g</i>) = 𝟙(<i>s</i> = <i>g</i>) &nbsp;&nbsp;|&nbsp;&nbsp; <i>r<sub>c</sub></i>(<i>p, b</i>) = 𝟙(<i>p</i> ∈ <i>b</i>) &nbsp;또는&nbsp; 𝟙(‖<i>p</i> − <i>p</i><sup>*</sup>‖<sub>2</sub> ≤ <i>θ</i>)</div>
+      <p class="symdef"><b>Discrete matching <i>r<sub>d</sub></i></b>: 분류·counting·수학의 이산 출력용 binary reward(예측 <i>s</i> = 정답 <i>g</i>면 1). <b>Continuous matching <i>r<sub>c</sub></i></b>: UI 좌표·grounding의 연속 출력용 — 예측 점 <i>p</i>=[x,y]가 정답 박스 <i>b</i> 안이면 1, 정답 점만 있으면 0–1 정규화 좌표에 거리 임계 <b><i>θ</i> = 0.14</b>([19]에서 차용) 적용. General/Math VQA는 <i>r<sub>f</sub></i>+<i>r<sub>d</sub></i>, Agent VQA는 <i>r<sub>f</sub></i>+<i>r<sub>d</sub></i>+<i>r<sub>c</sub></i>.</p>
+
+      <div class="callout">
+        <div class="h">TON은 GRPO를 어떻게 돕는가 (핵심 통찰)</div>
+        <p>empty-think <i>T<sub>\n\n</sub></i>를 샘플링할 수 있어, 한 그룹 안에 <b>think 응답과 non-think 응답이 공존</b>해 응답의 latent 분포 다양성이 커진다. DAPO가 advantage 분포 <i>A<sub>i</sub></i>(무엇이 좋은 답인가)를 다양화한다면, TON은 정책확률 <i>π<sub>θ</sub></i>(<i>o<sub>i</sub></i>|<i>v,q</i>)(어떤 <b>형태</b>의 답을 낼까) 쪽의 <i>α, β</i> 다양성을 높인다.</p>
+      </div>
+
+      <!-- inline SVG diagram -->
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 760 300" role="img" aria-label="TON 2단계 파이프라인">
+          <defs>
+            <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0,0 L9,4.5 L0,9 Z" fill="var(--muted)"/>
+            </marker>
+          </defs>
+          <!-- input -->
+          <rect x="14" y="120" width="120" height="60" rx="12" fill="var(--surface-2)" stroke="var(--border)"/>
+          <text x="74" y="146" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">입력</text>
+          <text x="74" y="164" text-anchor="middle" font-size="11" fill="var(--muted)">V (이미지) + Q</text>
+          <line x1="134" y1="150" x2="176" y2="150" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+
+          <!-- Stage 1 -->
+          <rect x="180" y="90" width="200" height="120" rx="14" fill="#f3f2ff" stroke="var(--think)" stroke-width="1.5"/>
+          <text x="280" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="var(--think)">1단계 · Thought Dropout SFT</text>
+          <text x="280" y="140" text-anchor="middle" font-size="11" fill="var(--text)">reverse thinking으로 CoT 생성</text>
+          <text x="280" y="160" text-anchor="middle" font-size="11" fill="var(--text)">확률 50%로 thought →</text>
+          <rect x="228" y="170" width="104" height="24" rx="6" fill="#fff" stroke="var(--border)"/>
+          <text x="280" y="186" text-anchor="middle" font-size="11" font-family="var(--mono)" fill="var(--think)">&lt;think&gt;\n\n&lt;/think&gt;</text>
+          <line x1="380" y1="150" x2="422" y2="150" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+
+          <!-- Stage 2 -->
+          <rect x="426" y="90" width="200" height="120" rx="14" fill="#eaf2fd" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="526" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent)">2단계 · GRPO</text>
+          <text x="526" y="138" text-anchor="middle" font-size="11" fill="var(--text)">N개 후보 샘플링 (N = 8 / 4)</text>
+          <!-- think / nothink samples -->
+          <rect x="446" y="150" width="78" height="22" rx="6" fill="#fff" stroke="var(--think)"/>
+          <text x="485" y="165" text-anchor="middle" font-size="10.5" fill="var(--think)">think 응답</text>
+          <rect x="530" y="150" width="78" height="22" rx="6" fill="#fff" stroke="var(--nothink)"/>
+          <text x="569" y="165" text-anchor="middle" font-size="10.5" fill="var(--nothink)">non-think</text>
+          <text x="526" y="192" text-anchor="middle" font-size="10.5" fill="var(--muted)">outcome reward로 advantage 계산</text>
+          <line x1="626" y1="150" x2="668" y2="150" stroke="var(--muted)" stroke-width="2" marker-end="url(#ar)"/>
+
+          <!-- output -->
+          <rect x="672" y="120" width="76" height="60" rx="12" fill="var(--success-bg)" stroke="var(--success-bd)"/>
+          <text x="710" y="146" text-anchor="middle" font-size="12" font-weight="700" fill="var(--success)">적응적</text>
+          <text x="710" y="163" text-anchor="middle" font-size="11" fill="var(--success)">선택 추론</text>
+
+          <!-- feedback loop -->
+          <path d="M526 210 Q526 250 400 250 Q280 250 280 214" fill="none" stroke="var(--accent-2)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text x="400" y="272" text-anchor="middle" font-size="10.5" fill="var(--accent-2)">skip 여부를 self-exploration으로 학습</text>
+        </svg>
+        <div class="diagram-cap">TON 파이프라인: SFT가 "skip이라는 선택지"를 포맷에 심고(seeding), GRPO가 "언제 skip할지"를 reward로 탐색한다.</div>
+      </div>
+
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig3" alt="GRPO vs TON responses">
+        <figcaption class="paper-fig-caption"><b>Figure 3.</b> GRPO는 think 응답만 샘플링하는 반면, TON은 empty-think를 섞어 think/non-think 응답이 공존한다 — 응답 분포의 다양성이 GRPO의 탐색 폭을 넓힌다.</figcaption>
+      </figure>
+
+      <div class="callout warn">
+        <div class="h">⚠️ 논문 밖 일반론 / 미명시</div>
+        <p>"다양성 증가 → 성능 향상"의 인과는 Fig.3의 직관적 도식으로 제시될 뿐 방법론 절에서 정량 ablation으로 분리 검증되지 않는다 <b>(추정)</b>. 또 정답을 알고 만든 reverse-thinking 궤적의 <b>distribution shift</b>(사후 정당화된 CoT ≠ 실제 추론 분포) 우려는 논문에 명시되지 않음.</p>
+      </div>
+    </section>
+
+    <!-- ===== 04 실험 ===== -->
+    <section id="experiments">
+      <span class="sec-tag">04 · 실험</span>
+      <h2>실험 — 무엇을 보이고, 무슨 결과이며, 어떻게 읽나</h2>
+      <p class="symdef" style="margin-bottom:14px">공통 설정: Qwen-2.5-VL-Instruct 3B/7B · 8×NVIDIA H20 GPU · vLLM 가속 · greedy 디코딩 평가. CLEVR·AITZ는 100 step, GeoQA는 난이도가 높아 300 epoch 학습. Agent(AITZ)에서는 GRPO를 직접 적용하면 복잡한 출력 포맷 탓에 coordinate reward가 0으로 죽어, <b>baseline에도 동일한 SFT 단계를 넣어</b> 공정 비교한다.</p>
+      <p>실험은 세 개의 RQ로 짜여 있다 — <b>Q1</b> 효과 있나(성능·효율), <b>Q2</b> 왜 되나(skip 행동이 추론 강도에 적응하나), <b>Q3</b> 꼭 필요한가(SFT 없이 프롬프트만으로 안 되나).</p>
+
+      <h3>실험 ① — TON vs vanilla GRPO (Q1: 성능·효율)</h3>
+      <p><b>무엇을 보여주나:</b> 동일 조건에서 정확도 · RL 학습시간 · 학습 종료 시 평균 완성 길이를 비교. <b>결과:</b> 완성 길이를 최대 90% 줄이면서 정확도는 동등하거나 최대 +17 향상, 학습시간도 함께 단축.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>모델 · 과제</th><th>Baseline Acc / Len</th><th>GRPO (Acc / Time / Len)</th><th>TON (Acc / Time / Len)</th><th>Gain</th></tr></thead>
+          <tbody>
+            <tr><td>Counting CLEVR (3B)</td><td>64.0 / 306</td><td>93.5 / 1h44m / 227</td><td>98.5 / 57m / 28</td><td><span class="pos">+5.0</span> / <span class="neg">−87%</span></td></tr>
+            <tr><td>Math GeoQA (3B)</td><td>36 / 924</td><td>37 / 2h50m / 272</td><td>51 / 2h4m / 96</td><td><span class="pos">+14</span> / <span class="neg">−65%</span></td></tr>
+            <tr class="highlight-row"><td>Math GeoQA (7B)</td><td>38 / 939</td><td>44 / 3h4m / 1069</td><td>61 / 2h34m / 112</td><td><span class="pos">+17</span> / <span class="neg">−90%</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="paper-fig-caption" style="margin-top:-4px"><b>highlight-row</b> = 이 논문(TON)이 가장 극적인 이득을 보이는 GeoQA-7B: 완성 길이를 90% 줄이면서 정확도를 17점 올렸다.</p>
+      <div class="stats-row">
+        <div class="stat-box"><div class="v g">+17</div><div class="k">GeoQA-7B Acc (44→61)</div></div>
+        <div class="stat-box"><div class="v">1069→112</div><div class="k">GeoQA-7B 완성 길이</div></div>
+        <div class="stat-box"><div class="v">−47m</div><div class="k">CLEVR RL 학습시간 단축</div></div>
+        <div class="stat-box"><div class="v g">98.5%</div><div class="k">CLEVR Acc (base 64.0)</div></div>
+      </div>
+      <p><b>해석:</b> 통상 CoT를 없애면 정답률이 떨어질 것 같지만, 노이즈성 CoT가 오답을 유발하던 경우가 함께 제거되며 <b>불필요한 추론 생략이 오히려 성능을 올린다</b>. 길이 감소는 샘플 생성의 디코딩 시간을 줄여 학습시간까지 동시에 단축시킨다.</p>
+
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/tbl2" alt="TON vs GRPO table">
+        <figcaption class="paper-fig-caption"><b>Table 2.</b> TON vs vanilla GRPO — Acc(테스트 정확도), Time(RL 학습시간), Length(학습 종료 시 평균 완성 길이).</figcaption>
+      </figure>
+
+      <h3>실험 ② — AITZ 멀티스텝 & OOD 일반화</h3>
+      <p><b>무엇을 보여주나:</b> AITZ {General}로 학습 후 OOD 도메인 {Web shopping · Google apps · Install}에서 step-level type/exact accuracy와 태스크당 출력 토큰. <b>결과:</b></p>
+      <div class="stats-row">
+        <div class="stat-box"><div class="v">0.75 / 0.74</div><div class="k">3B avg type: TON vs GRPO (동등)</div></div>
+        <div class="stat-box"><div class="v g">3664→922</div><div class="k">3B 태스크당 토큰 (≈−75%)</div></div>
+        <div class="stat-box"><div class="v g">0.23→0.45</div><div class="k">7B exact avg (GRPO→TON)</div></div>
+        <div class="stat-box"><div class="v g">3272→908</div><div class="k">7B 태스크당 토큰</div></div>
+      </div>
+      <p><b>해석:</b> 실세계 long-horizon 절차적 agent 과제에서 성능 손실 없이(7B는 오히려 크게 향상) 토큰을 대폭 절감한다. 정성적으로도 Figure 6에서 TON은 불필요한 step의 사고를 건너뛰어 <b>토큰 60% 절감</b>을 보인다.</p>
+      <div class="callout warn">
+        <div class="h">🔍 리뷰 중 발견 — 본문 근사치와 표의 불일치</div>
+        <p>본문은 "3K→0.9K(약 70% 절감)"으로 서술하지만 Table 3의 실제 수치는 3664→922(3B) / 3272→908(7B)로 <b>약 75%</b>다. 결론은 바뀌지 않지만 인용할 때는 표 수치를 쓰는 편이 안전하다.</p>
+      </div>
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig6" alt="GRPO vs TON on AITZ agent setting">
+        <figcaption class="paper-fig-caption"><b>Figure 6.</b> AITZ agent 설정에서 GRPO vs TON. TON은 불필요한 사고를 적응적으로 건너뛰어 태스크 정확도를 해치지 않고 토큰을 60% 절감한다.</figcaption>
+      </figure>
+
+      <h3>실험 ③ — Skip ratio의 추이와 OOD overfitting 회피 (Q2)</h3>
+      <p><b>무엇을 보여주나:</b> 학습 중 skip-thought 비율의 추이, 그리고 CLEVR(IID)/Super-CLEVR(OOD) 정확도. <b>결과:</b> skip 비율이 reward 상승과 함께 <b>점진적으로 증가</b>하며(세 벤치마크 모두 동일 추세), 'think'로 생성한 출력의 길이는 vanilla GRPO와 비슷하게 유지된다 — 즉 <b>생각하지 않기를 선택할 수 있으나, 필요할 때는 성실히 생각한다</b>. 아래 result-bar는 Super-CLEVR OOD 정확도(Table 9):</p>
+      <div class="result-bar"><div class="lab"><span class="name">Base (Qwen2.5-VL-3B)</span><span class="num">57.3</span></div><div class="track"><div class="fill grpo" style="width:57.3%">57.3</div></div></div>
+      <div class="result-bar"><div class="lab"><span class="name">SFT 단독</span><span class="num">13.17 (붕괴)</span></div><div class="track"><div class="fill grpo" style="width:13.17%">13.2</div></div></div>
+      <div class="result-bar"><div class="lab"><span class="name">GRPO</span><span class="num">51.9</span></div><div class="track"><div class="fill grpo" style="width:51.9%">51.9</div></div></div>
+      <div class="result-bar"><div class="lab"><span class="name">TON (ours)</span><span class="num">62.79</span></div><div class="track"><div class="fill ton" style="width:62.79%">62.8</div></div></div>
+      <p><b>해석:</b> SFT 단독은 학습 분포의 표면 패턴에 과적합해 OOD가 base보다 크게 무너지지만(57.3 → 13.17), 이어지는 GRPO가 이를 62.79까지 끌어올린다 — <b>"SFT로 포맷 심고 RL로 일반화"</b>라는 2단계 구조의 정당성을 가장 선명하게 보여주는 수치다(IID CLEVR도 TON 98.5 &gt; GRPO 93.5).</p>
+
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig_auto4" alt="skip think ratio">
+        <figcaption class="paper-fig-caption"><b>Skip-think ratio.</b> 학습이 진행될수록 skip 비율이 reward 상승과 함께 점진 증가 — CLEVR·AITZ·GeoQA 세 벤치마크에서 일관되게 관찰된다.</figcaption>
+      </figure>
+
+      <h4>난이도 인지 dropout vs random dropout</h4>
+      <p><b>무엇을 보여주나:</b> base VLM zero-shot 정확도로 난이도를 easy(60–100)/medium(40–60)/hard(0–40)로 나눈 뒤, (a) TON의 skip 비율이 난이도를 따라가는지, (b) "easy 샘플만 골라 drop"하는 difficulty-aware 전략이 random보다 나은지. <b>결과:</b> 쉬운 counting 질의엔 skip 비율↑, 어렵고 지식집약적인 질의엔 skip 비율↓. 그러나 difficulty-aware dropout은 random dropout보다 오히려 근소하게 낮았다(<b>50.5% vs 51.0%</b>).</p>
+      <p><b>해석:</b> 수작업 난이도 휴리스틱은 노이즈·편향을 들여와 학습을 방해할 수 있는 반면, random dropout은 더 단순하고 편향 없는 대안으로 과제 전반에 잘 일반화된다. dropout 비율 ablation({20, 50, 80}%)에서도 어느 값이든 skip 비율은 일관되게 증가하되, 20%는 빠르게 상승하고 80%는 학습 내내 안정적이어서 <b>낮은 값에서 출발</b>하는 편이 권장된다.</p>
+
+      <h3>실험 ④ — SFT가 정말 필요한가 (Q3)</h3>
+      <p><b>무엇을 보여주나:</b> SFT 없이 "질문이 단순하면 <code>&lt;think&gt;\n\n&lt;/think&gt;</code>로 답하라"는 hybrid 프롬프트만 주고 바로 GRPO를 돌리는 대안. <b>결과:</b> hybrid와 vanilla GRPO의 완성 길이 차이는 미미했고, GRPO가 학습·추론 중 생성한 전체 샘플에서 skip 케이스는 <b>GeoQA 단 2건, AITZ 0건</b>이었다. 부록의 별도 실험(<code>&lt;think&gt;\n\n&lt;/think&gt;</code> 출력에 length reward <i>r<sub>l</sub></i>=1을 직접 부여)에서도 첫 100 step 내내 length reward가 <b>0에 머물렀다</b>.</p>
+      <div class="callout warn">
+        <div class="h">🔍 리뷰 중 발견 — RL exploration 붕괴가 진짜 이유</div>
+        <p>skip 출력을 <b>한 번도 샘플링하지 않으면</b> 그 행동에 reward를 걸어도 gradient가 흐르지 않는다. 즉 thought dropout SFT는 "성능 개선"이 아니라 <b>RL이 탐색할 행동 공간에 skip을 심어두는 부트스트랩(seeding)</b>이라는 것이 핵심이며, 4.2절의 응답 분포 다양성 논의와 정확히 맞물린다(이 "탐색 공간 부트스트랩" 프레이밍 자체는 논문이 명시하지 않은 리뷰 해석).</p>
+      </div>
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig_auto10" alt="prompting vs SFT">
+        <figcaption class="paper-fig-caption"><b>Prompting vs SFT.</b> hybrid-thought 프롬프트만으로는 완성 길이가 vanilla GRPO와 거의 같다 — 포맷 습관의 관성은 프롬프트로 깨지지 않는다.</figcaption>
+      </figure>
+
+      <h4>참고: think를 빼면 무슨 일이 일어나나 (부록 A, AITZ)</h4>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>설정</th><th>SFT acc</th><th>SFT len</th><th>GRPO acc</th><th>GRPO len</th></tr></thead>
+          <tbody>
+            <tr><td>w/ think</td><td>0.67</td><td>181</td><td>0.74</td><td>88</td></tr>
+            <tr><td>w/o think</td><td>0.39</td><td>29</td><td>0.58</td><td>29</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><b>해석:</b> think를 <b>무조건</b> 빼면 정확도는 확실히 떨어진다(0.74→0.58). TON의 주장은 "추론이 필요 없다"가 아니라 "<b>필요한 곳에만</b> 추론하면 길이만 줄고 정확도는 지켜진다"임을 이 표가 역으로 확인해 준다. RL을 거친 뒤에도 no-think 성능이 0.58로 상당히 보존된다는 점도 4절의 52.1% 관찰과 결이 같다.</p>
+
+      <h3>정성 사례</h3>
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/tbl4" alt="thinking vs non-thinking CLEVR">
+        <figcaption class="paper-fig-caption"><b>Table 4 (CLEVR).</b> 쉬운 문항(물체 3개)엔 TON이 <code>&lt;think&gt;\n\n&lt;/think&gt;</code>로 즉답, 어려운 문항(물체 8개, occlusion)엔 세밀히 세어 정답. 반면 GRPO는 추론을 하고도 "여섯 개"로 세다 10을 답해 오답 — <b>어려운 문제에선 TON이 오히려 더 성실히 추론</b>한다.</figcaption>
+      </figure>
+      <figure>
+        <img class="paper-fig" src="/paper/2505.16854/fig/fig17" alt="TON examples on math and GUI agent VQA">
+        <figcaption class="paper-fig-caption"><b>Figure 17.</b> math VQA·GUI agent VQA에서의 TON 사례. GeoQA 기하 문제는 <code>&lt;think&gt;\n\n&lt;/think&gt;</code>로 즉답해 정답(예: angle 2 = 65°, GRPO는 길게 추론하고 40으로 오답), 어려운 삼각비 문제에서는 TON도 full 추론을 전개한다.</figcaption>
+      </figure>
+
+      <div class="callout success">
+        <div class="h">핵심 takeaway</div>
+        <p>TON은 modality(counting · 수학 · GUI agent · text-only GSM8K)를 넘나들며 <b>완성 길이를 최대 90% 절감하면서 성능을 유지·향상</b>한다. skip 비율은 학습과 함께 자연스럽게 증가하고 난이도에 따라 갈리며, 어려운 문항에선 추론을 유지한다 — 선택적 추론이 <b>양방향</b>으로 작동함을 정량(Table 2·3·9)·정성(Table 4, Fig.17) 모두로 입증했다.</p>
+      </div>
+    </section>
+
+    <!-- ===== 05 한계 ===== -->
+    <section id="limits">
+      <span class="sec-tag">05 · 한계</span>
+      <h2>한계</h2>
+      <ul class="limit-list">
+        <li><div class="ic">⚠️</div><div class="txt"><b>소형 모델에만 검증</b><span class="tag tag-paper">논문 명시</span><br>연산 자원상 3B·7B만 평가. 235B급 대형 모델에서는 미검증 — 추론 능력이 커질수록 skip 정책이 어떻게 변하는지는 열린 문제다.</div></li>
+        <li><div class="ic">⚠️</div><div class="txt"><b>proprietary VLM 미적용</b><span class="tag tag-paper">논문 명시</span><br>GPT-4o 등 폐쇄형 모델은 소스 코드 접근이 없어 TON을 적용하지 못했다.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b>reverse-thinking 궤적의 distribution shift</b><span class="tag tag-review">리뷰 중 발견</span><br>정답 <i>S<sup>*</sup></i>를 조건으로 <b>사후 정당화된</b> CoT는 실제 추론 시 분포와 미묘히 다를 수 있다. 이 우려는 논문에 명시되지 않음.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b>"free-lunch"의 인과가 분리 검증되지 않음</b><span class="tag tag-review">리뷰 중 발견</span><br>"짧은 추론이 정확도를 올린다"는 노이즈성 CoT 제거 효과로 해석되지만, 이 인과는 ablation으로 분리되지 않았다. "think 없을 때만 정답 14.5%" 역시 AITZ·3B 단일 조건 관찰로, 다른 난이도 분포에서의 유지 여부는 논문에 명시되지 않음.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b>MDP 형식화의 과잉 명명</b><span class="tag tag-review">리뷰 중 발견</span><br>상태 전이·감가율이 없어 실질은 single-step bandit이며, AITZ 같은 multi-step 과제도 한 스텝 단위로 다뤄진다. 진짜 multi-step credit assignment(어느 step의 skip이 최종 실패를 유발했나)는 다루지 않는다.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b>정성 예시의 cherry-picking 위험 · dynamic dropout 미완</b><span class="tag tag-review">리뷰 중 발견</span><br>Table 4·Fig.17 등 유리한 사례 선택 가능성은 qualitative의 일반적 한계(논문 밖 일반론). 5.3의 "reward에 따라 dropout 확률을 동적 최적화" 아이디어는 제안만 되고 결론에서 다뤄지지 않은 열린 문제다.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b><i>θ</i> = 0.14 좌표 임계의 민감도 미분석</b><span class="tag tag-review">리뷰 중 발견</span><br>연속 reward의 관용 반경(정규화 좌표 기준 ≈14%)을 선행 연구 [19]에서 그대로 차용했을 뿐, 이 값의 민감도 분석은 논문에 명시되지 않음 — agent 결과의 재현성에 직결되는 값이다.</div></li>
+        <li><div class="ic">🔍</div><div class="txt"><b>결론에 limitation·future work가 없음</b><span class="tag tag-review">리뷰 중 발견</span><br>한계는 부록 C에만 짧게 놓이고 Conclusion은 긍정적 함의로만 끝난다. 열린 문제(dynamic dropout, self-generated thought의 편향)가 본문 서사에 반영되지 않는다.</div></li>
+      </ul>
+    </section>
+
+    <!-- ===== 06 후속 연구 ===== -->
+    <section id="future">
+      <span class="sec-tag">06 · 후속 연구</span>
+      <h2>후속으로 읽을 논문</h2>
+      <p>WebSearch(2026-07 기준)로 확인한 동일 문제공간 — "언제/얼마나 생각할지"를 학습·평가하는 계열의 실제 논문들이다. TON을 직접 인용하는지는 개별 확인이 필요하다 <b>(추정)</b>.</p>
+
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2607.08572" target="_blank">Switch-Reasoner: Learn When to Think in Multitask Mixtures via Reinforcement Learning</a> <span class="aid">arXiv:2607.08572 (2026-07)</span></div>
+        <div class="why">TON의 문제의식을 가장 직접적으로 잇는 최신 연구. thinking을 <b>가상 tool 호출</b>로 보고 GRPO로 추론 모드를 적응적으로 선택하며, GRPO-Thinking보다 훨씬 적은 thinking 궤적으로 GRPO-Direct보다 높은 점수를 낸다 — TON의 "empty-think 포맷" 대신 "tool 호출" 추상을 쓴 변주.</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2602.02676" target="_blank">AdaptMMBench: Benchmarking Adaptive Multimodal Reasoning for Mode Selection and Reasoning Process</a> <span class="aid">arXiv:2602.02676 (2026-02)</span></div>
+        <div class="why">TON류 방법이 없던 <b>평가 축</b>을 만든다. real-world·OCR·GUI·knowledge·math 5개 도메인에서 MCC(Matthews 상관계수)로 <b>모드 선택의 합리성</b>만 따로 측정하며, 모드 선택 능력이 모델 크기와는 비례하지만 최종 정확도와는 <b>탈동조</b>됨을 보고한다 — TON의 skip ratio 지표만으로는 놓치는 부분.</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2510.08457" target="_blank">ARES: Multimodal Adaptive Reasoning via Difficulty-Aware Token-Level Entropy Shaping</a> <span class="aid">arXiv:2510.08457 (2025-10)</span></div>
+        <div class="why">TON이 <b>응답 단위</b>로 think/no-think를 고르는 데 비해, 난이도에 따라 <b>토큰 단위</b>로 추론 예산을 배분한다. TON의 ablation에서 실패했던 "difficulty-aware" 방향을 entropy 기반으로 다시 시도한 셈이라 대조해 읽을 가치가 크다.</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2604.14568" target="_blank">Learning Adaptive Reasoning Paths for Efficient Visual Reasoning</a> <span class="aid">arXiv:2604.14568 (2026-04)</span></div>
+        <div class="why">시각 추론에서 <b>적응적 추론 경로</b>를 학습해 효율을 높인다 — "생각할지 말지"의 이진 선택을 경로 선택으로 확장하는 계열 <b>(추정)</b>.</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2510.06052" target="_blank">MixReasoning: Switching Modes to Think</a> <span class="aid">arXiv:2510.06052 (2025-10)</span></div>
+        <div class="why">LLM 쪽에서 한 응답 <b>내부</b>의 추론 모드를 전환한다. TON의 "응답 단위 on/off"보다 세분화된 제어로, whether와 how 사이 경계(02절 warn 참조)를 실제로 흐리는 사례 <b>(추정)</b>.</div>
+      </div>
+      <div class="ref">
+        <div class="t"><a href="https://arxiv.org/abs/2505.15436" target="_blank">Chain-of-Focus: Adaptive Visual Search and Zooming for Multimodal Reasoning via RL</a> <span class="aid">arXiv:2505.15436 (2025-05)</span></div>
+        <div class="why">TON과 같은 달에 나온 동시대 연구. "지금 보이는 시각 입력으로 충분한가, 더 확대해 봐야 하나"를 동적으로 판단 — <b>시각 축</b>에서의 selective reasoning으로 읽을 수 있다.</div>
+      </div>
+
+      <div class="callout">
+        <div class="h">원본 리소스</div>
+        <p>공식 코드 <a href="https://github.com/kokolerk/TON" target="_blank">github.com/kokolerk/TON</a> · 논문 <a href="https://arxiv.org/abs/2505.16854" target="_blank">arXiv:2505.16854</a> (NeurIPS 2025) · <a href="https://huggingface.co/papers/2505.16854" target="_blank">Hugging Face paper page</a>.</p>
+      </div>
+    </section>
+
+    <hr class="soft">
+    <div class="foot">2505.16854 — 리뷰 리포트 · workbench.md 기반 구조화 · 논문 주장과 리뷰 해석을 구분해 표기</div>
+
+  </main>
+</div>
+</body>
+</html>

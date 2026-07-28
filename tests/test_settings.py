@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from fastapi import HTTPException
 
@@ -86,3 +88,22 @@ def test_splash_fail_js_escapes_newlines():
 
     js = fail_js('line1\nline2 "quoted"')
     assert "\\n" in js and "\n" not in js  # real newline would break the JS literal
+
+
+def test_skills_dir_resolves_inside_a_frozen_bundle(tmp_path, monkeypatch):
+    """The .app lays skills out at _MEIPASS/skills, but parents[2] lands one
+    level above _MEIPASS — Settings → 스킬 came up empty in the app while the
+    browser was fine."""
+    from paper_review.server import settings as S
+
+    meipass = tmp_path / "Frameworks"
+    (meipass / "skills" / "demo").mkdir(parents=True)
+    (meipass / "skills" / "demo" / "SKILL.md").write_text(
+        "---\nname: demo\ndescription: d\n---\n"
+    )
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(meipass), raising=False)
+    assert S._skills_root() == meipass / "skills"
+
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert S._skills_root().name == "skills"  # source checkout path

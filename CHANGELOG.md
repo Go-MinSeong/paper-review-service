@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.15.2
+
+### Fixed
+- **Settings → 스킬 was empty in the desktop app.** The skills folder was
+  resolved with `parents[2]`, which is the repo root from a source checkout but
+  one level ABOVE `_MEIPASS` in the frozen app — so the list came up empty
+  there while the browser was fine. It has been wrong since the .app existed;
+  moving to the app is what surfaced it.
+- **Exporting the Summary did nothing in the desktop app.** pywebview's
+  `window.print()` prints the top-level web view, and the report is rendered in
+  an iframe, so the button silently no-opped. In the app it now opens the
+  report in the real browser (where ⌘P works), and the report pane gained a ⤓
+  that saves `report.html` as a file — which works everywhere.
+
+
 ## 2.15.1
 
 ### Fixed

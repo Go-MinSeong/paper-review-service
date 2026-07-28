@@ -17,8 +17,26 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 
 _SERVER_DIR = Path(__file__).resolve().parent
-_REPO_ROOT = _SERVER_DIR.parents[2]  # server → paper_review → src → repo
-SKILLS_DIR = _REPO_ROOT / "skills"
+
+
+def _skills_root() -> Path:
+    """Where the bundled skills live.
+
+    In a source checkout that's <repo>/skills (server → paper_review → src →
+    repo). The frozen .app lays them out as _MEIPASS/skills, and parents[2]
+    lands one level ABOVE _MEIPASS there — so Settings → 스킬 came up empty in
+    the app while working fine in the browser."""
+    import sys
+
+    if getattr(sys, "frozen", False):
+        meipass = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        bundled = meipass / "skills"
+        if bundled.is_dir():
+            return bundled
+    return _SERVER_DIR.parents[2] / "skills"
+
+
+SKILLS_DIR = _skills_root()
 CHARS_DIR = _SERVER_DIR / "static" / "characters"
 TRASH_DIR = CHARS_DIR / "_trash"
 GROUPS_FILE = _SERVER_DIR / "illustration_groups.json"

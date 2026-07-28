@@ -790,6 +790,7 @@
       const url = `/paper/${slug}/report?v=${reportMtime}`;
       if (reportFrame.src !== location.origin + url) reportFrame.src = url;
       document.getElementById("report-open").href = `/paper/${slug}/report`;
+      document.getElementById("report-dl").href = `/paper/${slug}/report?download=1`;
     } else {
       // no report yet: just the label-filtered summary — generation lives in
       // the topbar button, no banner.
@@ -1981,6 +1982,16 @@
     // Export WHAT'S ON SCREEN: in summary mode with a report, print the report
     // iframe; otherwise print the (detail) workbench.
     if (view === 'summary' && reportExists && !reportPane.hidden) {
+      // In the desktop app this silently did nothing: pywebview's print bridge
+      // prints the TOP-LEVEL web view and the report is in an iframe. Open it
+      // in the real browser instead (pywebview sends target=_blank there), and
+      // print from a normal browser tab.
+      if (document.documentElement.classList.contains('in-app')) {
+        window.open(`/paper/${slug}/report`, '_blank');
+        UIDialog.alert('리포트를 브라우저에서 열었습니다 — ⌘P로 PDF 저장하세요.\n' +
+                       '(파일로 받으려면 리포트 우상단 ⤓)', { title: 'Summary 내보내기' });
+        return;
+      }
       try { reportFrame.contentWindow.focus(); reportFrame.contentWindow.print(); }
       catch (e) { window.open(`/paper/${slug}/report`, '_blank'); }
       return;
