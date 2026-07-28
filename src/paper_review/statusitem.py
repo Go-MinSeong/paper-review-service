@@ -35,6 +35,7 @@ def _icon():
     from .menubar import _icon_path
 
     p = _icon_path()
+    _log(f"icon path={p}")
     if p is None:
         return None
     import AppKit
@@ -78,8 +79,13 @@ def install(port: int, window) -> None:
             img = _icon()
             if img is not None:
                 item.button().setImage_(img)
+                _log(
+                    f"icon size={tuple(img.size())} template={img.isTemplate()} "
+                    f"valid={img.isValid()} reps={img.representations().count()}"
+                )
             else:  # no icon file (e.g. a partial install) — still show something
                 item.button().setTitle_("◫")
+                _log("no icon — using the text fallback")
 
             menu = AppKit.NSMenu.alloc().init()
             head = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
