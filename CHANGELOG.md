@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.13.0
+
+### Added
+- **The desktop app puts an icon in the menubar too.** The standalone
+  `paper-review menubar` runs its own NSApplication and can't be reused, so the
+  app adds an NSStatusItem to the one pywebview already drives: status line,
+  Show Window, Open in Browser, Quit. Opening the app now gives you both a Dock
+  icon and a menubar item.
+
+### Changed
+- **The window's title bar is gone — the UI runs to the top of the window**, the
+  way the sibling apps do. pywebview's grey bar read as browser chrome bolted
+  above the app. The bar is transparent with full-size content; the sidebar and
+  the content head simply start their padding below the traffic lights (a strip
+  across the top left a seam where its colour met the content). The window stays
+  draggable by its background.
+
+
 ## 2.12.0
 
 ### Changed

@@ -103,3 +103,21 @@ def test_settings_panes_save_independently(tmp_path, monkeypatch):
         client.put("/settings", json={"remote_url": "https://a.vercel.app"}).status_code
         == 400
     )
+
+
+def test_pages_make_room_for_the_traffic_lights_in_the_app():
+    """The desktop window runs its content under a transparent titlebar, so both
+    pages must detect the app and offset their top strip — otherwise the traffic
+    lights land on the sidebar brand / topbar controls."""
+    from paper_review.server.app import _STATIC_DIR
+
+    for path in ("/", "/paper/2505.16854"):
+        r = client.get(path)
+        if r.status_code == 404:
+            continue  # that paper isn't in this checkout
+        assert 'classList.add("in-app")' in r.text, path
+
+    css = (_STATIC_DIR / "gallery.css").read_text()
+    assert "html.in-app .sidebar" in css and "--titlebar-h" in css
+    detail = (_STATIC_DIR / "detail.css").read_text()
+    assert "html.in-app .topbar" in detail

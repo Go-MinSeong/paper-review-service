@@ -142,6 +142,9 @@ def _unify_titlebar(window) -> None:
                 # undo the window-background colour pywebview paints on the bar
                 bar = ns.contentView().superview().subviews().lastObject()
                 bar.setBackgroundColor_(AppKit.NSColor.clearColor())
+                # With no title bar left to grab, the window still has to be
+                # draggable — background drag covers the empty header areas.
+                ns.setMovableByWindowBackground_(True)
             except Exception:
                 pass
             ns.displayIfNeeded()

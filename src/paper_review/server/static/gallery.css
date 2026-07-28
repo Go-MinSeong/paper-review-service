@@ -50,6 +50,13 @@
     grid-template-columns: 248px minmax(0, 1fr);
     height: 100vh;
   }
+  /* Desktop app: the window draws its content under a transparent titlebar.
+     Rather than a strip across the top (which left a seam where it met the
+     content), the panels themselves run to the very top and just start their
+     padding below the traffic lights — the way Finder and Mail do it. */
+  :root { --titlebar-h: 28px; }
+  html.in-app .sidebar { padding-top: calc(18px + var(--titlebar-h)); }
+  html.in-app .content-head { padding-top: calc(20px + var(--titlebar-h)); }
 
   /* ─── Sidebar ─────────────────────────────────────────────────────── */
   .sidebar {

@@ -68,6 +68,11 @@
   }
 
   /* ─── Topbar ─────────────────────────────────────────────────────── */
+  /* Desktop app: content runs under a transparent titlebar (see gallery.css).
+     The topbar keeps its own blurred background and simply starts below the
+     traffic lights — no separate strip, so there is no seam. */
+  :root { --titlebar-h: 28px; }
+  html.in-app .topbar { padding-top: calc(10px + var(--titlebar-h)); }
   .topbar {
     position: sticky; top: 0; z-index: 50;
     display: flex; align-items: center; gap: 14px;

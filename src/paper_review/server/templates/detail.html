@@ -23,6 +23,16 @@
 <script src="https://uicdn.toast.com/tui-color-picker/latest/tui-color-picker.min.js"></script>
 <script src="https://uicdn.toast.com/editor-plugin-color-syntax/latest/toastui-editor-plugin-color-syntax.min.js"></script>
 <link rel="stylesheet" href="/static/detail.css">
+<script>
+  // pywebview injects `pywebview` into the page; use it to make room for the
+  // traffic lights (the window runs its content under a transparent titlebar).
+  if (window.pywebview || navigator.userAgent.includes("pywebview")) {
+    document.documentElement.classList.add("in-app");
+  } else {
+    window.addEventListener("pywebviewready", () =>
+      document.documentElement.classList.add("in-app"));
+  }
+</script>
 </head>
 <body data-slug="__SLUG__" data-pdf-name="__PDF_NAME__" data-has-pdf="__HAS_PDF__" data-has-viewer="__HAS_VIEWER__" data-content-type="__CONTENT_TYPE__" data-status="__STATUS__" data-rating="__RATING__">
   <div class="topbar">
