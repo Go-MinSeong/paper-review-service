@@ -34,7 +34,18 @@ def test_every_row_is_actionable_except_status(app):
     assert [i.title for i in dead] == [app.menu_status.title], "only status is inert"
 
 
+def test_phone_url_is_hidden_when_loopback_only(app, monkeypatch):
+    """The server binds loopback by default now, so advertising a LAN address
+    would point at something that doesn't answer."""
+    monkeypatch.delenv("PAPER_REVIEW_HOST", raising=False)
+    app._refresh_lan()
+    assert "remote slot" in app.menu_lan.title
+    assert app._lan_url() is None
+
+
 def test_phone_url_tracks_the_current_network(app, monkeypatch):
+    monkeypatch.setenv("PAPER_REVIEW_HOST", "0.0.0.0")  # LAN opt-in
+    app._refresh_lan()
     assert "10.0.0.5:7300" in app.menu_lan.title
     # the Mac moves networks — the row used to keep its launch-time IP forever
     monkeypatch.setattr(M, "_lan_ip", lambda: "192.168.1.9")

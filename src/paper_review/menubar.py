@@ -221,10 +221,12 @@ class PaperReviewMenubarApp:
         ts = time.strftime("%Y%m%d-%H%M%S")
         self.log_path = _LOG_DIR / f"server-{ts}.log"
         cli = _resolve_cli()
-        # Bind all interfaces by default so the app is reachable from a phone
-        # on the same Wi-Fi (http://<lan-ip>:<port>). Override with
-        # PAPER_REVIEW_HOST=127.0.0.1 for localhost-only.
-        host = os.environ.get("PAPER_REVIEW_HOST", "0.0.0.0")
+        # Loopback by default. This used to bind 0.0.0.0 so a phone on the same
+        # Wi-Fi could open the gallery — but the server has NO authentication,
+        # so on any shared network that also handed out DELETE /paper/<slug>
+        # and the whole library. Mobile goes through the remote slot now.
+        # PAPER_REVIEW_HOST=0.0.0.0 still opts in (assumes a trusted network).
+        host = os.environ.get("PAPER_REVIEW_HOST", "127.0.0.1")
         cmd = [cli, "serve", "--port", str(self.port), "--host", host]
         try:
             self.proc = subprocess.Popen(
@@ -288,7 +290,12 @@ class PaperReviewMenubarApp:
             rumps.notification(
                 title="paper-review",
                 subtitle="",
-                message="No local network address right now.",
+                message=(
+                    "No local network address right now."
+                    if self._lan_bound()
+                    else "The server is loopback-only. Send a paper to your phone "
+                    "with the 📱 button, or set PAPER_REVIEW_HOST=0.0.0.0."
+                ),
             )
             return
         try:
@@ -326,18 +333,24 @@ class PaperReviewMenubarApp:
             return "http://paper-review.local"
         return f"http://127.0.0.1:{self.port}"
 
+    def _lan_bound(self) -> bool:
+        return os.environ.get("PAPER_REVIEW_HOST", "127.0.0.1") != "127.0.0.1"
+
     def _lan_url(self) -> str | None:
+        if not self._lan_bound():
+            return None  # loopback-only: the LAN address wouldn't answer
         ip = _lan_ip()
         return f"http://{ip}:{self.port}" if ip else None
 
     def _refresh_lan(self) -> None:
         """The Mac changes networks; the menu used to keep the launch-time IP."""
         url = self._lan_url()
-        self.menu_lan.title = (
-            f"Phone URL: {url.removeprefix('http://')}"
-            if url
-            else "Phone URL: (offline)"
-        )
+        if url:
+            self.menu_lan.title = f"Phone URL: {url.removeprefix('http://')}"
+        elif self._lan_bound():
+            self.menu_lan.title = "Phone URL: (offline)"
+        else:
+            self.menu_lan.title = "Local only — phone uses the remote slot"
 
     def _refresh_url_items(self) -> None:
         self._refresh_lan()

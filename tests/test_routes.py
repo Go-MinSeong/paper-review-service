@@ -142,3 +142,66 @@ def test_gallery_refreshes_on_focus():
     assert "addEventListener('focus'" in js and "visibilitychange" in js
     # the list has to be reassignable for the refresh to land
     assert "let papers = JSON.parse" in js
+
+
+def test_delete_moves_to_trash_and_save_keeps_history(tmp_path, monkeypatch):
+    """The review is the product: deleting a card and saving over it were both
+    one-way doors."""
+    import paper_review.server.app as A
+
+    monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
+    d = tmp_path / "2600.99999"
+    d.mkdir()
+    (d / "workbench.md").write_text("---\nstatus: in_progress\n---\n# v1\n")
+
+    # saving keeps the previous text
+    r = client.put("/paper/2600.99999/workbench.md", json={"text": "# v2\n"})
+    assert r.status_code == 200
+    snaps = list((d / ".history").glob("workbench-*.md"))
+    assert len(snaps) == 1 and "# v1" in snaps[0].read_text()
+    assert (d / "workbench.md").read_text() == "# v2\n"
+
+    # …and only the last few, so it can't grow without bound
+    for i in range(3, 12):
+        import os, time
+
+        os.utime(d / "workbench.md", (time.time() + i, time.time() + i))
+        client.put("/paper/2600.99999/workbench.md", json={"text": f"# v{i}\n"})
+    assert len(list((d / ".history").glob("workbench-*.md"))) <= A._HISTORY_KEEP
+
+    # deleting moves the folder aside instead of destroying it
+    assert client.delete("/paper/2600.99999").status_code == 200
+    assert not d.exists()
+    moved = list((tmp_path / "_trash").glob("2600.99999-*"))
+    assert len(moved) == 1 and (moved[0] / "workbench.md").exists()
+
+
+def test_paper_rows_are_cached_until_the_file_changes(tmp_path, monkeypatch):
+    """Building a row parses workbench.md and a figures JSON that can be several
+    MB — at 100+ papers that ran on every gallery load."""
+    import json as _json
+    import paper_review.server.app as A
+
+    monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
+    A._ROW_CACHE.clear()
+    d = tmp_path / "2600.88888"
+    d.mkdir()
+    (d / "workbench.md").write_text('---\nstatus: to_read\ntitle_en: "One"\n---\n')
+    (d / "2600.88888_figures.json").write_text(_json.dumps([{"id": "f1"}]))
+
+    assert A._list_papers()[0]["title_en"] == "One"
+    parses = []
+    real = A._read_frontmatter
+    monkeypatch.setattr(
+        A, "_read_frontmatter", lambda p: (parses.append(p), real(p))[1]
+    )
+
+    A._list_papers()
+    assert parses == [], "unchanged papers must not be re-read"
+
+    import os, time
+
+    (d / "workbench.md").write_text('---\nstatus: to_read\ntitle_en: "Two"\n---\n')
+    os.utime(d / "workbench.md", (time.time() + 5, time.time() + 5))
+    assert A._list_papers()[0]["title_en"] == "Two", "an edit must invalidate it"
+    assert parses, "…by actually re-reading the file"

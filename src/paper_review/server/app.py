@@ -132,6 +132,13 @@ def _published_ym(slug: str, paper_dir: Path) -> int:
     return 0
 
 
+# Per-paper row cache: {slug: (workbench_mtime, figures_mtime, row)}. Building a
+# row means reading and parsing workbench.md AND a *_figures.json that can be
+# several MB of base64 — at 100+ papers that ran on every gallery load and every
+# focus refresh. Keyed on both mtimes, so an edit anywhere still shows up.
+_ROW_CACHE: dict = {}
+
+
 def _list_papers() -> list[dict]:
     if not SERVICE_ROOT.exists():
         return []
@@ -147,6 +154,18 @@ def _list_papers() -> list[dict]:
             continue
         wb = d / "workbench.md"
         if not wb.exists():
+            continue
+        fig_files = list(d.glob("*_figures.json"))
+        fig_mtime = fig_files[0].stat().st_mtime if fig_files else 0.0
+        wb_mtime = wb.stat().st_mtime
+        cached = _ROW_CACHE.get(d.name)
+        if cached and cached[0] == wb_mtime and cached[1] == fig_mtime:
+            row = dict(cached[2])
+            # these two live outside the paper folder, so they aren't covered
+            # by the mtimes the cache keys on
+            row["last_viewed"] = int(views.get(d.name, 0))
+            row["on_remote"] = d.name == on_phone
+            rows.append(row)
             continue
         meta = _read_frontmatter(wb)
         text = wb.read_text()
@@ -170,8 +189,6 @@ def _list_papers() -> list[dict]:
             rating = max(0, min(5, int(str(meta.get("rating", "")).strip() or 0)))
         except ValueError:
             rating = 0
-        # Figure count
-        fig_files = list(d.glob("*_figures.json"))
         fig_count = 0
         if fig_files:
             try:
@@ -185,31 +202,36 @@ def _list_papers() -> list[dict]:
                 pass
         from .tags import _parse_tags_value
 
-        rows.append(
-            {
-                "slug": d.name,
-                "status": meta.get("status", read_status(wb)),
-                "content_type": meta.get("content_type", "paper"),
-                "title_en": meta.get("title_en", ""),
-                "title_ko": meta.get("title_ko", ""),
-                "paper_url": meta.get("paper_url", ""),
-                "category": meta.get("category", ""),
-                "review_started": meta.get("review_started", ""),
-                "exported_at": meta.get("exported_at", ""),
-                "sections_total": total,
-                "sections_done": done,
-                "figures_count": fig_count,
-                "tags": _parse_tags_value(meta.get("tags", "")),
-                "rating": rating,
-                "updated_at": int(wb.stat().st_mtime),
-                "created_at": int(
-                    getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime
-                ),
-                "published_ym": _published_ym(d.name, d),
-                "last_viewed": int(views.get(d.name, 0)),
-                "on_remote": d.name == on_phone,
-            }
-        )
+        row = {
+            "slug": d.name,
+            "status": meta.get("status", read_status(wb)),
+            "content_type": meta.get("content_type", "paper"),
+            "title_en": meta.get("title_en", ""),
+            "title_ko": meta.get("title_ko", ""),
+            "paper_url": meta.get("paper_url", ""),
+            "category": meta.get("category", ""),
+            "review_started": meta.get("review_started", ""),
+            "exported_at": meta.get("exported_at", ""),
+            "sections_total": total,
+            "sections_done": done,
+            "figures_count": fig_count,
+            "tags": _parse_tags_value(meta.get("tags", "")),
+            "rating": rating,
+            "updated_at": int(wb.stat().st_mtime),
+            "created_at": int(
+                getattr(d.stat(), "st_birthtime", 0) or d.stat().st_ctime
+            ),
+            "published_ym": _published_ym(d.name, d),
+            "last_viewed": int(views.get(d.name, 0)),
+            "on_remote": d.name == on_phone,
+        }
+        _ROW_CACHE[d.name] = (wb.stat().st_mtime, fig_mtime, row)
+        rows.append(row)
+    # drop entries for papers that are gone (deleted / moved to _trash)
+    if len(_ROW_CACHE) > len(rows):
+        live = {r["slug"] for r in rows}
+        for gone in [k for k in _ROW_CACHE if k not in live]:
+            _ROW_CACHE.pop(gone, None)
     return rows
 
 
@@ -313,6 +335,29 @@ class WorkbenchPut(BaseModel):
     expected_mtime: float | None = None  # for optimistic concurrency
 
 
+_HISTORY_KEEP = 5
+
+
+def _keep_history(wb: Path) -> None:
+    """Snapshot workbench.md before overwriting it.
+
+    The review IS the product and every save replaced it in place — a bad
+    paste or a stale editor tab could wipe an afternoon with no way back.
+    Keeps the last few versions per paper; best-effort, never blocks a save."""
+    try:
+        hist = wb.parent / ".history"
+        hist.mkdir(exist_ok=True)
+        stamp = int(wb.stat().st_mtime)
+        snap = hist / f"workbench-{stamp}.md"
+        if not snap.exists():
+            snap.write_bytes(wb.read_bytes())
+        old = sorted(hist.glob("workbench-*.md"))[:-_HISTORY_KEEP]
+        for f in old:
+            f.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 @app.put("/paper/{slug}/workbench.md")
 def workbench_put(slug: str, body: WorkbenchPut):
     wb = _paper_dir(slug) / "workbench.md"
@@ -330,6 +375,7 @@ def workbench_put(slug: str, body: WorkbenchPut):
                     "expected_mtime": body.expected_mtime,
                 },
             )
+    _keep_history(wb)
     wb.write_text(body.text)
     return {"ok": True, "mtime": wb.stat().st_mtime, "size": len(body.text)}
 
@@ -539,10 +585,12 @@ async def papers_save_pdf(
 
 @app.delete("/paper/{slug}")
 def paper_delete(slug: str):
-    """Delete a paper's working directory (irreversible). Cancels any running
-    analyze job for it first."""
-    import shutil
+    """Move a paper's working directory to _trash/ (recoverable). Cancels any
+    running analyze job for it first.
 
+    This used to rmtree — one misclick on a card's 🗑 destroyed a review that
+    took hours. Illustrations already went to a trash folder; papers, the thing
+    the whole tool exists to produce, did not."""
     d = _paper_dir(slug)  # validates existence
     # Best-effort cancel of an in-flight analyze job
     try:
@@ -553,7 +601,17 @@ def paper_delete(slug: str):
             job.cancel_event.set()
     except Exception:
         pass
-    shutil.rmtree(d, ignore_errors=True)
+    import time
+
+    trash = SERVICE_ROOT / "_trash"
+    trash.mkdir(exist_ok=True)
+    dest = trash / f"{slug}-{time.strftime('%Y%m%d-%H%M%S')}"
+    try:
+        d.rename(dest)
+    except OSError:  # cross-device or name clash — fall back to a copy+remove
+        import shutil
+
+        shutil.move(str(d), str(dest))
     return {"ok": True, "slug": slug}
 
 
