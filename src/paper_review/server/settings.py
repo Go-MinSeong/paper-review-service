@@ -40,6 +40,10 @@ SKILLS_DIR = _skills_root()
 CHARS_DIR = _SERVER_DIR / "static" / "characters"
 TRASH_DIR = CHARS_DIR / "_trash"
 GROUPS_FILE = _SERVER_DIR / "illustration_groups.json"
+# Optional, gitignored: personal additions (e.g. characters you drew or that
+# you may not redistribute). Merged over the shipped groups, so the repo can
+# stay original-artwork-only while a local install keeps its own set.
+LOCAL_GROUPS_FILE = _SERVER_DIR / "illustration_groups.local.json"
 
 _IMG_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
@@ -128,6 +132,17 @@ def illustration_groups() -> dict:
         data = json.loads(GROUPS_FILE.read_text(encoding="utf-8"))
     except Exception:
         return {"groups": {}, "tag_groups": {}}
+    if LOCAL_GROUPS_FILE.exists():
+        try:
+            local = json.loads(LOCAL_GROUPS_FILE.read_text(encoding="utf-8"))
+            for group, names in (local.get("groups") or {}).items():
+                data.setdefault("groups", {}).setdefault(group, [])
+                for n in names:
+                    if n not in data["groups"][group]:
+                        data["groups"][group].append(n)
+            data.setdefault("tag_groups", {}).update(local.get("tag_groups") or {})
+        except Exception:
+            pass  # a broken local file must not take the gallery down
     files_by_base: dict[str, list[str]] = {}
     for f in list_illustrations():
         files_by_base.setdefault(_base_name(f), []).append(f)

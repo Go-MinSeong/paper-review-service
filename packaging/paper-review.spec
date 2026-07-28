@@ -26,13 +26,30 @@ datas = [
     (os.path.join(SRC, "_paper_reader", "assets"), "paper_review/_paper_reader/assets"),
     (os.path.join(SRC, "_paper_reader", "references"), "paper_review/_paper_reader/references"),
     (os.path.join(SRC, "server", "templates"), "paper_review/server/templates"),
-    (os.path.join(SRC, "server", "static"), "paper_review/server/static"),
     (os.path.join(SRC, "server", "illustration_groups.json"), "paper_review/server"),
     (os.path.join(ROOT, "skills"), "skills"),
     # menubar template icon — `paper-review menubar` runs from the frozen
     # binary too, and without this it fell back to a "◫" text title
     (os.path.join(ROOT, "assets"), "assets"),
 ]
+# Characters you may not redistribute stay out of the shipped app. They live in
+# the same folder as the original artwork and are gitignored (see .gitignore),
+# but the bundle copied the whole directory — so every release zip carried them.
+# Keep this list in sync with .gitignore; tests/test_settings.py asserts it.
+LOCAL_ONLY_CHARACTERS = ("calcifer", "soot", "squirtle", "venom", "agumon", "shinchan")
+_static = os.path.join(SRC, "server", "static")
+for _root, _dirs, _files in os.walk(_static):
+    _dirs[:] = [d for d in _dirs if d != "_trash"]
+    _rel = os.path.relpath(_root, _static)
+    _dest = os.path.join("paper_review/server/static", "" if _rel == "." else _rel)
+    _is_chars = os.path.basename(_root) == "characters"
+    for _f in _files:
+        if _f.startswith("."):
+            continue
+        if _is_chars and _f.lower().startswith(LOCAL_ONLY_CHARACTERS):
+            continue
+        datas.append((os.path.join(_root, _f), _dest))
+
 _vs = os.path.join(SRC, "publish", "voice_samples")
 if os.path.isdir(_vs):
     datas += [(_vs, "paper_review/publish/voice_samples")]

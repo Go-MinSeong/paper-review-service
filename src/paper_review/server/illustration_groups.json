@@ -1,11 +1,28 @@
 {
-  "_comment": "Illustration grouping. Each group lists CHARACTER BASE NAMES; the server expands them to every existing file (base.jpg and base-N.jpg), so new variants join their group automatically. Cards pick an illustration from the group mapped to their tags, so papers with similar tags share a consistent illustration family. Papers with no matching tag fall back to a global hash.",
+  "_comment": "Illustration grouping. Each group lists CHARACTER BASE NAMES; the server expands them to every existing file (base.jpg and base-N.jpg), so new variants join their group automatically. Cards pick an illustration from the group mapped to their tags, so papers with similar tags share a consistent illustration family. Papers with no matching tag fall back to a global hash. Only original artwork ships here; add your own characters via illustration_groups.local.json (gitignored) so they aren't redistributed.",
   "groups": {
-    "vision":     ["badger", "redpanda", "fennec", "corgi"],
-    "language":   ["dolphin", "penguin", "squirtle"],
-    "generative": ["calcifer", "agumon"],
-    "systems":    ["venom", "venom2"],
-    "general":    ["shinchan", "shinchan2", "soot"]
+    "vision": [
+      "badger",
+      "redpanda"
+    ],
+    "language": [
+      "dolphin",
+      "penguin"
+    ],
+    "generative": [
+      "fennec"
+    ],
+    "systems": [
+      "corgi"
+    ],
+    "general": [
+      "badger",
+      "corgi",
+      "dolphin",
+      "fennec",
+      "penguin",
+      "redpanda"
+    ]
   },
   "tag_groups": {
     "computer-vision": "vision",
@@ -19,24 +36,20 @@
     "grounding": "vision",
     "vlm": "vision",
     "vla": "vision",
-
     "llm": "language",
     "nlp": "language",
     "text-generation": "language",
     "vllm": "language",
     "agent": "language",
     "transformer": "language",
-
     "diffusion": "generative",
     "generative": "generative",
     "gan": "generative",
-
     "inference": "systems",
     "parallel-decoding": "systems",
     "real-time": "systems",
     "serving": "systems",
     "systems": "systems",
-
     "study": "general",
     "other": "general"
   }

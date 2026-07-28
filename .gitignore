@@ -62,9 +62,10 @@ uv.lock
 src/paper_review/publish/voice_samples/*.md
 !src/paper_review/publish/voice_samples/.gitkeep
 
-# Character illustrations based on third-party IP — kept locally only, not
-# published (potential copyright). Generic/original animals stay tracked.
-# Globs cover variants too (e.g. agumon-2.jpg, venom-2.jpg).
+# Character illustrations based on third-party IP — local use only, never
+# published. Globs cover variants (agumon-2.jpg, venom-2.jpg …), and
+# packaging/paper-review.spec keeps the same list out of the app bundle.
+# Original/generic animals stay tracked.
 src/paper_review/server/static/characters/calcifer*.jpg
 src/paper_review/server/static/characters/soot*.jpg
 src/paper_review/server/static/characters/squirtle*.jpg
@@ -78,3 +79,6 @@ dev/
 # illustration soft-delete trash (runtime)
 src/paper_review/server/static/characters/_trash/
 remote/.env.local
+
+# Personal illustration grouping (points at the local-only characters)
+src/paper_review/server/illustration_groups.local.json

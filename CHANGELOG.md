@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.15.3
+
+### Fixed
+- **The released app shipped character art it shouldn't have.** Six characters
+  based on third-party IP were already gitignored, but the PyInstaller spec
+  copied the whole `static/` tree — so every release zip carried them. The
+  bundle now filters them out (list kept in sync with `.gitignore`, asserted by
+  a test), and the shipped illustration groups reference only original artwork.
+- Personal characters can still be grouped locally: `illustration_groups.local.json`
+  (gitignored, never packaged) merges over the shipped groups.
+
+
 ## 2.15.2
 
 ### Fixed

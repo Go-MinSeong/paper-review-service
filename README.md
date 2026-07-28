@@ -190,7 +190,7 @@ Review output is Korean by default (technical terms stay in English) because tha
 <details>
 <summary><b>Card illustrations look repetitive.</b></summary>
 
-The repo ships 6 original character sets (21 images). A card avoids reusing a character until every one has been used, so a large library repeats. Add your own in **Settings → 일러스트**.
+The repo ships 6 original character sets (21 images). A card avoids reusing a character until every one has been used, so a large library repeats. Add your own in **Settings → 일러스트** — and to group them, create `src/paper_review/server/illustration_groups.local.json` (gitignored, never packaged), which merges over the shipped groups.
 </details>
 
 <details>
@@ -215,7 +215,7 @@ Issues and PRs are welcome — bug reports with the analyze log attached are esp
 
 ## 🙏 Acknowledgements
 
-Built on [Claude Code](https://claude.com/claude-code). The report layout is adapted from a teammate's paper-review template; the publish flow targets [Velog](https://velog.io) through an Obsidian vault. Character illustrations bundled in this repo are original artwork.
+Built on [Claude Code](https://claude.com/claude-code). The report layout is adapted from a teammate's paper-review template; the publish flow targets [Velog](https://velog.io) through an Obsidian vault. Character illustrations bundled in this repo and in the released app are original artwork. To use your own — including any you can't redistribute — drop them in **Settings → 일러스트** and map them in `illustration_groups.local.json`, which is gitignored and never packaged.
 
 <div align="center">
 <sub>If this helps you actually finish papers, a ⭐ is appreciated.</sub>

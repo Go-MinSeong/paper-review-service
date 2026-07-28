@@ -107,3 +107,49 @@ def test_skills_dir_resolves_inside_a_frozen_bundle(tmp_path, monkeypatch):
 
     monkeypatch.delattr(sys, "frozen", raising=False)
     assert S._skills_root().name == "skills"  # source checkout path
+
+
+def test_bundle_excludes_the_same_characters_git_does():
+    """The app bundle used to copy the whole characters folder, so every release
+    zip shipped the third-party ones even though git ignored them. The spec's
+    list and .gitignore have to agree."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    spec = (root / "packaging" / "paper-review.spec").read_text()
+    m = re.search(r"LOCAL_ONLY_CHARACTERS = \(([^)]*)\)", spec, re.S)
+    assert m, "spec must declare the exclusion list"
+    in_spec = {s.strip().strip('\"\'') for s in m.group(1).split(",") if s.strip()}
+
+    ignored = set(
+        re.findall(
+            r"static/characters/([a-z0-9]+)\*", (root / ".gitignore").read_text()
+        )
+    )
+    assert in_spec == ignored, f"spec {in_spec} vs .gitignore {ignored}"
+
+
+def test_local_illustration_groups_merge_over_the_shipped_ones(tmp_path, monkeypatch):
+    """A local install keeps its own characters without the repo carrying them."""
+    import json
+
+    from paper_review.server import settings as S
+
+    shipped = tmp_path / "groups.json"
+    shipped.write_text(json.dumps({"groups": {"vision": ["badger"]}, "tag_groups": {"VLM": "vision"}}))
+    local = tmp_path / "groups.local.json"
+    local.write_text(json.dumps({"groups": {"vision": ["mine"], "extra": ["other"]}}))
+    monkeypatch.setattr(S, "GROUPS_FILE", shipped)
+    monkeypatch.setattr(S, "LOCAL_GROUPS_FILE", local)
+    # groups only survive if their base names resolve to real files
+    monkeypatch.setattr(
+        S, "list_illustrations", lambda: ["badger.jpg", "mine.jpg", "other.jpg"]
+    )
+
+    g = S.illustration_groups()
+    assert set(g["groups"]) >= {"vision", "extra"}
+    assert set(g["groups"]["vision"]) == {"badger.jpg", "mine.jpg"}
+
+    local.write_text("{ broken")  # must not take the gallery down
+    assert S.illustration_groups()["groups"]["vision"] == ["badger.jpg"]
