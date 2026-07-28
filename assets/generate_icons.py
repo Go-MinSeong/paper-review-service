@@ -22,10 +22,6 @@ SIZE = 1024.0
 SYMBOL = "doc.text.magnifyingglass"  # read a paper, closely
 HERE = Path(__file__).parent
 OUT = HERE / "app_icon.png"
-# Menubar glyph: the magnifier detail turns to mush at 18px, and the outline
-# variant read washed-out against a tinted menubar — the filled one holds up.
-MENUBAR_SYMBOL = "doc.text.fill"
-MENUBAR_PT = 16.0  # inside an 18pt slot, matching Apple's menubar metrics
 
 # the gallery's accent (Linear-ish indigo) → a darker shade for the gradient
 TOP = (0.369, 0.412, 0.824)  # #5e6ad2
@@ -42,50 +38,46 @@ def _png(image, path: Path) -> bool:
 
 
 def menubar_icons() -> int:
-    """Black-on-transparent template glyphs. macOS inverts a template image for
-    the dark menubar, so it must be pure black + alpha — no colour, no bg."""
+    """Black-on-transparent template glyphs (macOS inverts them for the dark
+    menubar, so: pure black + alpha, no colour, no background).
+
+    Drawn by hand rather than from an SF Symbol: at 18px a symbol's thin strokes
+    land on half pixels and read as a faint, blurry icon next to the solid
+    glyphs its neighbours use. This is the app's own brand mark — a card with
+    three text lines — with every edge on a whole pixel.
+    """
     import AppKit
 
-    symbol = AppKit.NSImage.imageWithSystemSymbolName_accessibilityDescription_(
-        MENUBAR_SYMBOL, None
-    )
-    if symbol is None:
-        print(f"SF Symbol '{MENUBAR_SYMBOL}' not found", file=sys.stderr)
-        return 1
-    config = AppKit.NSImageSymbolConfiguration.configurationWithPointSize_weight_scale_(
-        MENUBAR_PT,
-        AppKit.NSFontWeightRegular,  # the filled glyph carries its own weight
-        2,  # 2 = medium scale
-    ).configurationByApplyingConfiguration_(
-        AppKit.NSImageSymbolConfiguration.configurationWithPaletteColors_(
-            [AppKit.NSColor.blackColor()]
-        )
-    )
-    glyph = symbol.imageWithSymbolConfiguration_(config)
-
-    for scale, name in ((1, "menubar-icon.png"), (2, "menubar-icon@2x.png")):
-        px = int(18 * scale)
-        # Draw into an explicitly-sized bitmap. NSImage.lockFocus() would capture
-        # at the display's backing scale instead, so @2x came out 72px on this
-        # Retina Mac.
+    for px, name in ((18, "menubar-icon.png"), (36, "menubar-icon@2x.png")):
         rep = AppKit.NSBitmapImageRep.alloc().initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel_(
             None, px, px, 8, 4, True, False, AppKit.NSDeviceRGBColorSpace, 0, 0
         )
         ctx = AppKit.NSGraphicsContext.graphicsContextWithBitmapImageRep_(rep)
         AppKit.NSGraphicsContext.saveGraphicsState()
         AppKit.NSGraphicsContext.setCurrentContext_(ctx)
-        # Fit the glyph inside the slot with a little breathing room. Round to
-        # whole pixels — fractional sizes/offsets made the edges soft, which is
-        # what read as a blurry menubar icon.
-        s = glyph.size()
-        fit = (px * 0.92) / max(s.width, s.height)
-        w, h = round(s.width * fit), round(s.height * fit)
-        glyph.drawInRect_fromRect_operation_fraction_(
-            AppKit.NSMakeRect(round((px - w) / 2), round((px - h) / 2), w, h),
-            AppKit.NSZeroRect,
-            AppKit.NSCompositingOperationSourceOver,
-            1.0,
-        )
+
+        u = px / 18.0  # 1 unit = 1pt
+        card_w, card_h = round(13 * u), round(15 * u)
+        x0, y0 = round((px - card_w) / 2), round((px - card_h) / 2)
+
+        AppKit.NSColor.blackColor().setFill()
+        AppKit.NSBezierPath.bezierPathWithRoundedRect_xRadius_yRadius_(
+            AppKit.NSMakeRect(x0, y0, card_w, card_h), round(2.5 * u), round(2.5 * u)
+        ).fill()
+
+        # Knock the lines out of the card: transparent in a template image, so
+        # the menubar shows through — that contrast is what makes it readable.
+        ctx.setCompositingOperation_(AppKit.NSCompositingOperationDestinationOut)
+        line_h = max(1, round(1.5 * u))
+        gap = max(1, round(2.5 * u))
+        inset = round(2.5 * u)
+        full = card_w - inset * 2
+        top = y0 + card_h - round(4 * u)
+        for i, w in enumerate((full, full, round(full * 0.55))):
+            AppKit.NSBezierPath.fillRect_(
+                AppKit.NSMakeRect(x0 + inset, top - i * (line_h + gap), w, line_h)
+            )
+
         AppKit.NSGraphicsContext.restoreGraphicsState()
         data = rep.representationUsingType_properties_(
             AppKit.NSBitmapImageFileTypePNG, {}

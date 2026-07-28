@@ -1,11 +1,16 @@
 # Changelog
 
+## 2.13.2
+
+### Fixed
+- **The menubar icon read faint and blurry.** An SF Symbol's thin strokes land
+  on half pixels at 18px, and even the filled variant stayed soft next to the
+  solid glyphs its neighbours use. It is now the app's own brand mark — a card
+  with three text lines — drawn directly with every edge on a whole pixel.
+
 ## 2.13.1
 
 ### Fixed
-- **The menubar icon was faint and soft.** The outline glyph washed out against
-  a tinted menubar, and fitting it with a fractional scale left every edge
-  anti-aliased. It's now the filled variant, drawn on whole pixels.
 - Status-item failures used to be invisible (a windowed .app sends stdout
   nowhere); they now land in `_logs/app.log`, along with where the icon was
   loaded from. That is how the icon's state got confirmed inside the bundle.
