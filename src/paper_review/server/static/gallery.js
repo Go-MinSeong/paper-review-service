@@ -1,7 +1,7 @@
 
 (() => {
   // ─── Render gallery from JSON
-  const papers = JSON.parse(document.getElementById('papers-data').textContent);
+  let papers = JSON.parse(document.getElementById('papers-data').textContent);
   const grid = document.getElementById('grid');
   let activeFilter = 'all';
   let searchQuery = '';
@@ -727,6 +727,31 @@
   renderTagTree();
   renderCards();
   updateClearTags();
+
+  // The list is embedded at render time, so a window left open (the desktop app
+  // has no address bar to reload from) kept showing the library as it was at
+  // launch — papers added since simply weren't there. Re-read it when the
+  // window comes back to the foreground.
+  let refreshing = false;
+  async function refreshPapers() {
+    if (refreshing || CAPTURE) return;
+    refreshing = true;
+    try {
+      const r = await fetch('/papers.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      const next = await r.json();
+      if (JSON.stringify(next) === JSON.stringify(papers)) return;
+      papers = next;
+      updateCounts();
+      renderTagTree();
+      renderCards();
+    } catch (e) { /* offline / server restarting — keep what we have */ }
+    finally { refreshing = false; }
+  }
+  window.addEventListener('focus', refreshPapers);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshPapers();
+  });
 
   // ─── Dashboard (client-side aggregates over `papers`) ────────────
   const dashEl = document.getElementById('dashboard');

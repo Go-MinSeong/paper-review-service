@@ -121,3 +121,24 @@ def test_pages_make_room_for_the_traffic_lights_in_the_app():
     assert "html.in-app .sidebar" in css and "--titlebar-h" in css
     detail = (_STATIC_DIR / "detail.css").read_text()
     assert "html.in-app .topbar" in detail
+
+
+def test_papers_json_lets_an_open_window_refresh():
+    """The gallery embeds its list at render time; the desktop app has no
+    address bar, so a window left open must be able to re-read it."""
+    r = client.get("/papers.json")
+    assert r.status_code == 200
+    rows = r.json()
+    assert isinstance(rows, list)
+    if rows:
+        assert {"slug", "status", "tags"} <= set(rows[0])
+
+
+def test_gallery_refreshes_on_focus():
+    from paper_review.server.app import _STATIC_DIR
+
+    js = (_STATIC_DIR / "gallery.js").read_text()
+    assert "'/papers.json'" in js
+    assert "addEventListener('focus'" in js and "visibilitychange" in js
+    # the list has to be reassignable for the refresh to land
+    assert "let papers = JSON.parse" in js

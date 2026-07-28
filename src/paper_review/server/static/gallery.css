@@ -56,6 +56,7 @@
      padding below the traffic lights — the way Finder and Mail do it. */
   :root { --titlebar-h: 28px; }
   html.in-app .sidebar { padding-top: calc(18px + var(--titlebar-h)); }
+
   html.in-app .content-head { padding-top: calc(20px + var(--titlebar-h)); }
 
   /* ─── Sidebar ─────────────────────────────────────────────────────── */

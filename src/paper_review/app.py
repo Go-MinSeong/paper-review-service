@@ -119,6 +119,52 @@ def _appearance_bg() -> str:
     return "#FFFFFF"
 
 
+# Height of the strip reserved for the traffic lights (mirrors --titlebar-h).
+TITLEBAR_H = 28.0
+
+
+def _install_drag_view(ns) -> int:
+    """Make the reserved top strip drag the window — natively.
+
+    pywebview offers a JS drag region (.pywebview-drag-region), but it moves the
+    window by computing screen coordinates in JavaScript, which drifts across
+    displays with different scale factors — dragging between monitors fights
+    you. A native view whose mouseDownCanMoveWindow is YES hands the drag to
+    AppKit instead, so it behaves like any other window.
+    """
+    import AppKit
+
+    cls = globals().get("_PRDragView")
+    if cls is None:
+
+        class _PRDragView(AppKit.NSView):
+            # performWindowDragWithEvent: is the documented way to move a window
+            # from a view (10.11+). mouseDownCanMoveWindow alone was ignored
+            # here, and AppKit does the whole drag — including across displays
+            # with different scale factors, which a JS drag region gets wrong.
+            def mouseDown_(self, event):  # noqa: N802 (AppKit selector)
+                self.window().performWindowDragWithEvent_(event)
+
+            def mouseDownCanMoveWindow(self) -> bool:  # noqa: N802
+                return True
+
+        cls = globals()["_PRDragView"] = _PRDragView
+
+    # pywebview makes the WKWebView the contentView itself, so a subview of the
+    # content view lands INSIDE the web view and never sees a click. The strip
+    # goes on the window frame instead — below the titlebar container, so the
+    # traffic lights keep working, but above the web view.
+    frame = ns.contentView().superview()
+    titlebar = frame.subviews().lastObject()
+    b = frame.bounds()
+    view = cls.alloc().initWithFrame_(
+        AppKit.NSMakeRect(0, b.size.height - TITLEBAR_H, b.size.width, TITLEBAR_H)
+    )
+    view.setAutoresizingMask_(AppKit.NSViewWidthSizable | AppKit.NSViewMinYMargin)
+    frame.addSubview_positioned_relativeTo_(view, AppKit.NSWindowBelow, titlebar)
+    return frame.subviews().count()
+
+
 def _unify_titlebar(window) -> None:
     """Let the page run under the title bar, like the sibling apps do.
 
@@ -134,6 +180,17 @@ def _unify_titlebar(window) -> None:
         if ns is None:
             return
 
+        def _log(msg: str) -> None:
+            try:
+                from . import SERVICE_ROOT
+
+                d = SERVICE_ROOT / "_logs"
+                d.mkdir(parents=True, exist_ok=True)
+                with open(d / "app.log", "a") as fh:
+                    fh.write(f"titlebar: {msg}\n")
+            except Exception:
+                pass
+
         def _apply() -> None:
             try:
                 ns.setTitlebarAppearsTransparent_(True)
@@ -143,10 +200,13 @@ def _unify_titlebar(window) -> None:
                 bar = ns.contentView().superview().subviews().lastObject()
                 bar.setBackgroundColor_(AppKit.NSColor.clearColor())
                 # With no title bar left to grab, the window still has to be
-                # draggable — background drag covers the empty header areas.
+                # draggable. Background drag alone doesn't reach through the
+                # web view, so a native drag strip goes on top of it.
                 ns.setMovableByWindowBackground_(True)
-            except Exception:
-                pass
+                n = _install_drag_view(ns)
+                _log(f"applied · drag view subviews={n}")
+            except Exception as e:
+                _log(f"failed: {e!r}")
             ns.displayIfNeeded()
 
         AppKit.NSOperationQueue.mainQueue().addOperationWithBlock_(_apply)

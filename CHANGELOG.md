@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.14.0
+
+### Fixed
+- **The window couldn't be dragged.** Hiding the title bar left nothing to grab:
+  WKWebView swallows the clicks, so `movableByWindowBackground` never fires. A
+  native drag strip now sits on the window frame — `performWindowDragWithEvent:`
+  hands the whole drag to AppKit, which also fixes dragging *between monitors*
+  (pywebview's JS drag region computes coordinates itself and drifts across
+  displays with different scale factors). The strip goes below the titlebar
+  container, so the traffic lights keep working — a subview of the content view
+  would have landed inside the web view, which is what pywebview makes the
+  content view.
+- **A window left open showed a stale library.** The gallery embeds its list at
+  render time and the app has no address bar to reload from, so papers added
+  since launch (e.g. a bulk import) simply weren't there. `GET /papers.json` +
+  a refresh when the window returns to the foreground.
+
+
 ## 2.13.2
 
 ### Fixed

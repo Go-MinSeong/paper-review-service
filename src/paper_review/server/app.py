@@ -801,6 +801,14 @@ def papers_job(job_id: str):
     return get_job(job_id)
 
 
+@app.get("/papers.json")
+def papers_json():
+    """The gallery embeds its list at render time, so a window left open shows a
+    stale library. This lets it re-read the list without a reload — there is no
+    address bar in the desktop app."""
+    return _list_papers()
+
+
 @app.get("/papers/active-jobs")
 def papers_active_jobs():
     """Analyze jobs the gallery should surface: running ones (progress bar) plus
