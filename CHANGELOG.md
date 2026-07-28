@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.15.4
+
+### Fixed
+- **The gallery flickered on every selection click.** Picking a card re-rendered
+  the whole grid — 109 cards and their illustrations — just to toggle one
+  checkbox. Selection now updates the affected nodes in place: zero grid
+  rebuilds, zero image reloads.
+- **Double-clicking the top of the window didn't maximise it.** Taking over the
+  title bar area for dragging also took over its double-click; it now performs
+  the system action (zoom, or minimise if that's what System Settings ›
+  Desktop & Dock says).
+
+
 ## 2.15.3
 
 ### Fixed

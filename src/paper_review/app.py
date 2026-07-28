@@ -143,7 +143,23 @@ def _install_drag_view(ns) -> int:
             # here, and AppKit does the whole drag — including across displays
             # with different scale factors, which a JS drag region gets wrong.
             def mouseDown_(self, event):  # noqa: N802 (AppKit selector)
+                if event.clickCount() == 2:
+                    # Taking over the title bar area also took over its
+                    # double-click, which zooms (or minimises, per System
+                    # Settings › Desktop & Dock). Put that back.
+                    self._doubleClickAction()
+                    return
                 self.window().performWindowDragWithEvent_(event)
+
+            def _doubleClickAction(self):  # noqa: N802
+                pref = AppKit.NSUserDefaults.standardUserDefaults().stringForKey_(
+                    "AppleActionOnDoubleClick"
+                )
+                win = self.window()
+                if pref == "Minimize":
+                    win.miniaturize_(None)
+                elif pref != "None":  # "Maximize" and the unset default
+                    win.zoom_(None)
 
             def mouseDownCanMoveWindow(self) -> bool:  # noqa: N802
                 return True

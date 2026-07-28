@@ -473,9 +473,20 @@
       selected.has(slug) ? selected.delete(slug) : selected.add(slug);
     }
     lastPicked = slug;
-    renderCards();
+    paintSelection();
     renderBulkBar();
   });
+
+  // Sync the DOM to `selected` in place. renderCards() rebuilds the whole grid
+  // (109 cards + their images), which flickered on every single click.
+  function paintSelection() {
+    for (const card of grid.querySelectorAll('.card')) {
+      const on = selected.has(card.dataset.slug);
+      card.classList.toggle('picked', on);
+      const box = card.querySelector('[data-pick]');
+      if (box) box.textContent = on ? '✓' : '';
+    }
+  }
 
   const bulkBar = document.getElementById('bulk-bar');
   function renderBulkBar() {
@@ -514,11 +525,11 @@
     }
   }
   document.getElementById('bulk-clear').addEventListener('click', () => {
-    selected.clear(); lastPicked = null; renderCards(); renderBulkBar();
+    selected.clear(); lastPicked = null; paintSelection(); renderBulkBar();
   });
   document.getElementById('bulk-all').addEventListener('click', () => {
     [...grid.querySelectorAll('.card')].forEach(c => selected.add(c.dataset.slug));
-    renderCards(); renderBulkBar();
+    paintSelection(); renderBulkBar();
   });
   document.getElementById('bulk-status').addEventListener('change', (e) => {
     const v = e.target.value;
