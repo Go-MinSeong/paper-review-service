@@ -105,6 +105,21 @@ def _reclaim_port(port: int) -> bool:
     return not _port_in_use(port)
 
 
+def _icon_path() -> Path | None:
+    """Menubar template icon. The frozen .app carries assets/ inside _MEIPASS,
+    a source checkout has it in the repo; _assets/ is where it used to live."""
+    roots = []
+    if getattr(sys, "frozen", False):
+        roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
+    roots += [Path(__file__).resolve().parents[2], SERVICE_ROOT]
+    for root in roots:
+        for rel in ("assets/menubar-icon.png", "_assets/menubar-icon.png"):
+            p = root / rel
+            if p.exists():
+                return p
+    return None
+
+
 def _resolve_cli() -> str:
     """Find paper-review CLI — prefer the venv next to this module."""
     venv_bin = SERVICE_ROOT / ".venv" / "bin" / "paper-review"
@@ -146,9 +161,9 @@ class PaperReviewMenubarApp:
 
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-        icon_path = SERVICE_ROOT / "_assets" / "menubar-icon.png"
+        icon_path = _icon_path()
         icon_kwargs = {}
-        if icon_path.exists():
+        if icon_path is not None:
             icon_kwargs = {"icon": str(icon_path), "template": True}
         self.app = rumps.App(
             "paper-review",
@@ -156,31 +171,28 @@ class PaperReviewMenubarApp:
             quit_button=None,
             **icon_kwargs,
         )
-        self.menu_status = rumps.MenuItem("●  starting…")
+        # One line per thing you can actually do. The old menu repeated the
+        # gallery URL as its own row (same action as Open Gallery) and showed a
+        # dead LAN row that was computed once at launch — so it still displayed
+        # the IP of whatever network the Mac was on when the app started.
+        self.menu_status = rumps.MenuItem("Starting…")
         self.menu_status.set_callback(None)
         self.menu_open = rumps.MenuItem("Open Gallery", callback=self._on_open_gallery)
-        self.menu_url = rumps.MenuItem(
-            f"http://127.0.0.1:{port}", callback=self._on_open_gallery
-        )
-        lan = _lan_ip()
-        self.menu_lan = rumps.MenuItem(
-            f"📱  http://{lan}:{port}" if lan else "📱  LAN: (offline)", callback=None
-        )
+        self.menu_lan = rumps.MenuItem("Phone URL: …", callback=self._on_copy_lan)
         self.menu_restart = rumps.MenuItem("Restart Server", callback=self._on_restart)
         self.menu_toggle = rumps.MenuItem("Stop Server", callback=self._on_toggle)
         self.menu_logs = rumps.MenuItem("Open Latest Log", callback=self._on_open_log)
         self.menu_auto_open = rumps.MenuItem(
-            "Auto-open on launch", callback=self._on_toggle_auto_open
+            "Auto-open on Launch", callback=self._on_toggle_auto_open
         )
         if self.auto_open:
             self.menu_auto_open.state = 1
-        self.menu_quit = rumps.MenuItem("Quit", callback=self._on_quit)
+        self.menu_quit = rumps.MenuItem("Quit paper-review", callback=self._on_quit)
 
         self.app.menu = [
             self.menu_status,
             None,
             self.menu_open,
-            self.menu_url,
             self.menu_lan,
             None,
             self.menu_restart,
@@ -191,6 +203,7 @@ class PaperReviewMenubarApp:
             None,
             self.menu_quit,
         ]
+        self._refresh_lan()
 
         # Periodic status refresh
         self.timer = rumps.Timer(self._tick, 2)
@@ -203,7 +216,7 @@ class PaperReviewMenubarApp:
             # A previous instance may have been SIGKILLed (launchctl kickstart),
             # orphaning its server here. Reclaim it so we serve current code.
             if not _reclaim_port(self.port):
-                self._set_status("●  port in use", "yellow")
+                self._set_status(f"Port {self.port} is busy", "yellow")
                 return
         ts = time.strftime("%Y%m%d-%H%M%S")
         self.log_path = _LOG_DIR / f"server-{ts}.log"
@@ -221,18 +234,18 @@ class PaperReviewMenubarApp:
                 start_new_session=True,
             )
         except FileNotFoundError as e:
-            self._set_status(f"●  CLI not found: {e}", "red")
+            self._set_status(f"CLI not found: {e}", "red")
             return
         ready = _wait_port(self.port, timeout=8)
         if ready:
-            self._set_status(f"●  running on :{self.port}", "green")
+            self._set_status(f"Running · localhost:{self.port}", "green")
             self.menu_toggle.title = "Stop Server"
             _wait_port(80, timeout=2)  # pretty-URL listener (best effort)
             self._refresh_url_items()
             if self.auto_open:
                 self._open_gallery()
         else:
-            self._set_status("●  failed to start (check log)", "red")
+            self._set_status("Failed to start — see log", "red")
 
     def _stop_server(self) -> None:
         if self.proc is None:
@@ -249,7 +262,7 @@ class PaperReviewMenubarApp:
             except (ProcessLookupError, PermissionError):
                 pass
         self.proc = None
-        self._set_status("●  stopped", "gray")
+        self._set_status("Stopped", "gray")
         self.menu_toggle.title = "Start Server"
 
     # ─── Menu callbacks ─────────────────────────────────────────────────
@@ -266,6 +279,27 @@ class PaperReviewMenubarApp:
             self._stop_server()
         else:
             self._start_server()
+
+    def _on_copy_lan(self, _sender) -> None:
+        """Copy the same-Wi-Fi URL — you can't click a link into a phone, but
+        you can paste it into a message to yourself."""
+        url = self._lan_url()
+        if not url:
+            rumps.notification(
+                title="paper-review",
+                subtitle="",
+                message="No local network address right now.",
+            )
+            return
+        try:
+            import AppKit
+
+            pb = AppKit.NSPasteboard.generalPasteboard()
+            pb.clearContents()
+            pb.setString_forType_(url, AppKit.NSPasteboardTypeString)
+        except Exception:
+            subprocess.run(["pbcopy"], input=url.encode(), check=False)
+        rumps.notification(title="paper-review", subtitle="", message=f"Copied {url}")
 
     def _on_open_log(self, _sender) -> None:
         if self.log_path and self.log_path.exists():
@@ -292,8 +326,21 @@ class PaperReviewMenubarApp:
             return "http://paper-review.local"
         return f"http://127.0.0.1:{self.port}"
 
+    def _lan_url(self) -> str | None:
+        ip = _lan_ip()
+        return f"http://{ip}:{self.port}" if ip else None
+
+    def _refresh_lan(self) -> None:
+        """The Mac changes networks; the menu used to keep the launch-time IP."""
+        url = self._lan_url()
+        self.menu_lan.title = (
+            f"Phone URL: {url.removeprefix('http://')}"
+            if url
+            else "Phone URL: (offline)"
+        )
+
     def _refresh_url_items(self) -> None:
-        self.menu_url.title = self._gallery_url()
+        self._refresh_lan()
 
     def _open_gallery(self) -> None:
         if not _port_in_use(self.port):
@@ -310,13 +357,16 @@ class PaperReviewMenubarApp:
         self.app.title = "⚠" if color == "red" else "◫"
 
     def _tick(self, _sender) -> None:
+        self._ticks = getattr(self, "_ticks", 0) + 1
+        if self._ticks % 15 == 0:  # ~30s — networks change, the menu shouldn't lie
+            self._refresh_lan()
         # Detect external state changes (e.g. proc died, port freed)
         if self.proc and self.proc.poll() is not None:
             self.proc = None
-            self._set_status("●  crashed (see log)", "red")
+            self._set_status("Crashed — see log", "red")
             self.menu_toggle.title = "Start Server"
         elif self.proc is None and _port_in_use(self.port):
-            self._set_status(f"●  external server on :{self.port}", "yellow")
+            self._set_status(f"External server on :{self.port}", "yellow")
         elif self.proc is None and not _port_in_use(self.port):
             # idle
             pass

@@ -308,13 +308,13 @@
         : '';
       const isToRead = p.status === 'to_read';
       return `
-        <a class="card${running ? ' analyzing' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}">
+        <a class="card${running ? ' analyzing' : ''}${p.on_remote ? ' on-remote' : ''}" href="/paper/${p.slug}" data-slug="${p.slug}" ${p.on_remote ? 'title="모바일 슬롯에 올라가 있는 페이퍼"' : ''}>
           <div class="card-thumb char-bg-${ci}">
             <img class="card-illust" src="/static/characters/${charName}" alt="" loading="${CAPTURE ? 'eager' : 'lazy'}">
             <button class="badge s-${p.status}" data-status="${escapeHtml(p.slug)}" title="상태 변경">${p.status === 'to_read' ? 'reading' : p.status}</button>
             <span class="type-badge t-${escapeHtml(p.content_type || 'paper')}">${escapeHtml(p.content_type || 'paper')}</span>
             <button class="card-log" data-log="${escapeHtml(p.slug)}" title="분석 로그">▤</button>
-            <button class="card-remote${p.on_remote ? ' on' : ''}" data-remote="${escapeHtml(p.slug)}" title="${p.on_remote ? '지금 모바일 슬롯에 있는 페이퍼 — 다시 보내면 최신 내용으로 갱신' : '모바일로 보내기 (원격 슬롯 교체)'}">📱</button>
+            <button class="card-remote" data-remote="${escapeHtml(p.slug)}" title="${p.on_remote ? '지금 모바일 슬롯에 있는 페이퍼 — 다시 보내면 최신 내용으로 갱신' : '모바일로 보내기 (원격 슬롯 교체)'}">📱</button>
             <button class="card-tagedit" data-tagedit="${escapeHtml(p.slug)}" title="태그 편집">🏷</button>
             <button class="card-del" data-del="${escapeHtml(p.slug)}" title="삭제">🗑</button>
             ${live ? `<span class="pulse" data-log="${escapeHtml(p.slug)}" title="분석 로그 보기">분석 중 ${activeMeta.current}/${activeMeta.total} · ${pct}%</span>` : ''}

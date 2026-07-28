@@ -29,6 +29,9 @@ datas = [
     (os.path.join(SRC, "server", "static"), "paper_review/server/static"),
     (os.path.join(SRC, "server", "illustration_groups.json"), "paper_review/server"),
     (os.path.join(ROOT, "skills"), "skills"),
+    # menubar template icon — `paper-review menubar` runs from the frozen
+    # binary too, and without this it fell back to a "◫" text title
+    (os.path.join(ROOT, "assets"), "assets"),
 ]
 _vs = os.path.join(SRC, "publish", "voice_samples")
 if os.path.isdir(_vs):

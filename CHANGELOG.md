@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.12.0
+
+### Changed
+- **Menubar icon and menu cleaned up.** The icon was a hand-drawn 171-byte
+  document outline; it is now generated from the same SF Symbol family as the
+  Dock icon (`assets/generate_icons.py`, black template glyph that macOS tints)
+  so the two read as one app. The dropdown lost its duplicate row — the gallery
+  URL was its own item running the same action as *Open Gallery* — and the
+  status line dropped the "●" it always drew regardless of state, folding the
+  port in instead (`Running · localhost:7300`).
+- **The gallery marks the phone's paper with a card border**, not a
+  permanently-lit 📱 button. A button stuck in a highlighted state read as a
+  control you had left pressed.
+
+### Fixed
+- The menubar's phone URL was computed once at launch, so after moving between
+  networks it advertised an address that no longer existed. It now refreshes
+  (~30s) and clicking it copies the URL — you can't click a link into a phone.
+- The frozen app's menubar had no icon at all: `assets/` was never bundled, so
+  it fell back to a "◫" text title.
+
+
 ## 2.11.0
 
 ### Added
