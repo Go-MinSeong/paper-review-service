@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.16.0
+
+### Added
+- **Zoom for the source PDF, on its own.** WebKit draws the PDF with a native
+  plugin inside an iframe, so it can't be zoomed from inside and page zoom would
+  scale the whole review. The pane scales the iframe instead — trackpad pinch
+  (ctrl+wheel) plus **−/+/⤾** buttons in the pane's hover actions, remembered
+  per paper.
+
+### Changed
+- **Search now reaches archived papers.** With 97 of 109 papers archived,
+  typing a query in the default view returned nothing and you had to know to
+  switch to Archived first. Archived stays hidden while browsing, appears while
+  searching, and the result count says how many came from the archive.
+
+
 ## 2.15.5
 
 ### Fixed

@@ -97,3 +97,29 @@ def test_bulk_bar_floats_instead_of_scrolling_under_the_header():
     css = (_STATIC_DIR / "gallery.css").read_text()
     block = css[css.index(".bulk-bar {") : css.index("}", css.index(".bulk-bar {"))]
     assert "position: fixed" in block, "in-flow, it slid under the sticky header"
+
+
+def test_search_reaches_archived_papers():
+    """97 of 109 papers here are archived; searching the default view returned
+    nothing and you had to know to switch to Archived first."""
+    from paper_review.server.app import _STATIC_DIR
+
+    js = (_STATIC_DIR / "gallery.js").read_text()
+    i = js.index("const filtered = papers.filter")
+    block = js[i : i + 600]
+    assert "p.status === 'archived' && !searchQuery" in block, (
+        "archived must stay hidden by default but be searchable"
+    )
+
+
+def test_pdf_pane_has_its_own_zoom():
+    """WebKit draws the PDF with a native plugin inside an iframe, so it can't
+    be zoomed from inside — the pane scales the iframe instead."""
+    from paper_review.server.app import _STATIC_DIR, _TEMPLATES_DIR
+
+    js = (_STATIC_DIR / "detail.js").read_text()
+    assert "applyPdfZoom" in js and "gesturechange" in js
+    assert "e.ctrlKey" in js  # a trackpad pinch arrives as ctrl+wheel
+    html = (_TEMPLATES_DIR / "detail.html").read_text()
+    for btn in ("pdf-zoom-in", "pdf-zoom-out", "pdf-zoom-reset"):
+        assert btn in html, btn

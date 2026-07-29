@@ -68,6 +68,14 @@
   }
 
   /* ─── Topbar ─────────────────────────────────────────────────────── */
+  /* PDF pane zoom: the iframe is scaled, so it must not spill out of the pane */
+  .pane.pdf { overflow: hidden; }
+  .pane.pdf iframe { transform-origin: 0 0; }
+  .pane-hover-actions .zoom-label {
+    font-size: 11px; min-width: 42px; text-align: center; cursor: default;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Desktop app: content runs under a transparent titlebar (see gallery.css).
      The topbar keeps its own blurred background and simply starts below the
      traffic lights — no separate strip, so there is no seam. */

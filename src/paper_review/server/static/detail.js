@@ -835,6 +835,50 @@
     generateReport();
   });
 
+  // ─── Source-PDF zoom ─────────────────────────────────────────────
+  // The PDF is drawn by WebKit's native plugin inside an iframe, so it can't be
+  // zoomed from inside. Scale the iframe itself and shrink its box by the same
+  // factor, so it still fills the pane and the plugin keeps its own scrolling.
+  // In the desktop app a trackpad pinch arrives as ctrl+wheel; buttons cover
+  // the case where the gesture never reaches this document.
+  const pdfPane = document.getElementById('pdf-pane');
+  const pdfFrame = pdfPane ? pdfPane.querySelector('iframe') : null;
+  let pdfScale = +(localStorage.getItem(`pr-pdfzoom:${slug}`) || 1) || 1;
+
+  function applyPdfZoom() {
+    if (!pdfFrame) return;
+    pdfScale = Math.min(4, Math.max(0.5, pdfScale));
+    const pct = (100 / pdfScale).toFixed(4) + '%';
+    pdfFrame.style.transformOrigin = '0 0';
+    pdfFrame.style.transform = pdfScale === 1 ? '' : `scale(${pdfScale})`;
+    pdfFrame.style.width = pdfScale === 1 ? '' : pct;
+    pdfFrame.style.height = pdfScale === 1 ? '' : pct;
+    localStorage.setItem(`pr-pdfzoom:${slug}`, String(pdfScale));
+    const lbl = document.getElementById('pdf-zoom-label');
+    if (lbl) lbl.textContent = Math.round(pdfScale * 100) + '%';
+  }
+  function nudgePdfZoom(factor) { pdfScale *= factor; applyPdfZoom(); }
+
+  if (pdfPane) {
+    // trackpad pinch → ctrl+wheel (and WebKit's own gesture events)
+    pdfPane.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      nudgePdfZoom(e.deltaY < 0 ? 1.06 : 1 / 1.06);
+    }, { passive: false });
+    let gestureStart = 1;
+    pdfPane.addEventListener('gesturestart', (e) => {
+      e.preventDefault(); gestureStart = pdfScale;
+    });
+    pdfPane.addEventListener('gesturechange', (e) => {
+      e.preventDefault(); pdfScale = gestureStart * e.scale; applyPdfZoom();
+    });
+    document.getElementById('pdf-zoom-in')?.addEventListener('click', () => nudgePdfZoom(1.25));
+    document.getElementById('pdf-zoom-out')?.addEventListener('click', () => nudgePdfZoom(1 / 1.25));
+    document.getElementById('pdf-zoom-reset')?.addEventListener('click', () => { pdfScale = 1; applyPdfZoom(); });
+    applyPdfZoom();
+  }
+
   // Per-pane fullscreen (원문 / 리뷰 / 리포트) via the hover ⛶ buttons.
   document.querySelectorAll("[data-fs]").forEach(b => {
     b.addEventListener("click", () => {

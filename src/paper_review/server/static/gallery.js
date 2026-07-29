@@ -228,12 +228,18 @@
     if (diff < 86400 * 365) return Math.floor(diff / 86400 / 30) + 'mo ago';
     return Math.floor(diff / 86400 / 365) + 'y ago';
   }
+  function archivedHitCount(list) {
+    return list.filter(p => p.status === 'archived').length;
+  }
   function renderCards() {
     _charUsage = {}; _fileUsage = {};  // reset usage so spreading is recomputed per render
     const filtered = papers.filter(p => {
-      // Default view ("all") hides archived; a specific filter matches exactly.
-      if (activeFilter === 'all') { if (p.status === 'archived') return false; }
-      else if (p.status !== activeFilter) return false;
+      // Default view ("all") hides archived — except while searching. With 97 of
+      // 109 papers archived, typing a query and getting nothing was the common
+      // case; you had to know to switch to Archived first.
+      if (activeFilter === 'all') {
+        if (p.status === 'archived' && !searchQuery) return false;
+      } else if (p.status !== activeFilter) return false;
       if (activeTags.size) {
         const tags = p.tags || [];
         // Each selected tag (or any of its descendants) must be present
@@ -257,7 +263,11 @@
     }[sortBy] || ((a, b) => (b.created_at || 0) - (a.created_at || 0));
     filtered.sort(cmp);
     const rc = document.getElementById('result-count');
-    if (rc) rc.textContent = `${filtered.length} / ${papers.length}`;
+    if (rc) {
+      const arch = searchQuery && activeFilter === 'all' ? archivedHitCount(filtered) : 0;
+      rc.textContent = `${filtered.length} / ${papers.length}`
+        + (arch ? ` · 아카이브 ${arch}편 포함` : '');
+    }
 
     if (!papers.length) {
       grid.innerHTML = `
