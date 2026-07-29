@@ -153,3 +153,35 @@ def test_local_illustration_groups_merge_over_the_shipped_ones(tmp_path, monkeyp
 
     local.write_text("{ broken")  # must not take the gallery down
     assert S.illustration_groups()["groups"]["vision"] == ["badger.jpg"]
+
+
+def test_desktop_window_allows_pinch_zoom(monkeypatch):
+    """pywebview defaults zoomable=False and then blocks ctrl+wheel — which is
+    what a trackpad pinch sends — so the source PDF couldn't be zoomed."""
+    from paper_review import app as A
+
+    seen = {}
+
+    class W:
+        def __init__(self):
+            self.js, self.url = [], None
+
+        def evaluate_js(self, s):
+            self.js.append(s)
+
+    def fake_create_window(title, **kw):
+        seen.update(kw)
+        return W()
+
+    monkeypatch.setattr(A, "_augment_path", lambda: None)
+    monkeypatch.setitem(
+        sys.modules,
+        "webview",
+        type(
+            "M",
+            (),
+            {"create_window": staticmethod(fake_create_window), "start": staticmethod(lambda *a, **k: None)},
+        ),
+    )
+    A.run_app(port=1234)
+    assert seen.get("zoomable") is True

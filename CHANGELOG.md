@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.15.5
+
+### Fixed
+- **Pinch-to-zoom didn't work on the source PDF in the desktop app.** pywebview
+  creates windows with `zoomable=False` by default and then injects a handler
+  that `preventDefault`s ctrl+wheel — which is exactly what a macOS trackpad
+  pinch sends. The same PDF zooms fine in a browser; the window now opts in.
+
+
 ## 2.15.4
 
 ### Fixed

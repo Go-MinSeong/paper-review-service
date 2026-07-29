@@ -297,6 +297,11 @@ def run_app(port: int | None = None) -> None:
         width=1280,
         height=860,
         background_color=_appearance_bg(),
+        # pywebview defaults zoomable=False and then injects a handler that
+        # preventDefaults ctrl+wheel — which is exactly what a trackpad pinch
+        # sends. That killed pinch-to-zoom on the source PDF, a gesture the
+        # same document supports fine in a browser.
+        zoomable=True,
     )
     webview.start(_boot, (window, port))
 
