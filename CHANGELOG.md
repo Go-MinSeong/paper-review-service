@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.17.0
+
+### Added
+- **Releases are built by CI.** Pushing a `v*` tag builds the .app on a macOS
+  runner, runs the tests, and publishes the zip with notes taken from this file.
+  Building by hand is how v2.7.1 once shipped a 2.4.6 binary — the tag and the
+  build can't disagree when the tag is what triggers it. The job also fails if
+  the tag doesn't match `__version__`, or if third-party character art ends up
+  in the bundle. `workflow_dispatch` runs the same build without releasing, so
+  the pipeline can be checked without inventing a version.
+- **The app tells you when a new release is out.** A quiet `↑ 2.17.0` chip in
+  the sidebar footer, linking to the release. It only checks (cached 6h) and
+  never downloads or installs; offline, rate-limited, and unparsable versions
+  all mean "say nothing".
+
+
 ## 2.16.1
 
 ### Fixed

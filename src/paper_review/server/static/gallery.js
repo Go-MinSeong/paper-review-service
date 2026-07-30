@@ -733,6 +733,26 @@
     if (sidebarEl.dataset.open) delete sidebarEl.dataset.open;
     else sidebarEl.dataset.open = '1';
   });
+  // ─── New release available ───────────────────────────────────────
+  // The app can't tell you a new version exists otherwise — you'd have to
+  // remember to check GitHub. A chip, not a modal; clicking opens the release.
+  (async function checkUpdate() {
+    if (CAPTURE) return;
+    try {
+      const u = await (await fetch('/update')).json();
+      if (!u.newer || !u.url) return;
+      const foot = document.querySelector('.sidebar-foot');
+      if (!foot) return;
+      const a = document.createElement('a');
+      a.className = 'update-chip';
+      a.href = u.url;
+      a.target = '_blank';
+      a.title = `현재 ${u.current} → 새 버전 ${u.latest}`;
+      a.textContent = `↑ ${u.latest}`;
+      foot.prepend(a);
+    } catch (e) { /* offline — say nothing */ }
+  })();
+
   // ─── Active jobs polling (gallery indicator)
   let activeJobs = new Map(); // slug → {current, total, current_heading}
   async function pollActiveJobs() {

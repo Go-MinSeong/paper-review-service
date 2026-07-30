@@ -45,6 +45,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 | 🏷️ **A library that scales** | Hierarchical tags (`CV/segmentation`), star ratings, a status workflow (Reading → In progress → Reviewed → Exported → Archived), search, grid/list views, per-paper illustrations. |
 | 📈 **Dashboards** | Monthly **Intake** and **Export** views — throughput, median days from intake to export, status funnel, rating distribution, top tags. |
 | 🎨 **Themes** | Light/dark plus Stripe · Figma · Tesla · Sunset · Sage, applied across the gallery, review page and source viewer. |
+| 🔔 **Tells you about updates** | A chip in the sidebar when a newer release is out — it links to the release and never installs anything behind your back. Releases themselves are built by CI from the tag, so the version you download is the version in the tag. |
 | 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen — plus an optional menubar item, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
 
 <div align="center">

@@ -875,6 +875,14 @@ def tags_rename(body: TagRenameBody):
     return rename_tag(body)
 
 
+@app.get("/update")
+def update_check(force: int = 0):
+    """Is a newer release out? Cached, never blocking, never installs anything."""
+    from ..update import check
+
+    return check(force=bool(force))
+
+
 @app.get("/papers.json")
 def papers_json():
     """The gallery embeds its list at render time, so a window left open shows a

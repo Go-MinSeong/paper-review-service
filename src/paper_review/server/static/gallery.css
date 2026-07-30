@@ -560,6 +560,15 @@
     box-shadow: 0 0 0 1px var(--accent),
                 0 2px 14px color-mix(in srgb, var(--accent) 18%, transparent);
   }
+  /* "a newer release is out" chip in the sidebar footer */
+  .update-chip {
+    font-size: 11px; font-weight: 600; text-decoration: none;
+    padding: 3px 8px; border-radius: 999px;
+    color: #fff; background: var(--accent);
+    white-space: nowrap;
+  }
+  .update-chip:hover { background: var(--accent-hover); }
+
   /* Tag admin (Settings → 태그) */
   .tag-admin { max-height: 52vh; overflow-y: auto; }
   .tag-row {
