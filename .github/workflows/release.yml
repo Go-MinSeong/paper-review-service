@@ -1,0 +1,82 @@
+name: release
+
+# Pushing a tag builds the .app and publishes it. Doing this by hand is how
+# v2.7.1 once shipped a 2.4.6 build — the tag and the binary can't disagree
+# when the tag is what triggers the build.
+#
+# workflow_dispatch runs the same build WITHOUT touching releases, so the
+# pipeline can be verified without inventing a version.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the release, upload the asset
+
+jobs:
+  build:
+    runs-on: macos-latest # Apple Silicon runner → arm64 bundle
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install
+        run: |
+          uv venv
+          uv pip install -e '.[dev]'
+
+      - name: Test
+        run: .venv/bin/python -m pytest -q
+
+      - name: Version matches the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(.venv/bin/python -c 'import paper_review; print(paper_review.__version__)')
+          echo "tag=$tag  package=$pkg"
+          [ "$tag" = "$pkg" ] || {
+            echo "::error::tag $tag does not match __version__ $pkg"; exit 1; }
+
+      - name: Build the app
+        run: bash packaging/build.sh
+
+      - name: Third-party artwork must not be bundled
+        run: |
+          chars="dist/paper-review.app/Contents/Frameworks/paper_review/server/static/characters"
+          if ls "$chars" | grep -qE 'squirtle|venom|shinchan|calcifer|agumon|soot'; then
+            echo "::error::bundle contains third-party character art"; exit 1
+          fi
+          echo "$(ls "$chars" | wc -l) illustrations, all original"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-review-arm64
+          path: dist/paper-review-arm64.zip
+          retention-days: 7
+
+      - name: Release notes from the CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          .venv/bin/python - "$GITHUB_REF_NAME" > NOTES.md <<'PY'
+          import re, sys
+          from pathlib import Path
+
+          ver = sys.argv[1].lstrip("v")
+          text = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          # the section for this version, up to the next "## "
+          m = re.search(rf"^## {re.escape(ver)}\s*\n(.*?)(?=^## |\Z)", text, re.S | re.M)
+          print((m.group(1).strip() if m else "See CHANGELOG.md."))
+          PY
+          cat NOTES.md
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/paper-review-arm64.zip \
+            --title "$GITHUB_REF_NAME" --notes-file NOTES.md \
+            || gh release upload "$GITHUB_REF_NAME" dist/paper-review-arm64.zip --clobber

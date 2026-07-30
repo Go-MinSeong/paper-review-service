@@ -1,0 +1,19 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: macos-latest # the suite touches pyobjc (menubar/window) paths
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install
+        run: |
+          uv venv
+          uv pip install -e '.[dev]'
+      - name: Test
+        run: .venv/bin/python -m pytest -q
