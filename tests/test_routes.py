@@ -239,7 +239,7 @@ def test_summary_without_a_report_shows_the_report_outline():
         assert sec in js, sec
     # the fallback must not render the workbench any more
     i = js.index("No report yet.")
-    block = js[i : i + 400]
+    block = js[i : i + 900]  # the explanatory comment is long
     assert 'style.display = "none"' in block
     # papers analyzed before the block consolidation still count as analyzed
     assert "wb-label-summary" in js and "wb-label-translation" in js
