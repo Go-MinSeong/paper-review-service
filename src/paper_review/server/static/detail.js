@@ -787,17 +787,59 @@
       // the iframe reload automatically after a rebuild (e.g. post-analyze).
       reportPane.hidden = false;
       document.getElementById("wb").style.display = "none";
+      const empty = document.getElementById("summary-empty");
+      if (empty) empty.hidden = true;
       const url = `/paper/${slug}/report?v=${reportMtime}`;
       if (reportFrame.src !== location.origin + url) reportFrame.src = url;
       document.getElementById("report-open").href = `/paper/${slug}/report`;
       document.getElementById("report-dl").href = `/paper/${slug}/report?download=1`;
     } else {
-      // no report yet: just the label-filtered summary — generation lives in
-      // the topbar button, no banner.
-      reportPane.hidden = true;
-      document.getElementById("wb").style.display = "";
+      // No report yet. This used to fall back to the workbench with the source
+      // excerpt and translation hidden — the pre-2.4 idea of a summary — so a
+      // freshly registered paper showed 파이프라인 / Wrap-up / 메타 / 요약,
+      // structure that was retired, and only Generate Report made it current.
+      // Show what a Summary IS now instead.
+      reportPane.hidden = false;
+      document.getElementById("wb").style.display = "none";
+      reportFrame.removeAttribute("src");
+      renderSummaryPlaceholder();
     }
     refreshReportBtn();
+  }
+
+  // The report's own outline, so the empty state says what will be produced.
+  const REPORT_OUTLINE = [
+    ["00", "TL;DR", "한 문단 요약 + 핵심 수치"],
+    ["01", "개념", "사전지식 카드 기반, 깊은 내용은 접어두기"],
+    ["02", "배경", "선행 연구의 흐름"],
+    ["03", "방법론", "수식·기호 정의·구체적 수치, 핵심 메커니즘 도식"],
+    ["04", "실험", "무엇을 보여주는 실험 → 결과 → 해석"],
+    ["05", "한계", "⚠️ 논문 명시 / 🔍 리뷰 중 발견"],
+    ["06", "후속 연구", "웹 검색으로 찾은 실제 후속 논문"],
+  ];
+  function renderSummaryPlaceholder() {
+    let host = document.getElementById("summary-empty");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "summary-empty";
+      reportPane.appendChild(host);
+    }
+    // "analyzed" must include papers reviewed before the block consolidation —
+    // they carry 요약/1차 번역 rather than 핵심 해설, and telling their owner to
+    // run Analyze first would be wrong.
+    const done = document.querySelectorAll(
+      "#wb .wb-label-explain, #wb .wb-label-summary, #wb .wb-label-translation"
+    ).length > 0;
+    host.innerHTML = `
+      <div class="se-card">
+        <div class="se-title">Summary 리포트가 아직 없습니다</div>
+        <p class="se-sub">${done
+          ? "리뷰 내용을 반영해 아래 구조로 생성합니다 — 상단 <b>Generate Report</b>."
+          : "먼저 <b>Analyze</b> 로 섹션 해설을 만들면, 이어서 아래 구조의 리포트까지 생성됩니다."}</p>
+        <ol class="se-outline">${REPORT_OUTLINE.map(([n, t, d]) =>
+          `<li><span class="n">${n}</span><span class="t">${t}</span><span class="d">${d}</span></li>`).join("")}</ol>
+      </div>`;
+    host.hidden = false;
   }
   function hideReportPane() {
     reportPane.hidden = true;

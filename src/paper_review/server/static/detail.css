@@ -68,6 +68,26 @@
   }
 
   /* ─── Topbar ─────────────────────────────────────────────────────── */
+  /* Summary with no report yet — states the structure that WILL be produced,
+     instead of falling back to the retired condensed-workbench view. */
+  #summary-empty { padding: 28px 22px; overflow-y: auto; }
+  #summary-empty[hidden] { display: none; }
+  .se-card {
+    max-width: 620px; margin: 0 auto; padding: 22px 24px;
+    border: 1px solid var(--border-default); border-radius: 14px;
+    background: var(--bg-surface);
+  }
+  .se-title { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
+  .se-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.7; }
+  .se-outline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .se-outline li {
+    display: grid; grid-template-columns: 30px 96px 1fr; align-items: baseline;
+    gap: 10px; font-size: 12.5px;
+  }
+  .se-outline .n { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .se-outline .t { font-weight: 550; }
+  .se-outline .d { color: var(--text-muted); }
+
   /* PDF pane zoom: the iframe is scaled, so it must not spill out of the pane */
   .pane.pdf { overflow: hidden; }
   .pane.pdf iframe { transform-origin: 0 0; }

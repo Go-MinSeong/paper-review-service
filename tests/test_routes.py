@@ -223,3 +223,23 @@ def test_report_can_be_downloaded_as_a_file():
     assert dl.status_code == 200
     assert dl.headers["content-disposition"] == f'attachment; filename="{target}-report.html"'
     assert dl.content == plain.content
+
+
+def test_summary_without_a_report_shows_the_report_outline():
+    """Summary used to fall back to the workbench with the excerpt/translation
+    hidden — the pre-2.4 idea of a summary. A newly registered paper therefore
+    showed 파이프라인 / Wrap-up / 메타 / 요약, structure that was retired, and only
+    Generate Report made it current."""
+    from paper_review.server.app import _STATIC_DIR
+
+    js = (_STATIC_DIR / "detail.js").read_text()
+    assert "renderSummaryPlaceholder" in js
+    assert "REPORT_OUTLINE" in js
+    for sec in ("TL;DR", "개념", "배경", "방법론", "실험", "한계", "후속 연구"):
+        assert sec in js, sec
+    # the fallback must not render the workbench any more
+    i = js.index("No report yet.")
+    block = js[i : i + 400]
+    assert 'style.display = "none"' in block
+    # papers analyzed before the block consolidation still count as analyzed
+    assert "wb-label-summary" in js and "wb-label-translation" in js

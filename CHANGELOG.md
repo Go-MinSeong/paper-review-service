@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.16.1
+
+### Fixed
+- **Summary showed retired structure until you generated a report.** With no
+  report yet, the view fell back to the workbench with the source excerpt and
+  translation hidden — the pre-2.4 idea of a summary — so a freshly registered
+  paper presented `파이프라인 / Wrap-up / 메타 / 요약`, all of it structure that no
+  longer exists, and only **Generate Report** made it current. Summary now
+  states what a report is (00 TL;DR … 06 후속 연구) and what to do next, whether
+  or not the sections have been analyzed.
+
+
 ## 2.16.0
 
 ### Added
