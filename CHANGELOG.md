@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.19.0
+
+### Added
+- **CI checks that the bundle serves what the source serves.** The release job
+  now starts the built .app and a source server side by side and compares 16
+  routes. This is the class of bug that shipped Settings → 스킬 empty for weeks:
+  the .app reads templates, static files, skills and assets from inside the
+  bundle, so anything the packaging spec forgets is invisible until someone
+  opens that screen in the app — and every check had been done in a browser
+  against the source. Verified by reintroducing that exact defect: the sweep
+  fails with `/skills: app has 0 items, source has 5`.
+
+### Changed
+- **A GitHub Release per feature, not per fix.** Every patch tag published a
+  release, so the activity feed got an entry for each small fix. `vX.Y.0` tags
+  publish; patch tags build, run every check, and keep the zip as a workflow
+  artifact. A manual run can publish any tag on demand
+  (`gh workflow run release.yml -f publish=true`).
+
+
 ## 2.18.0
 
 ### Changed

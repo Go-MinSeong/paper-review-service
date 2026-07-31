@@ -11,6 +11,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release for the current tag"
+        type: boolean
+        default: false
 
 permissions:
   contents: write # create the release, upload the asset
@@ -51,14 +56,51 @@ jobs:
           fi
           echo "$(ls "$chars" | wc -l) illustrations, all original"
 
+      - name: The bundle serves what the source serves
+        run: |
+          # The .app reads templates, static files, skills and assets from
+          # inside the bundle. Anything the spec forgets is invisible until
+          # someone opens that screen in the app — Settings → 스킬 shipped empty
+          # for weeks because every check had been done against the source.
+          root="$RUNNER_TEMP/lib"
+          mkdir -p "$root/papers/to_read/fixture"
+          printf -- '---\nslug: fixture\nstatus: to_read\ntitle_en: "Fixture"\ncontent_type: paper\n---\n\n## 섹션별 리뷰\n\n### 1 Intro\n_(미진행)_\n' \
+            > "$root/papers/to_read/fixture/workbench.md"
+
+          PAPER_REVIEWS_ROOT="$root" dist/paper-review.app/Contents/MacOS/paper-review \
+            serve --host 127.0.0.1 --port 8801 &
+          PAPER_REVIEWS_ROOT="$root" .venv/bin/python -m uvicorn paper_review.server.app:app \
+            --host 127.0.0.1 --port 8802 --log-level warning &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8801/ >/dev/null && curl -sf http://127.0.0.1:8802/ >/dev/null && break
+            sleep 1
+          done
+          .venv/bin/python packaging/route_parity.py http://127.0.0.1:8801 http://127.0.0.1:8802
+
       - uses: actions/upload-artifact@v4
         with:
           name: paper-review-arm64
           path: dist/paper-review-arm64.zip
           retention-days: 7
 
+      - name: Should this tag be published?
+        id: gate
+        run: |
+          # Every patch tag used to publish a Release, which put an entry in the
+          # GitHub activity feed for each fix. Feature tags (vX.Y.0) publish;
+          # patch tags build and keep the artifact only. workflow_dispatch can
+          # force a publish.
+          publish=false
+          if [ "${{ inputs.publish }}" = "true" ]; then
+            publish=true
+          elif [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.0$ ]]; then
+            publish=true
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "tag=$GITHUB_REF_NAME publish=$publish"
+
       - name: Release notes from the CHANGELOG
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.gate.outputs.publish == 'true' && startsWith(github.ref, 'refs/tags/v')
         run: |
           .venv/bin/python - "$GITHUB_REF_NAME" > NOTES.md <<'PY'
           import re, sys
@@ -73,7 +115,7 @@ jobs:
           cat NOTES.md
 
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.gate.outputs.publish == 'true' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
