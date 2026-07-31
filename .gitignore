@@ -1,6 +1,9 @@
 # Per-paper runtime state — never committed
 /*/
 
+# The paper library (papers/<status>/<slug>/) — same rule as the flat layout
+/papers/
+
 # Server runtime state at the service root
 .views.json
 .remote-slot.json

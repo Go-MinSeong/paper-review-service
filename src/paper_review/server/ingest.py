@@ -161,8 +161,11 @@ def _restore_preserved_fields(job: IngestJob) -> None:
     """Restore tags / category in the new workbench.md after a promote ingest."""
     if not job.slug or not job.preserve_fields:
         return
-    wb = SERVICE_ROOT / job.slug / "workbench.md"
-    if not wb.exists():
+    from ..library import paper_dir as _find
+
+    d = _find(job.slug)
+    wb = (d / "workbench.md") if d else None
+    if wb is None or not wb.exists():
         return
     text = wb.read_text()
     if "tags" in job.preserve_fields:
@@ -189,9 +192,11 @@ async def _auto_tag(job: IngestJob) -> None:
     failure — auto-tagging must never break ingest."""
     if not job.slug:
         return
-    paper_dir = SERVICE_ROOT / job.slug
-    wb = paper_dir / "workbench.md"
-    if not wb.exists():
+    from ..library import paper_dir as _find
+
+    paper_dir = _find(job.slug)
+    wb = (paper_dir / "workbench.md") if paper_dir else None
+    if wb is None or not wb.exists():
         return
     try:
         import json as _json
@@ -258,15 +263,11 @@ async def _auto_tag(job: IngestJob) -> None:
 
 def _detect_slug_post_hoc(job: IngestJob) -> None:
     """Fallback: scan ~/Projects/paper-review-service/* for folders modified after job start."""
-    if not SERVICE_ROOT.exists():
-        return
+    from ..library import iter_papers
+
     candidates = []
-    for d in SERVICE_ROOT.iterdir():
-        if not d.is_dir() or d.name.startswith((".", "_")):
-            continue
+    for d in iter_papers():
         wb = d / "workbench.md"
-        if not wb.exists():
-            continue
         if wb.stat().st_mtime >= job.started_at - 1:
             candidates.append((wb.stat().st_mtime, d.name))
     if candidates:

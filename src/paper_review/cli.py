@@ -89,7 +89,9 @@ def init(
         paper = runner.init_paper(source, staging, is_pdf=is_pdf)
     slug = paper["metadata"].get("slug") or runner._find_slug(staging)
 
-    final_dir = out_dir or (SERVICE_ROOT / slug)
+    from .library import new_paper_dir
+
+    final_dir = out_dir or new_paper_dir(slug)
     if final_dir.exists():
         if not force and not click.confirm(
             f"{final_dir} already exists. Overwrite?", default=False
@@ -150,11 +152,13 @@ def init(
 @main.command(name="list")
 def list_cmd() -> None:
     """List all papers under the service root with their status."""
+    from .library import iter_papers
+
     if not SERVICE_ROOT.exists():
         click.echo("(no papers yet)")
         return
     rows = []
-    for d in sorted(SERVICE_ROOT.iterdir()):
+    for d in sorted(iter_papers()):
         if not d.is_dir() or d.name.startswith("_") or d.name.startswith("."):
             continue
         wb = d / "workbench.md"
@@ -174,7 +178,9 @@ def list_cmd() -> None:
 @click.option("-y", "--yes", is_flag=True, help="Skip confirmation.")
 def rm(slug: str, yes: bool) -> None:
     """Delete a paper's working directory."""
-    target = SERVICE_ROOT / slug
+    from .library import paper_dir as _find
+
+    target = _find(slug) or (SERVICE_ROOT / slug)
     if not target.exists():
         raise click.ClickException(f"Not found: {target}")
     if not yes and not click.confirm(f"Delete {target}?", default=False):
@@ -206,9 +212,7 @@ def serve(host: str, port: int) -> None:
     click.secho(f"→ paper-review serve on http://{host}:{port}", fg="cyan")
 
     async def _run() -> None:
-        servers = [
-            uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=port))
-        ]
+        servers = [uvicorn.Server(uvicorn.Config(fastapi_app, host=host, port=port))]
         if port != 80:
             # Pretty-URL listener. macOS only allows unprivileged low-port
             # binds on the WILDCARD address (127.0.0.1:80 → EACCES), so the
@@ -223,9 +227,14 @@ def serve(host: str, port: int) -> None:
                 servers.append(
                     uvicorn.Server(uvicorn.Config(fastapi_app, host="0.0.0.0", port=80))
                 )
-                click.secho("→ pretty URL: http://paper-review.local/ (this Mac only)", fg="cyan")
+                click.secho(
+                    "→ pretty URL: http://paper-review.local/ (this Mac only)",
+                    fg="cyan",
+                )
             except OSError as e:
-                click.secho(f"· port 80 unavailable ({e}) — pretty URL off", fg="yellow")
+                click.secho(
+                    f"· port 80 unavailable ({e}) — pretty URL off", fg="yellow"
+                )
         mdns = start_mdns_proxy() if len(servers) > 1 else None
         try:
             await asyncio.gather(*(s.serve() for s in servers))
@@ -264,7 +273,9 @@ def app() -> None:
 @click.argument("slug")
 def session(slug: str) -> None:
     """cd into the paper's folder and launch claude."""
-    target = SERVICE_ROOT / slug
+    from .library import paper_dir as _find
+
+    target = _find(slug) or (SERVICE_ROOT / slug)
     if not target.exists():
         raise click.ClickException(f"Not found: {target}")
     click.secho(f"→ starting claude in {target}", fg="cyan")
@@ -296,9 +307,14 @@ def remote_pull() -> None:
 
     out = _pull(SERVICE_ROOT)
     if out["changed"]:
-        click.secho(f"✓ pulled {out['slug']} (rev {out['rev']}) — workbench updated, .bak saved", fg="green")
+        click.secho(
+            f"✓ pulled {out['slug']} (rev {out['rev']}) — workbench updated, .bak saved",
+            fg="green",
+        )
     else:
-        click.secho(f"· {out['slug']} already up to date (rev {out['rev']})", fg="yellow")
+        click.secho(
+            f"· {out['slug']} already up to date (rev {out['rev']})", fg="yellow"
+        )
 
 
 @main.command(name="export-draft")
@@ -315,12 +331,15 @@ def export_draft(slug: str, drafts_dir: Path | None) -> None:
     from .publish.transform import workbench_to_draft
 
     drafts_dir = drafts_dir or get_drafts_dir()
-    src = SERVICE_ROOT / slug / "workbench.md"
+    from .library import paper_dir as _find
+
+    _d = _find(slug) or (SERVICE_ROOT / slug)
+    src = _d / "workbench.md"
     if not src.exists():
         raise click.ClickException(f"workbench.md not found: {src}")
     drafts_dir.mkdir(parents=True, exist_ok=True)
     dest = drafts_dir / f"{slug}.md"
-    workbench_to_draft(src, dest, paper_dir=SERVICE_ROOT / slug)
+    workbench_to_draft(src, dest, paper_dir=_d)
     click.secho(f"✓ wrote {dest}", fg="green")
 
 

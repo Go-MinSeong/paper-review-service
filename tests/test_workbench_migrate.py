@@ -69,6 +69,9 @@ def test_gallery_migrates_without_touching_edit_times(tmp_path, monkeypatch):
 
     from paper_review.server import app as A
 
+    import paper_review
+
+    monkeypatch.setattr(paper_review, "SERVICE_ROOT", tmp_path)
     monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
     d = tmp_path / "2500.00001"
     d.mkdir()

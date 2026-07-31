@@ -54,20 +54,20 @@ def _set_tags_in_text(text: str, tags: list[str]) -> str:
 
 def list_all_tags() -> dict:
     """Return {tag: count} across all papers. Sorted by count desc."""
+    from ..library import iter_papers
+
     counter: Counter[str] = Counter()
-    if SERVICE_ROOT.exists():
-        for d in SERVICE_ROOT.iterdir():
-            if not d.is_dir() or d.name.startswith((".", "_")):
-                continue
-            wb = d / "workbench.md"
-            counter.update(_read_frontmatter_tags(wb))
+    for d in iter_papers():
+        counter.update(_read_frontmatter_tags(d / "workbench.md"))
     return {
         "tags": [{"name": t, "count": c} for t, c in counter.most_common()],
     }
 
 
 def patch_paper_tags(slug: str, body: TagsPatchBody) -> dict:
-    paper_dir = SERVICE_ROOT / slug
+    from ..library import paper_dir as _find
+
+    paper_dir = _find(slug) or (SERVICE_ROOT / slug)
     wb = paper_dir / "workbench.md"
     if not wb.exists():
         from fastapi import HTTPException
@@ -103,7 +103,10 @@ def _set_rating_in_text(text: str, rating: int) -> str:
 
 
 def patch_paper_rating(slug: str, body: RatingPatchBody) -> dict:
-    wb = SERVICE_ROOT / slug / "workbench.md"
+    from ..library import paper_dir as _find
+
+    _d = _find(slug)
+    wb = (_d / "workbench.md") if _d else (SERVICE_ROOT / slug / "workbench.md")
     if not wb.exists():
         from fastapi import HTTPException
 
@@ -129,15 +132,37 @@ def _set_status_in_text(text: str, status: str) -> str:
     return re.sub(r"^---\n", f"---\n{new_line}\n", text, count=1)
 
 
+def _relocate(slug: str, status: str) -> None:
+    """Keep the folder in the status directory the frontmatter now claims.
+
+    Skipped while an analyze job is running in that folder: it is the cwd of a
+    live `claude` process, and pulling it away mid-run breaks the run. The next
+    status change or startup migration picks it up."""
+    try:
+        from .analyze import _jobs
+        from ..library import move_to_status
+
+        job = _jobs.get(slug)
+        if job and job.status == "running":
+            return
+        move_to_status(slug, status)
+    except Exception:
+        pass  # a paper in the wrong folder still works; losing the edit doesn't
+
+
 def patch_paper_status(slug: str, body: StatusPatchBody) -> dict:
     from fastapi import HTTPException
 
     if body.status not in STATUSES:
         raise HTTPException(400, f"invalid status: {body.status}")
-    wb = SERVICE_ROOT / slug / "workbench.md"
+    from ..library import paper_dir as _find
+
+    _d = _find(slug)
+    wb = (_d / "workbench.md") if _d else (SERVICE_ROOT / slug / "workbench.md")
     if not wb.exists():
         raise HTTPException(404, f"workbench not found for {slug}")
     wb.write_text(_set_status_in_text(wb.read_text(), body.status))
+    _relocate(slug, body.status)
     return {"ok": True, "status": body.status}
 
 
@@ -158,7 +183,10 @@ def bulk_edit(body: BulkBody) -> dict:
     meant 90 menus. Skips slugs that don't exist rather than failing the lot."""
     changed, missing = [], []
     for slug in body.slugs:
-        wb = SERVICE_ROOT / slug / "workbench.md"
+        from ..library import paper_dir as _find
+
+        _d = _find(slug)
+        wb = (_d / "workbench.md") if _d else (SERVICE_ROOT / slug / "workbench.md")
         if not wb.exists():
             missing.append(slug)
             continue
@@ -174,6 +202,8 @@ def bulk_edit(body: BulkBody) -> dict:
                     tags.append(t)
             text = _set_tags_in_text(text, tags)
         wb.write_text(text)
+        if body.status:
+            _relocate(slug, body.status)
         changed.append(slug)
     return {"ok": True, "changed": changed, "missing": missing}
 
@@ -193,10 +223,10 @@ def rename_tag(body: TagRenameBody) -> dict:
     if not old:
         raise HTTPException(400, "old tag required")
     touched = 0
-    for d in SERVICE_ROOT.iterdir():
-        wb = d / "workbench.md" if d.is_dir() else None
-        if not (wb and wb.exists()) or d.name.startswith((".", "_")):
-            continue
+    from ..library import iter_papers
+
+    for d in iter_papers():
+        wb = d / "workbench.md"
         text = wb.read_text()
         cur = _parse_tags_value(_frontmatter_field(text, "tags"))
         if old.lower() not in {t.lower() for t in cur}:

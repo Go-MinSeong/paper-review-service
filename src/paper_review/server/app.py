@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from html import escape as _escape
 from pathlib import Path
 
@@ -45,7 +46,39 @@ from .tags import (
     patch_paper_tags,
 )
 
-app = FastAPI(title="paper-review")
+
+def _migrate_layout() -> None:
+    """Sort any flat-layout papers into papers/<status>/ once, at startup.
+
+    Same-filesystem renames, so it is fast and reversible. A paper an analyze
+    job is currently running in stays put — that folder is the cwd of a live
+    `claude` process."""
+    from ..library import migrate
+
+    def busy(slug: str) -> bool:
+        from .analyze import _jobs
+
+        job = _jobs.get(slug)
+        return bool(job and job.status == "running")
+
+    try:
+        out = migrate(is_busy=busy)
+    except Exception as e:  # never keep the server from starting
+        print(f"paper-review: layout migration skipped ({e})")
+        return
+    if out["moved"]:
+        print(f"paper-review: moved {len(out['moved'])} papers into papers/<status>/")
+    if out["skipped"]:
+        print(f"paper-review: left {len(out['skipped'])} in place (busy or clashing)")
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _migrate_layout()
+    yield
+
+
+app = FastAPI(title="paper-review", lifespan=_lifespan)
 
 
 @app.middleware("http")
@@ -87,8 +120,10 @@ def _paper_dir(slug: str) -> Path:
     safe = slug.strip()
     if not safe or "/" in safe or safe.startswith("."):
         raise HTTPException(400, "bad slug")
-    p = SERVICE_ROOT / safe
-    if not p.is_dir():
+    from ..library import paper_dir
+
+    p = paper_dir(safe)
+    if p is None:
         raise HTTPException(404, f"unknown slug {safe!r}")
     return p
 
@@ -150,15 +185,11 @@ def _list_papers() -> list[dict]:
     from ..remote import slot_state
 
     on_phone = slot_state(SERVICE_ROOT).get("slug", "")
+    from ..library import iter_papers
+
     rows: list[dict] = []
-    for d in sorted(
-        SERVICE_ROOT.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True
-    ):
-        if not d.is_dir() or d.name.startswith((".", "_")):
-            continue
+    for d in sorted(iter_papers(), key=lambda p: p.stat().st_mtime, reverse=True):
         wb = d / "workbench.md"
-        if not wb.exists():
-            continue
         fig_files = list(d.glob("*_figures.json"))
         fig_mtime = fig_files[0].stat().st_mtime if fig_files else 0.0
         wb_mtime = wb.stat().st_mtime

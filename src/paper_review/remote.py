@@ -139,7 +139,10 @@ def _title_of(md: str) -> str:
 def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> dict:
     """Replace the remote slot with this paper's workbench."""
     cfg = load_config()
-    wb = service_root / slug / "workbench.md"
+    from .library import paper_dir as _find
+
+    pdir = _find(slug, service_root) or (service_root / slug)
+    wb = pdir / "workbench.md"
     if not wb.exists():
         raise FileNotFoundError(f"workbench not found: {wb}")
     md = wb.read_text()
@@ -147,8 +150,8 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
     # views as the desktop. report.md renders natively, but reports built before
     # it existed are html-only — send those as-is rather than showing an empty
     # Summary for a paper that clearly has one.
-    report_md = service_root / slug / "report.md"
-    report_html = service_root / slug / "report.html"
+    report_md = pdir / "report.md"
+    report_html = pdir / "report.html"
     payload = {
         "force": True,
         "slug": slug,
@@ -156,11 +159,11 @@ def push(slug: str, service_root: Path, client: httpx.Client | None = None) -> d
         "md": md,
         "report_md": report_md.read_text() if report_md.exists() else "",
         "report_html": (
-            _inline_local_images(report_html.read_text(), service_root / slug)
+            _inline_local_images(report_html.read_text(), pdir)
             if report_html.exists() and not report_md.exists()
             else ""
         ),
-        "figures": _load_figures(service_root / slug),
+        "figures": _load_figures(pdir),
     }
     c = client or httpx.Client(timeout=60)
     try:
@@ -214,7 +217,10 @@ def pull(service_root: Path, client: httpx.Client | None = None) -> dict:
     if doc.get("empty") or not doc.get("md"):
         raise RuntimeError("remote slot is empty — push first")
     slug = doc.get("slug", "")
-    wb = service_root / slug / "workbench.md"
+    from .library import paper_dir as _find
+
+    _d = _find(slug, service_root)
+    wb = (_d / "workbench.md") if _d else (service_root / slug / "workbench.md")
     if not wb.exists():
         raise FileNotFoundError(f"local paper for slot not found: {wb}")
     local = wb.read_text()

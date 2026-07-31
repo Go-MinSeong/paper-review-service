@@ -96,7 +96,7 @@ Not a terminal person? Download the ZIP of this repo and double-click **`setup.c
 paper-review init 2505.16854          # or paste any link in the UI: + New paper
 ```
 
-Open the gallery, click the card, hit **Analyze**, then review. Your library lives in this checkout — one gitignored folder per paper — and `PAPER_REVIEWS_ROOT=/path/to/library` moves it anywhere. Publish output goes to the folder set in **Settings → 경로** (default `~/Documents/velog-vault/drafts`).
+Open the gallery, click the card, hit **Analyze**, then review. Your library lives in this checkout under `papers/<status>/` (gitignored, and each paper moves as its status changes) — and `PAPER_REVIEWS_ROOT=/path/to/library` moves it anywhere. Publish output goes to the folder set in **Settings → 경로** (default `~/Documents/velog-vault/drafts`).
 
 ## 🧭 How it works
 
@@ -105,7 +105,7 @@ Open the gallery, click the card, hit **Analyze**, then review. Your library liv
 arXiv / PDF / URL │                                                      │
        │          │   FastAPI ──── gallery ──── review page (live SSE)   │
        ▼          │      │                          │                    │
-    ingest ───────┼──►  <slug>/workbench.md ◄───────┘                    │
+    ingest ───────┼──►  papers/<status>/<slug>/workbench.md ◄──────┘      │
  (text, sections, │      │            ▲                                  │
   figures)        │      │            └── claude -p  (analyze · chat)     │
                   │      ▼                                               │
@@ -153,7 +153,7 @@ Everything else — registering, analyzing, tagging, reviewing, reporting, publi
 | `remote/` | optional Vercel app for mobile continuation |
 | `skills/` | the review skills (source of truth) |
 
-Per-paper state lives in `<repo>/<slug>/`: `workbench.md`, `paper.json`, `source.txt`, `report.html`, figures, original PDF — all gitignored. See [`DESIGN.md`](./DESIGN.md) for the rationale and locked decisions.
+Per-paper state lives in `papers/<status>/<slug>/` — the folder moves as the status changes, so the filesystem mirrors the gallery: `workbench.md`, `paper.json`, `source.txt`, `report.html`, figures, original PDF — all gitignored. See [`DESIGN.md`](./DESIGN.md) for the rationale and locked decisions.
 </details>
 
 ## ❓ FAQ

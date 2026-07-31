@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.18.0
+
+### Changed
+- **Papers live in `papers/<status>/<slug>/` and move with their status.** A
+  hundred slugs sat directly in the service root, mixed in with the source tree,
+  so opening the folder was a wall of directories. The layout now mirrors the
+  gallery: setting a status (individually, in bulk, or on export) moves the
+  folder. Existing libraries are sorted once at startup — same-filesystem
+  renames, and a paper an analyze job is running in is left alone until the
+  next time, since its folder is that process's working directory.
+
+  Nothing depends on the migration having run: paths resolve through
+  `library.paper_dir()`, which still finds papers in the old flat layout.
+
+
 ## 2.17.0
 
 ### Added

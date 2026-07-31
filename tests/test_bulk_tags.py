@@ -12,6 +12,9 @@ client = TestClient(app)
 
 @pytest.fixture
 def lib(tmp_path, monkeypatch):
+    import paper_review
+
+    monkeypatch.setattr(paper_review, "SERVICE_ROOT", tmp_path)
     monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
     from paper_review.server import tags as T
 
@@ -26,10 +29,20 @@ def lib(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _tags(lib, slug):
-    from paper_review.server.tags import _parse_tags_value, _read_frontmatter_tags
+def _wb(lib, slug):
+    """Resolve through the library: a status change MOVES the folder, so a
+    hard-coded path would be reading where the paper used to be."""
+    from paper_review.library import paper_dir
 
-    return _read_frontmatter_tags(lib / slug / "workbench.md")
+    d = paper_dir(slug, lib)
+    assert d is not None, f"{slug} vanished"
+    return d / "workbench.md"
+
+
+def _tags(lib, slug):
+    from paper_review.server.tags import _read_frontmatter_tags
+
+    return _read_frontmatter_tags(_wb(lib, slug))
 
 
 def test_bulk_status_and_tags(lib):
@@ -43,10 +56,13 @@ def test_bulk_status_and_tags(lib):
         },
     )
     assert r.status_code == 200 and r.json()["changed"] == ["p1", "p2"]
-    assert "status: archived" in (lib / "p1" / "workbench.md").read_text()
+    assert "status: archived" in _wb(lib, "p1").read_text()
     assert _tags(lib, "p1") == ["VLM", "survey"]
     assert set(_tags(lib, "p2")) == {"Agent", "survey"}
-    assert "status: to_read" in (lib / "p3" / "workbench.md").read_text(), "untouched"
+    assert "status: to_read" in _wb(lib, "p3").read_text(), "untouched"
+    # the folder follows the status
+    assert _wb(lib, "p1").parent.parent.name == "archived"
+    assert _wb(lib, "p3").parent == lib / "p3", "unchanged papers stay put"
 
 
 def test_bulk_skips_unknown_slugs_instead_of_failing(lib):

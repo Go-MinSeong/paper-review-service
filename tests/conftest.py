@@ -15,6 +15,12 @@ def _isolated_service_root(tmp_path, monkeypatch):
 
     root = tmp_path / "library"
     root.mkdir()
+    import paper_review
+
+    # library.py resolves the root through the package attribute, so patching
+    # only the module-level copies would leave path lookups pointed at the real
+    # library while writes went to the temp one.
+    monkeypatch.setattr(paper_review, "SERVICE_ROOT", root)
     monkeypatch.setattr(server_app, "SERVICE_ROOT", root)
     monkeypatch.setattr(server_app, "_VIEWS_FILE", root / ".views.json")
     yield root

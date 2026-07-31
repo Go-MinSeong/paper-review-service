@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-__version__ = "2.17.0"
+__version__ = "2.18.0"
 
 # Service root: code + per-paper review data (data dirs are gitignored).
 # Source installs resolve to THIS checkout, so cloning anywhere works; the

@@ -149,6 +149,9 @@ def test_delete_moves_to_trash_and_save_keeps_history(tmp_path, monkeypatch):
     one-way doors."""
     import paper_review.server.app as A
 
+    import paper_review
+
+    monkeypatch.setattr(paper_review, "SERVICE_ROOT", tmp_path)
     monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
     d = tmp_path / "2600.99999"
     d.mkdir()
@@ -182,6 +185,9 @@ def test_paper_rows_are_cached_until_the_file_changes(tmp_path, monkeypatch):
     import json as _json
     import paper_review.server.app as A
 
+    import paper_review
+
+    monkeypatch.setattr(paper_review, "SERVICE_ROOT", tmp_path)
     monkeypatch.setattr(A, "SERVICE_ROOT", tmp_path)
     A._ROW_CACHE.clear()
     d = tmp_path / "2600.88888"

@@ -181,10 +181,13 @@ def _extract_pdf_meta(pdf_path: Path) -> tuple[str | None, list[str]]:
 
 
 def _unique_slug(slug: str) -> str:
-    if not (SERVICE_ROOT / slug).exists():
+    """A free slug — checked across every status folder, not just one place."""
+    from ..library import paper_dir as _find
+
+    if _find(slug) is None:
         return slug
     i = 2
-    while (SERVICE_ROOT / f"{slug}-{i}").exists():
+    while _find(f"{slug}-{i}") is not None:
         i += 1
     return f"{slug}-{i}"
 
@@ -373,7 +376,9 @@ async def save_web_paper(body: SaveBody) -> dict:
     loop = asyncio.get_event_loop()
     meta = await loop.run_in_executor(None, _fetch_web_meta, body.source)
     slug = _web_slug(body.source, meta["title"])
-    paper_dir = SERVICE_ROOT / slug
+    from ..library import new_paper_dir, paper_dir as _find
+
+    paper_dir = _find(slug) or new_paper_dir(slug)
     if paper_dir.exists() and (paper_dir / "workbench.md").exists():
         if body.tags:
             from .tags import _set_tags_in_text
@@ -398,7 +403,9 @@ async def save_paper(body: SaveBody) -> dict:
         None, _fetch_arxiv_meta, arxiv_id
     )
     slug = _make_slug(arxiv_id)
-    paper_dir = SERVICE_ROOT / slug
+    from ..library import new_paper_dir, paper_dir as _find
+
+    paper_dir = _find(slug) or new_paper_dir(slug)
     if paper_dir.exists() and (paper_dir / "workbench.md").exists():
         # Already exists — just bump tags if requested, and backfill PDF if missing
         if body.tags:
@@ -435,7 +442,9 @@ async def save_pdf_paper(
         raise HTTPException(400, "must be a .pdf")
     filename = Path(file.filename).name
     slug = _unique_slug(_slug_from_filename(filename))
-    paper_dir = SERVICE_ROOT / slug
+    from ..library import new_paper_dir
+
+    paper_dir = new_paper_dir(slug)
     paper_dir.mkdir(parents=True, exist_ok=True)
 
     data = await file.read()
