@@ -915,6 +915,13 @@
     pdfPane.addEventListener('gesturechange', (e) => {
       e.preventDefault(); pdfScale = gestureStart * e.scale; applyPdfZoom();
     });
+    // The desktop app forwards the trackpad pinch here (app.py): WebKit's PDF
+    // plugin eats the gesture, so it never reaches this document on its own.
+    // The hit test is what keeps it "pdf만 확대" — a pinch elsewhere is ignored.
+    window.__prPinch = (x, y, mag) => {
+      const el = document.elementFromPoint(x, y);
+      if (el && pdfPane.contains(el)) nudgePdfZoom(1 + mag);
+    };
     document.getElementById('pdf-zoom-in')?.addEventListener('click', () => nudgePdfZoom(1.25));
     document.getElementById('pdf-zoom-out')?.addEventListener('click', () => nudgePdfZoom(1 / 1.25));
     document.getElementById('pdf-zoom-reset')?.addEventListener('click', () => { pdfScale = 1; applyPdfZoom(); });

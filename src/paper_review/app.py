@@ -203,6 +203,62 @@ def _enable_web_features(ns) -> str:
     return ",".join(enabled) or "none"
 
 
+# Latest pending pinch, shared between the AppKit monitor and its pump thread.
+_PINCH: dict = {}
+
+
+def _install_pinch_zoom(window, ns) -> bool:
+    """Forward trackpad pinch to the page.
+
+    The source PDF is an <iframe> drawn by WebKit's built-in PDF plugin, and the
+    plugin swallows the gesture: `wheel`/`gesturechange` listeners in the parent
+    document never fire while the cursor is over it, so pinch-to-zoom did
+    nothing over exactly the pane it was written for. A window-level NSEvent
+    monitor sees the gesture wherever the cursor is; the page decides whether
+    that point is over the PDF.
+
+    evaluate_js blocks waiting on the main thread and the monitor runs ON the
+    main thread, so calling it from the handler deadlocks. A pump thread makes
+    the call and only ever sends the newest pending delta, which coalesces the
+    ~60Hz gesture stream for free.
+    """
+    import AppKit
+
+    st = _PINCH
+    st.update(mag=0.0, x=0.0, y=0.0, wake=threading.Event())
+
+    def _pump() -> None:
+        while True:
+            st["wake"].wait()
+            st["wake"].clear()
+            mag, x, y = st["mag"], st["x"], st["y"]
+            st["mag"] = 0.0
+            if not mag:
+                continue
+            try:
+                window.evaluate_js(
+                    f"window.__prPinch&&window.__prPinch({x:.1f},{y:.1f},{mag:.4f})"
+                )
+            except Exception:
+                pass
+            time.sleep(0.03)
+
+    def _handler(event):
+        view = ns.contentView()
+        p = view.convertPoint_fromView_(event.locationInWindow(), None)
+        st["x"] = p.x
+        st["y"] = view.bounds().size.height - p.y  # AppKit counts up, CSS down
+        st["mag"] += event.magnification()
+        st["wake"].set()
+        return event
+
+    st["monitor"] = AppKit.NSEvent.addLocalMonitorForEventsMatchingMask_handler_(
+        AppKit.NSEventMaskMagnify, _handler
+    )
+    threading.Thread(target=_pump, name="pr-pinch", daemon=True).start()
+    return st["monitor"] is not None
+
+
 def _unify_titlebar(window) -> None:
     """Let the page run under the title bar, like the sibling apps do.
 
@@ -243,7 +299,11 @@ def _unify_titlebar(window) -> None:
                 ns.setMovableByWindowBackground_(True)
                 n = _install_drag_view(ns)
                 feats = _enable_web_features(ns)
-                _log(f"applied · drag view subviews={n} · web features: {feats}")
+                pinch = _install_pinch_zoom(window, ns)
+                _log(
+                    f"applied · drag view subviews={n} · web features: {feats}"
+                    f" · pinch monitor: {pinch}"
+                )
             except Exception as e:
                 _log(f"failed: {e!r}")
             ns.displayIfNeeded()
