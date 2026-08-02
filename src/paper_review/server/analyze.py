@@ -454,13 +454,25 @@ def _figure_index_hint(paper_dir: Path) -> str:
     except Exception:
         return "(no extracted figures)"
     items = data if isinstance(data, list) else data.get("figures", [])
-    lines = []
+    # Split by what can actually be served as an image. Tables are extracted as
+    # HTML, so /fig/<id> has no bytes for them — a report that referenced one
+    # with <img> rendered a broken image where the table should be.
+    images, tables = [], []
     for f in items:
-        if isinstance(f, dict) and f.get("id"):
-            cap = (f.get("caption_en") or f.get("label") or "").strip()[:110]
-            kind = "table" if str(f.get("id")).startswith("tbl") else "figure"
-            lines.append(f"- {f['id']} ({kind}): {cap}")
-    return "\n".join(lines) or "(no extracted figures)"
+        if not isinstance(f, dict) or not f.get("id"):
+            continue
+        cap = (f.get("caption_en") or f.get("label") or "").strip()[:110]
+        (images if f.get("data_uri") else tables).append(f"- {f['id']}: {cap}")
+    out = []
+    if images:
+        out.append("IMAGES (usable with <img>):\n" + "\n".join(images))
+    if tables:
+        out.append(
+            "TABLES — extracted as HTML, NOT images. Never reference these with\n"
+            "<img>; write the numbers out as a <table> instead (the values are in\n"
+            "the workbench and the source text):\n" + "\n".join(tables)
+        )
+    return "\n\n".join(out) or "(no extracted figures)"
 
 
 async def generate_report(
@@ -515,7 +527,9 @@ Content rules:
   2025–2026 preferred). If search fails, keep the section but say the search
   could not be completed.
 - Paper figures: reference them as <img class="paper-fig" src="/paper/{slug}/fig/<id>">
-  (the report is served same-origin, so these URLs work). Available figures:
+  (the report is served same-origin, so these URLs work). ONLY ids listed under
+  IMAGES below have image bytes — pointing <img> at a table id renders a broken
+  image. Available:
 
 {_figure_index_hint(paper_dir)}
 

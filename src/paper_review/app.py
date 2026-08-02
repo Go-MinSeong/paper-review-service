@@ -181,6 +181,28 @@ def _install_drag_view(ns) -> int:
     return frame.subviews().count()
 
 
+def _enable_web_features(ns) -> str:
+    """Turn on the WebKit features the UI actually uses.
+
+    WKWebView ships element fullscreen OFF, so requestFullscreen() rejects —
+    which is how the pane ⛶ buttons and the topbar ⛶ silently stopped working in
+    the app while still working in a browser. pywebview makes the WKWebView the
+    window's contentView, so its preferences are reachable from there. The
+    preference has no public setter; KVC is the supported route."""
+    import AppKit  # noqa: F401  (imported for symmetry with callers)
+
+    web = ns.contentView()
+    prefs = web.configuration().preferences()
+    enabled = []
+    for key in ("elementFullscreenEnabled", "fullScreenEnabled"):
+        try:
+            prefs.setValue_forKey_(True, key)
+            enabled.append(key)
+        except Exception:
+            pass  # the key name differs across WebKit versions; one of them lands
+    return ",".join(enabled) or "none"
+
+
 def _unify_titlebar(window) -> None:
     """Let the page run under the title bar, like the sibling apps do.
 
@@ -220,7 +242,8 @@ def _unify_titlebar(window) -> None:
                 # web view, so a native drag strip goes on top of it.
                 ns.setMovableByWindowBackground_(True)
                 n = _install_drag_view(ns)
-                _log(f"applied · drag view subviews={n}")
+                feats = _enable_web_features(ns)
+                _log(f"applied · drag view subviews={n} · web features: {feats}")
             except Exception as e:
                 _log(f"failed: {e!r}")
             ns.displayIfNeeded()

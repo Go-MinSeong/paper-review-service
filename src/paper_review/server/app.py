@@ -483,7 +483,19 @@ def paper_fig_by_id(slug: str, fig_id: str):
     data = json.loads(figs[0].read_text())
     items = data if isinstance(data, list) else data.get("figures", [])
     fig = next((f for f in items if f.get("id") == fig_id), None)
-    if not fig or not fig.get("data_uri"):
+    if not fig:
+        raise HTTPException(404)
+    if not fig.get("data_uri"):
+        # Tables are extracted as HTML, not pixels. Serving the markup beats a
+        # 404: the link works when followed, and the mobile page and the
+        # publish pipeline can pick the table up from here.
+        if fig.get("html"):
+            return HTMLResponse(
+                "<!doctype html><meta charset='utf-8'>"
+                "<style>body{font:14px/1.6 -apple-system,sans-serif;margin:16px}"
+                "table{border-collapse:collapse}td,th{border:1px solid #ccc;"
+                "padding:.35rem .55rem}</style>" + fig["html"]
+            )
         raise HTTPException(404)
     m = _re.match(r"data:(image/[\w.+-]+);base64,(.*)", fig["data_uri"], _re.DOTALL)
     if not m:

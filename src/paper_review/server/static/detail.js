@@ -927,7 +927,9 @@
       const el = document.querySelector(b.dataset.fs);
       if (!el) return;
       if (document.fullscreenElement === el) document.exitFullscreen();
-      else el.requestFullscreen().catch(() => {});
+      // A rejected requestFullscreen used to vanish into an empty catch — which
+      // is how this silently stopped working in the desktop app for weeks.
+      else el.requestFullscreen().catch(err => fullscreenUnavailable(err));
     });
   });
 
@@ -1169,9 +1171,16 @@
   }
   document.getElementById("btn-figures").addEventListener("click", openFigures);
   // Fullscreen — native API, hides the browser chrome while reviewing.
+  function fullscreenUnavailable(err) {
+    UIDialog.alert(
+      '이 창에서는 전체화면을 쓸 수 없습니다.\n앱을 최신 버전으로 업데이트하거나, ' +
+      '창 자체를 전체화면(⌃⌘F)으로 전환해 보세요.',
+      { title: '전체화면' });
+    console.warn('fullscreen unavailable:', err);
+  }
   function toggleFullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(err => fullscreenUnavailable(err));
   }
   document.getElementById("btn-fullscreen").addEventListener("click", toggleFullscreen);
   // (모바일 push는 갤러리 카드의 📱 버튼으로 이동)
