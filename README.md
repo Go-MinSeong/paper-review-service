@@ -209,6 +209,7 @@ Run `claude auth login` and press Analyze again — no server restart needed. Th
 - [ ] Multi-language review output out of the box
 - [ ] Zotero / Notion import
 - [ ] Linux/Windows tray app
+- [ ] Presentation deck as a third artifact, alongside the report and the blog draft — considered, deferred: the report already carries a talk
 
 ## 🤝 Contributing
 
