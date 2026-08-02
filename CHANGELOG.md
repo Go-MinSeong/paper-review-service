@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.19.2
+
+### Fixed
+- **원문 PDF에서 트랙패드 확대(pinch)가 앱에서 동작하지 않던 문제.** 원문 pane은
+  WebKit 내장 PDF 플러그인이 그리는 `<iframe>`이라, 커서가 그 위에 있으면
+  제스처를 플러그인이 삼켜서 부모 문서의 `wheel`/`gesturechange` 리스너가
+  **호출조차 되지 않았다**(+/− 버튼만 듣던 이유). 창 레벨 `NSEvent` magnify
+  모니터로 제스처를 잡아 좌표와 함께 페이지로 넘기고, 그 지점이 원문 pane 안일
+  때만 확대한다 — 다른 pane에서의 pinch는 무시된다.
+
 ## 2.19.1
 
 ### Fixed
