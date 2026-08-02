@@ -1021,6 +1021,36 @@ async def paper_generate_report(slug: str, body: GenQBody):
     return await start_report(slug, d, body.model)
 
 
+def _inline_table_figs(html: str, d: Path) -> str:
+    """Replace <img src=".../fig/tblN"> with the table itself.
+
+    Tables are extracted as HTML, not pixels, so /fig/<tbl-id> has no image to
+    serve and the report rendered a broken image where the table belonged. The
+    prompt no longer offers table ids as images, but reports built before that
+    still carry the tags — repairing on the way out fixes them without a
+    regenerate."""
+    import re as _re
+
+    if "/fig/tbl" not in html:
+        return html
+    figs = list(d.glob("*_figures.json"))
+    if not figs:
+        return html
+    data = json.loads(figs[0].read_text())
+    items = data if isinstance(data, list) else data.get("figures", [])
+    by_id = {f.get("id"): f for f in items if isinstance(f, dict)}
+
+    def _swap(m):
+        fig = by_id.get(m.group(1)) or {}
+        return (
+            f'<div class="paper-fig">{fig["html"]}</div>'
+            if fig.get("html")
+            else m.group(0)
+        )
+
+    return _re.sub(r"<img[^>]*?/fig/(tbl[\w-]+)[^>]*?>", _swap, html)
+
+
 @app.get("/paper/{slug}/report")
 def paper_report(slug: str, download: int = 0) -> FileResponse:
     """Serve the generated report.html (shown in the Summary view).
@@ -1043,6 +1073,10 @@ def paper_report(slug: str, download: int = 0) -> FileResponse:
         # prints the top-level web view, and the report lives in an iframe, so
         # the export button did nothing there. A real file always works.
         headers["Content-Disposition"] = f'attachment; filename="{slug}-report.html"'
+    text = p.read_text()
+    fixed = _inline_table_figs(text, d)
+    if fixed != text:
+        return HTMLResponse(fixed, headers=headers)
     return FileResponse(p, media_type="text/html", headers=headers)
 
 

@@ -220,14 +220,19 @@ def test_report_can_be_downloaded_as_a_file():
     import paper_review.server.app as A
 
     slugs = [p["slug"] for p in A._list_papers()]
-    target = next((s for s in slugs if (A.SERVICE_ROOT / s / "report.html").exists()), None)
+    target = next(
+        (s for s in slugs if (A.SERVICE_ROOT / s / "report.html").exists()), None
+    )
     if not target:
         return  # no report in this checkout
     plain = client.get(f"/paper/{target}/report")
     assert "content-disposition" not in plain.headers  # inline for the iframe
     dl = client.get(f"/paper/{target}/report", params={"download": 1})
     assert dl.status_code == 200
-    assert dl.headers["content-disposition"] == f'attachment; filename="{target}-report.html"'
+    assert (
+        dl.headers["content-disposition"]
+        == f'attachment; filename="{target}-report.html"'
+    )
     assert dl.content == plain.content
 
 
@@ -249,3 +254,22 @@ def test_summary_without_a_report_shows_the_report_outline():
     assert 'style.display = "none"' in block
     # papers analyzed before the block consolidation still count as analyzed
     assert "wb-label-summary" in js and "wb-label-translation" in js
+
+
+def test_table_figures_never_render_as_broken_images(tmp_path):
+    """Tables are extracted as HTML, so /fig/<tbl> has no bytes: a report that
+    referenced one with <img> showed a broken image where the table belonged."""
+    import json as _json
+    import paper_review.server.app as A
+
+    d = tmp_path / "2600.77777"
+    d.mkdir()
+    (d / "2600.77777_figures.json").write_text(
+        _json.dumps([{"id": "tbl1", "html": "<table><tr><td>8192</td></tr></table>"}])
+    )
+    out = A._inline_table_figs(
+        '<p>x</p><img class="paper-fig" src="/paper/2600.77777/fig/tbl1">', d
+    )
+    assert "<img" not in out and "8192" in out
+    # image figures must be left alone
+    assert "<img" in A._inline_table_figs('<img src="/paper/x/fig/tbl9">', d)
