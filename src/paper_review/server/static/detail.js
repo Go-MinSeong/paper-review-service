@@ -2084,14 +2084,14 @@
     // Export WHAT'S ON SCREEN: in summary mode with a report, print the report
     // iframe; otherwise print the (detail) workbench.
     if (view === 'summary' && reportExists && !reportPane.hidden) {
-      // In the desktop app this silently did nothing: pywebview's print bridge
-      // prints the TOP-LEVEL web view and the report is in an iframe. Open it
-      // in the real browser instead (pywebview sends target=_blank there), and
-      // print from a normal browser tab.
+      // In the desktop app this silently did nothing, twice over: pywebview's
+      // print bridge prints the TOP-LEVEL web view (never an iframe), and the
+      // window.open fallback was dropped on the floor — pywebview only routes
+      // real link clicks to the browser, so a JS-opened window goes nowhere.
+      // Put the report in the top-level view instead; it prints there, stays
+      // inside the app, and the page carries a link back to the review.
       if (document.documentElement.classList.contains('in-app')) {
-        window.open(`/paper/${slug}/report`, '_blank');
-        UIDialog.alert('리포트를 브라우저에서 열었습니다 — ⌘P로 PDF 저장하세요.\n' +
-                       '(파일로 받으려면 리포트 우상단 ⤓)', { title: 'Summary 내보내기' });
+        location.href = `/paper/${slug}/report?print=1`;
         return;
       }
       try { reportFrame.contentWindow.focus(); reportFrame.contentWindow.print(); }

@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from html import escape as _escape
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -1051,8 +1051,37 @@ def _inline_table_figs(html: str, d: Path) -> str:
     return _re.sub(r"<img[^>]*?/fig/(tbl[\w-]+)[^>]*?>", _swap, html)
 
 
+# Shown only when the report is opened as the top-level page for printing.
+# WKWebView prints the top-level web view and nothing else, so the desktop app
+# navigates here instead of trying (and silently failing) to print the iframe.
+_PRINT_BAR = """
+<style>
+ #pr-printbar{position:fixed;top:0;left:0;right:0;z-index:99999;display:flex;
+   gap:.5rem;align-items:center;padding:.5rem .75rem;font:13px/1.4 -apple-system,
+   BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;background:#111;color:#fff}
+ #pr-printbar a,#pr-printbar button{font:inherit;color:#fff;background:#333;
+   border:0;border-radius:6px;padding:.35rem .7rem;text-decoration:none;cursor:pointer}
+ #pr-printbar .sp{flex:1}
+ body{padding-top:44px}
+ @media print{#pr-printbar{display:none}body{padding-top:0}}
+</style>
+<div id="pr-printbar">
+  <a href="__BACK__">← 리뷰로 돌아가기</a>
+  <span class="sp"></span>
+  <button onclick="window.print()">PDF로 저장 (⌘P)</button>
+</div>
+<script>
+  // The print dialog is what turns this into a PDF; open it once the layout
+  // and images have settled, and leave the button for a second pass.
+  addEventListener('load', () => setTimeout(() => window.print(), 500));
+</script>
+"""
+
+
 @app.get("/paper/{slug}/report")
-def paper_report(slug: str, download: int = 0) -> FileResponse:
+def paper_report(
+    slug: str, download: int = 0, print_view: int = Query(0, alias="print")
+):
     """Serve the generated report.html (shown in the Summary view).
 
     X-Report-Stale: 1 when the workbench changed after the report was built,
@@ -1073,10 +1102,17 @@ def paper_report(slug: str, download: int = 0) -> FileResponse:
         # prints the top-level web view, and the report lives in an iframe, so
         # the export button did nothing there. A real file always works.
         headers["Content-Disposition"] = f'attachment; filename="{slug}-report.html"'
-    text = p.read_text()
-    fixed = _inline_table_figs(text, d)
-    if fixed != text:
-        return HTMLResponse(fixed, headers=headers)
+    raw = p.read_text()
+    text = _inline_table_figs(raw, d)
+    if print_view:
+        bar = _PRINT_BAR.replace("__BACK__", f"/paper/{slug}")
+        text = (
+            text.replace("</body>", bar + "</body>", 1)
+            if "</body>" in text
+            else text + bar
+        )
+    if text != raw:
+        return HTMLResponse(text, headers=headers)
     return FileResponse(p, media_type="text/html", headers=headers)
 
 

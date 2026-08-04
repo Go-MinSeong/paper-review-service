@@ -273,3 +273,26 @@ def test_table_figures_never_render_as_broken_images(tmp_path):
     assert "<img" not in out and "8192" in out
     # image figures must be left alone
     assert "<img" in A._inline_table_figs('<img src="/paper/x/fig/tbl9">', d)
+
+
+def test_the_printable_report_is_a_top_level_page_with_a_way_back(
+    tmp_path, monkeypatch
+):
+    """WKWebView prints only the top-level web view, so the app navigates to the
+    report to export it — which strands the user unless the page links back."""
+    import paper_review.server.app as A
+    from fastapi.testclient import TestClient
+
+    d = tmp_path / "2600.66666"
+    d.mkdir()
+    (d / "workbench.md").write_text("---\nstatus: to_read\n---\n")
+    (d / "report.html").write_text("<html><body><h1>R</h1></body></html>")
+    monkeypatch.setattr(A, "_paper_dir", lambda slug: d)
+    c = TestClient(A.app)
+
+    plain = c.get("/paper/2600.66666/report").text
+    assert "pr-printbar" not in plain, "the embedded iframe must stay clean"
+
+    printable = c.get("/paper/2600.66666/report?print=1").text
+    assert "window.print()" in printable
+    assert 'href="/paper/2600.66666"' in printable, "no way back to the review"
