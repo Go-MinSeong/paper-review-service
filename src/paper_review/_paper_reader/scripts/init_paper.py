@@ -130,9 +130,35 @@ def find_section_boundaries(text):
     return hits, len(lines)
 
 
+# A real section always carries at least a couple of sentences. Everything the
+# library had below this was a table fragment, a prompt-template line, or a
+# repeated column header misread as a heading — never paper prose.
+MIN_SECTION_CHARS = 80
+
+
+def drop_bodyless(hits, lines, total, min_chars=MIN_SECTION_CHARS):
+    """Drop headings that own (almost) no text of their own.
+
+    A chapter title immediately followed by its first subsection ("2 Model
+    Architecture" then "2.1 Overview") has nothing between them, and neither
+    does a table row misread as a heading. Both used to become real sections:
+    analyze spent a Claude call on each and the review carried a block whose
+    only content was "본문 없이 장 제목만 있는 구간". The heading line survives as
+    the tail of the preceding section, so the source view loses nothing.
+    """
+    kept = []
+    for j, (i, label) in enumerate(hits):
+        end = hits[j + 1][0] if j + 1 < len(hits) else total
+        body = sum(len(l.strip()) for l in lines[i + 1 : end])
+        if body >= min_chars:
+            kept.append((i, label))
+    return kept
+
+
 def write_sections_index(text, out_path):
     """Write a human-readable section index file."""
     hits, total = find_section_boundaries(text)
+    hits = drop_bodyless(hits, text.split("\n"), total)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(f"# Section index — total {total} lines\n")
         f.write("# Format: <line_start>-<line_end>: <heading>\n\n")
