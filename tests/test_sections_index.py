@@ -60,3 +60,69 @@ def test_a_table_row_read_as_a_heading_is_not_a_section(tmp_path):
     out = tmp_path / "s.txt"
     ip.write_sections_index(text, out)
     assert "GPT-4V" not in out.read_text()
+
+
+def test_prompt_template_and_table_rows_are_not_headings(tmp_path):
+    """Numbered list items in quoted prompts and rows of a results table both
+    start with a number, which is how "1. Question: {question}" and
+    "1 Dense overlap 74.57" became sections."""
+    ip = _load()
+    prose = (
+        "This paragraph exists only so the heading above it clears the "
+        "minimum body length that a real section has to carry."
+    )
+    text = "\n".join(
+        [
+            "1 Introduction",
+            prose,
+            "",
+            "2. Question: {question}",
+            prose,
+            "",
+            "3 Dense overlap 74.57",
+            prose,
+            "",
+            "4. Keep key insights, important calculations, and the reasoning path.",
+            prose,
+        ]
+    )
+    out = tmp_path / "s.txt"
+    ip.write_sections_index(text, out)
+    got = out.read_text()
+    assert "1 Introduction" in got
+    for junk in ("{question}", "74.57", "Keep key insights"):
+        assert junk not in got, junk
+
+
+def test_repeated_labels_and_everything_after_the_bibliography_are_dropped(tmp_path):
+    """A label a paper prints on every page is a table header, not a section —
+    and past "References" the initials of cited authors read as Roman-numeral
+    headings ("I. Mordatch, I. Radosavovic, …")."""
+    ip = _load()
+    prose = (
+        "Body text long enough to look like a real section rather than a "
+        "stray fragment of a table or a caption."
+    )
+    text = "\n".join(
+        [
+            "1 Introduction",
+            prose,
+            "",
+            "ABILITY",  # a results-table column header, reprinted below
+            prose,
+            "",
+            "ABILITY",
+            prose,
+            "",
+            "References",
+            "",
+            "I. Mordatch, I. Radosavovic, I. Leal, J. Liang and J. Kim, 2024.",
+            prose,
+        ]
+    )
+    out = tmp_path / "s.txt"
+    ip.write_sections_index(text, out)
+    got = out.read_text()
+    assert "1 Introduction" in got
+    assert "ABILITY" not in got
+    assert "Mordatch" not in got

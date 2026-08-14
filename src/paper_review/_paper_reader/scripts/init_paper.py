@@ -39,6 +39,7 @@ Output: stdout JSON with the paths and a brief summary:
 import sys
 import os
 import json
+import collections
 import re
 import argparse
 import subprocess
@@ -89,6 +90,16 @@ def _is_real_numbered_heading(top, rest):
         return False  # article-led → contribution bullet / sentence, not a title
     if _METRIC_RE.search(rest):
         return False  # carries a metric/unit → a result line, not a heading
+    if "{" in rest or "}" in rest:
+        return False  # "1. Question: {question}" — a prompt template, not a title
+    if rest.endswith(":"):
+        return False  # "1. Global Memory:" — a labelled list item
+    if re.search(r"\d+\.\d", rest):
+        return False  # "1 Dense overlap 74.57" — a table row
+    if rest.endswith(".") and " " in rest:
+        return False  # a full sentence from a numbered instruction list
+    if "," in rest and len(rest) > 40:
+        return False  # long clause list → sentence or author affiliations
     return True
 
 
@@ -155,10 +166,43 @@ def drop_bodyless(hits, lines, total, min_chars=MIN_SECTION_CHARS):
     return kept
 
 
+_REFS_RE = re.compile(r"^\s*(?:\d+\.?\s+)?(?:references|bibliography)\s*$", re.I)
+
+
+def cut_at_references(hits, lines, total):
+    """End the index at the bibliography.
+
+    Everything past it is references and appendix: reference entries whose
+    initials read as Roman-numeral headings ("I. Mordatch, I. Radosavovic…"),
+    prompt dumps, and table headers. Of the sections the library had after this
+    line, 25 of 26 were noise. Cutting also stops the last real section from
+    swallowing the whole bibliography, since it now ends here.
+    """
+    refs = [i for i, l in enumerate(lines) if _REFS_RE.match(l) and i > total * 0.3]
+    if not refs:
+        return hits, total
+    cut = refs[-1]
+    return [(i, lab) for i, lab in hits if i < cut], cut
+
+
+def drop_repeats(hits):
+    """Drop labels that occur more than once.
+
+    A paper numbers each section exactly once, so a repeated label is a table
+    column header reprinted on every page ("ABILITY", "ANSWERS") or a list item
+    from a prompt template quoted several times. Both used to become a handful
+    of identical sections.
+    """
+    seen = collections.Counter(label for _, label in hits)
+    return [(i, label) for i, label in hits if seen[label] == 1]
+
+
 def write_sections_index(text, out_path):
     """Write a human-readable section index file."""
     hits, total = find_section_boundaries(text)
-    hits = drop_bodyless(hits, text.split("\n"), total)
+    lines = text.split("\n")
+    hits, total = cut_at_references(hits, lines, total)
+    hits = drop_bodyless(drop_repeats(hits), lines, total)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(f"# Section index — total {total} lines\n")
         f.write("# Format: <line_start>-<line_end>: <heading>\n\n")

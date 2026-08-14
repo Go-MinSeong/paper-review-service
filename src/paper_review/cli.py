@@ -377,3 +377,44 @@ def _run_script(script: str, args: tuple[str, ...]) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+@main.command("tidy-sections")
+@click.argument("slugs", nargs=-1)
+@click.option("--apply", "do_apply", is_flag=True, help="Actually remove them.")
+def tidy_sections(slugs: tuple[str, ...], do_apply: bool) -> None:
+    """Drop review sections that the current index rules would never create.
+
+    Chapter titles with no body, table rows and prompt-template list items used
+    to become sections. Ingest no longer creates them; this cleans up papers
+    taken in before that. Prints what it would do unless --apply is given.
+    """
+    from .library import iter_papers, paper_dir as find_dir
+    from . import tidy
+
+    dirs = [find_dir(s) for s in slugs] if slugs else sorted(iter_papers())
+    total = written = 0
+    for d in dirs:
+        if d is None:
+            continue
+        rows = tidy.plan(d)
+        if not rows:
+            continue
+        total += len(rows)
+        written += sum(1 for _, _, w in rows if w > 200)
+        click.echo(f"\n{d.name} — {len(rows)}개")
+        for heading, why, w in rows:
+            mark = "  ← 해설 작성됨" if w > 200 else ""
+            click.echo(f"    [{why}] {heading[:70]}{mark}")
+        if do_apply:
+            tidy.apply(d)
+    if not total:
+        click.echo("정리할 섹션이 없습니다.")
+    elif do_apply:
+        click.echo(f"\n{total}개 제거 완료 (각 논문 .history/ 에 이전 버전 보관).")
+    else:
+        click.echo(
+            f"\n미리보기 — 총 {total}개"
+            + (f" (해설이 작성된 것 {written}개 포함)" if written else "")
+            + ". 실제로 지우려면 --apply 를 붙이세요."
+        )
