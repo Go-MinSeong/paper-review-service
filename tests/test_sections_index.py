@@ -126,3 +126,42 @@ def test_repeated_labels_and_everything_after_the_bibliography_are_dropped(tmp_p
     assert "1 Introduction" in got
     assert "ABILITY" not in got
     assert "Mordatch" not in got
+
+
+def test_appendix_numbering_that_restarts_is_not_a_section(tmp_path):
+    """Papers without a detectable bibliography run straight into an appendix
+    whose tables renumber from 1 — "2 Cross-session" after "6 Conclusion". An
+    acronym title ("4.3.4 STAL") must survive the all-caps rule that catches
+    banners like "DECODED REASONING"."""
+    ip = _load()
+    prose = (
+        "Enough prose to clear the minimum body length, so that what gets "
+        "dropped here is dropped for its heading and not for its size."
+    )
+    text = "\n".join(
+        [
+            "1 Introduction",
+            prose,
+            "",
+            "4.3.4 STAL",
+            prose,
+            "",
+            "DECODED REASONING",  # a figure banner in a numbered paper
+            prose,
+            "",
+            "6 Conclusion",
+            prose,
+            "",
+            "2 Cross-session",  # appendix table row, numbering restarts
+            prose,
+            "",
+            "6 Nonce",  # the paper already had a section 6
+            prose,
+        ]
+    )
+    out = tmp_path / "s.txt"
+    ip.write_sections_index(text, out)
+    got = out.read_text()
+    assert "4.3.4 STAL" in got and "6 Conclusion" in got
+    for junk in ("DECODED REASONING", "Cross-session", "Nonce"):
+        assert junk not in got, junk

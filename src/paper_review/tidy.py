@@ -37,11 +37,7 @@ def live_headings(paper_dir: Path) -> set[str] | None:
     if not src:
         return None
     ip = _index_rules()
-    text = src[0].read_text(encoding="utf-8", errors="replace")
-    lines = text.split("\n")
-    hits, total = ip.find_section_boundaries(text)
-    hits, total = ip.cut_at_references(hits, lines, total)
-    kept = ip.drop_bodyless(ip.drop_repeats(hits), lines, total)
+    kept, _ = ip.sections(src[0].read_text(encoding="utf-8", errors="replace"))
     return {_norm(label) for _, label in kept}
 
 

@@ -92,6 +92,8 @@ def _is_real_numbered_heading(top, rest):
         return False  # carries a metric/unit → a result line, not a heading
     if "{" in rest or "}" in rest:
         return False  # "1. Question: {question}" — a prompt template, not a title
+    if rest.endswith(";"):
+        return False  # "7. Signals: CH2=C carbon 145 s;" — a clause, not a title
     if rest.endswith(":"):
         return False  # "1. Global Memory:" — a labelled list item
     if re.search(r"\d+\.\d", rest):
@@ -197,12 +199,71 @@ def drop_repeats(hits):
     return [(i, label) for i, label in hits if seen[label] == 1]
 
 
-def write_sections_index(text, out_path):
-    """Write a human-readable section index file."""
+_ALLCAPS_OK = re.compile(
+    r"^(ABSTRACT|INTRODUCTION|CONCLUSIONS?|REFERENCES|BIBLIOGRAPHY|APPEND(IX|ICES)"
+    r"|ACKNOWLED\w+|RELATED WORK|METHODS?|RESULTS|DISCUSSION|LIMITATIONS)\b"
+)
+
+
+def drop_out_of_order(hits):
+    """Drop numbered headings that go backwards.
+
+    A paper numbers its sections once, ascending. When "2 Cross-session" turns
+    up after "6 Conclusion" it is a row of an appendix table, not section 2 —
+    the same for the arithmetic fragments ("3. Thus total 38+19") that reasoning
+    traces leave in an appendix. Papers whose bibliography is not detectable
+    have no other boundary, so this is what ends the index for them.
+    """
+    kept, high, tops = [], 0, set()
+    for i, label in hits:
+        label = label.strip()
+        m = re.match(r"^(\d+)(\.\d+)*\.?\s", label)
+        if not m:
+            kept.append((i, label))  # unnumbered headings carry no order
+            continue
+        top = int(m.group(1))
+        bare = m.group(2) is None
+        if top < high or (bare and top in tops):
+            continue  # backwards, or a second "6 …" — the paper already had one
+        high = top
+        if bare:
+            tops.add(top)
+        kept.append((i, label))
+    return kept
+
+
+def drop_stray_allcaps(hits):
+    """In a paper that numbers its sections, a bare ALL-CAPS line mid-document
+    is a table or figure banner ("DECODED REASONING"), not a section."""
+    numbered = sum(1 for _, l in hits if re.match(r"^\d", l.strip()))
+    if numbered < 3:
+        return hits
+    return [
+        (i, l)
+        for i, l in hits
+        if re.match(r"^\d", l.strip())  # numbered titles may be acronyms (4.3.4 STAL)
+        or not l.strip().isupper()
+        or _ALLCAPS_OK.match(l.strip())
+    ]
+
+
+def sections(text):
+    """(hits, end) — the headings that earn a section, after every filter.
+
+    The one place the filter chain lives: `tidy` re-derives the same list to
+    find review blocks that are no longer sections, and when the two pipelines
+    were written out separately they drifted apart immediately.
+    """
     hits, total = find_section_boundaries(text)
     lines = text.split("\n")
     hits, total = cut_at_references(hits, lines, total)
-    hits = drop_bodyless(drop_repeats(hits), lines, total)
+    hits = drop_stray_allcaps(drop_out_of_order(drop_repeats(hits)))
+    return drop_bodyless(hits, lines, total), total
+
+
+def write_sections_index(text, out_path):
+    """Write a human-readable section index file."""
+    hits, total = sections(text)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(f"# Section index — total {total} lines\n")
         f.write("# Format: <line_start>-<line_end>: <heading>\n\n")
