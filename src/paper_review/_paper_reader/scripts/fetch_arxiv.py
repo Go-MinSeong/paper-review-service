@@ -22,6 +22,8 @@ Output: stdout JSON with:
 
 import sys
 import re
+import time
+from html import unescape as html_unescape
 import json
 import os
 import argparse
@@ -54,16 +56,83 @@ def find_arxiv_id_in_text(text):
     return None
 
 
+def _get(url: str, timeout: int, tries: int = 3) -> bytes:
+    """Fetch with a couple of retries.
+
+    export.arxiv.org rate-limits (429) and stalls often enough that a single
+    attempt made registration fail outright, even though the PDF itself was
+    downloading fine. arXiv asks for a few seconds between requests, so wait
+    that long rather than hammering it.
+    """
+    req = urllib.request.Request(url, headers={"User-Agent": "paper-reader/0.2"})
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except Exception as e:
+            if attempt == tries - 1:
+                raise
+            # stdout carries the JSON result — diagnostics go to stderr
+            print(
+                f"   ! {type(e).__name__} — 재시도 {attempt + 2}/{tries}",
+                file=sys.stderr,
+                flush=True,
+            )
+            time.sleep(3 * (attempt + 1))
+    raise RuntimeError("unreachable")
+
+
+def _metadata_from_abs(arxiv_id: str) -> dict:
+    """Read title/authors/abstract off the abs page.
+
+    The listing page is served by a different host than the API, so it stays up
+    when the API is rate-limiting — and losing a paper's title to someone else's
+    quota is a bad trade when the PDF is already in hand.
+    """
+    html = _get(f"https://arxiv.org/abs/{arxiv_id}", 30).decode("utf-8", "replace")
+
+    def meta(name):
+        return [
+            html_unescape(m.group(1))
+            for m in re.finditer(
+                rf'<meta[^>]+name="{name}"[^>]+content="([^"]*)"', html
+            )
+        ]
+
+    titles = meta("citation_title")
+    abstract = re.search(
+        r'<blockquote class="abstract[^"]*">(.*?)</blockquote>', html, re.S
+    )
+    abs_text = ""
+    if abstract:
+        abs_text = re.sub(r"<[^>]+>", " ", abstract.group(1))
+        abs_text = html_unescape(re.sub(r"\s+", " ", abs_text)).strip()
+        abs_text = re.sub(r"^Abstract:\s*", "", abs_text)
+    return {
+        "arxiv_id": arxiv_id,
+        "title": titles[0] if titles else arxiv_id,
+        "abstract": abs_text,
+        "authors": meta("citation_author"),
+        "published": (meta("citation_date") or [""])[0],
+    }
+
+
 def fetch_metadata(arxiv_id: str) -> dict:
     url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
-    req = urllib.request.Request(url, headers={"User-Agent": "paper-reader/0.2"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = r.read().decode("utf-8")
+    try:
+        data = _get(url, 30).decode("utf-8")
+    except Exception as e:
+        print(
+            f"   ! arXiv API 실패({e}) — abs 페이지에서 메타데이터를 읽습니다",
+            file=sys.stderr,
+            flush=True,
+        )
+        return _metadata_from_abs(arxiv_id)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     root = ET.fromstring(data)
     entry = root.find("a:entry", ns)
     if entry is None:
-        raise RuntimeError(f"No arXiv entry for {arxiv_id}")
+        return _metadata_from_abs(arxiv_id)
 
     def text_of(elem, path):
         e = elem.find(path, ns)
@@ -88,9 +157,8 @@ def download_pdf(arxiv_id: str, out_dir: str) -> str:
     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
     safe_id = arxiv_id.replace("/", "_")
     out_path = os.path.join(out_dir, f"{safe_id}.pdf")
-    req = urllib.request.Request(pdf_url, headers={"User-Agent": "paper-reader/0.2"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(out_path, "wb") as f:
-        f.write(r.read())
+    with open(out_path, "wb") as f:
+        f.write(_get(pdf_url, 60))
     return out_path
 
 
