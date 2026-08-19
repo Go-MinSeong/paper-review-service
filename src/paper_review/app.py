@@ -259,6 +259,44 @@ def _install_pinch_zoom(window, ns) -> bool:
     return st["monitor"] is not None
 
 
+def _install_edit_menu() -> bool:
+    """Give the app an Edit menu, because without one ⌘C does nothing.
+
+    AppKit delivers cut:/copy:/paste:/selectAll: through a menu item's key
+    equivalent, and pywebview builds only the application and View menus. So
+    text everywhere in the app could be selected but never copied — most
+    painfully the ingest and analyze logs, which is where a copy matters most.
+    The items target nil, so they travel the responder chain to the web view.
+    """
+    import AppKit
+
+    main = AppKit.NSApp.mainMenu()
+    if main is None:
+        return False
+    for i in range(main.numberOfItems()):
+        if main.itemAtIndex_(i).title() == "Edit":
+            return True
+    menu = AppKit.NSMenu.alloc().initWithTitle_("Edit")
+    for title, action, key in (
+        ("Undo", "undo:", "z"),
+        ("Redo", "redo:", "Z"),
+        (None, None, None),
+        ("Cut", "cut:", "x"),
+        ("Copy", "copy:", "c"),
+        ("Paste", "paste:", "v"),
+        ("Select All", "selectAll:", "a"),
+    ):
+        if title is None:
+            menu.addItem_(AppKit.NSMenuItem.separatorItem())
+            continue
+        menu.addItemWithTitle_action_keyEquivalent_(title, action, key)
+    item = AppKit.NSMenuItem.alloc().init()
+    item.setTitle_("Edit")
+    item.setSubmenu_(menu)
+    main.insertItem_atIndex_(item, 1)
+    return True
+
+
 def _unify_titlebar(window) -> None:
     """Let the page run under the title bar, like the sibling apps do.
 
@@ -300,9 +338,10 @@ def _unify_titlebar(window) -> None:
                 n = _install_drag_view(ns)
                 feats = _enable_web_features(ns)
                 pinch = _install_pinch_zoom(window, ns)
+                edit = _install_edit_menu()
                 _log(
                     f"applied · drag view subviews={n} · web features: {feats}"
-                    f" · pinch monitor: {pinch}"
+                    f" · pinch monitor: {pinch} · edit menu: {edit}"
                 )
             except Exception as e:
                 _log(f"failed: {e!r}")

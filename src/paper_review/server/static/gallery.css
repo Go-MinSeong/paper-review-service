@@ -1080,3 +1080,13 @@
     color: var(--text-secondary); }
   .dash-recent b { font-variant-numeric: tabular-nums; color: var(--text-muted);
     font-weight: 600; margin-right: 6px; }
+
+  /* Copy button pinned inside a log panel (see ui-dialog.js attachCopyButton) */
+  .progress-box { position: relative; }
+  .copy-log {
+    position: absolute; top: 6px; right: 8px; z-index: 2;
+    font: 11px/1 ui-sans-serif, system-ui; padding: 4px 8px; cursor: pointer;
+    color: var(--text-secondary); background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 6px; opacity: .75;
+  }
+  .copy-log:hover { opacity: 1; }

@@ -1892,6 +1892,8 @@
       body.scrollTop = body.scrollHeight;
     } catch (e) { body.textContent = '상태를 불러오지 못했습니다: ' + e; }
   }
+  document.getElementById('alog-copy').addEventListener('click', e =>
+    window.copyText(document.getElementById('alog-body').textContent, e.currentTarget));
   document.getElementById('a-toast-fulllog').addEventListener('click', openAnalyzeLog);
   aLogModal.querySelectorAll('[data-close]').forEach(el =>
     el.addEventListener('click', () => aLogModal.removeAttribute('open')));
@@ -1958,6 +1960,7 @@
       el.textContent = line;
       aLog.appendChild(el);
     });
+    window.attachCopyButton?.(aLog, () => (s.log_tail || []).join('\n'));
     aLog.scrollTop = aLog.scrollHeight;
     if (s.last_text_preview) {
       aPreview.style.display = '';

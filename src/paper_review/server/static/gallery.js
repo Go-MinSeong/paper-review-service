@@ -1276,6 +1276,9 @@
     row.textContent = text;
     progBox.appendChild(row);
     progBox.scrollTop = progBox.scrollHeight;
+    // An ingest that fails is exactly when the log has to leave the app.
+    window.attachCopyButton?.(progBox, () =>
+      [...progBox.querySelectorAll('.row')].map(r => r.textContent).join('\n'));
   }
 
   async function pollJob(jobId, pendingTags = []) {

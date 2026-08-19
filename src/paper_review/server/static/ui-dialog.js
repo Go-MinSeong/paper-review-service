@@ -136,3 +136,48 @@
       open({ kind: 'alert', message, title: opts.title || '알림', okLabel: opts.okLabel }),
   };
 })();
+
+// ── Copy-to-clipboard ────────────────────────────────────────────────────
+// Logs are the one thing worth copying and the hardest to get out: they scroll,
+// they are rebuilt on every poll, and in the desktop app ⌘C only started
+// working once the app grew an Edit menu. A button beats explaining any of it.
+window.copyText = async function copyText(text, btn) {
+  const done = ok => {
+    if (!btn) return;
+    const was = btn.textContent;
+    btn.textContent = ok ? '복사됨' : '복사 실패';
+    setTimeout(() => { btn.textContent = was; }, 1400);
+  };
+  try {
+    await navigator.clipboard.writeText(text);
+    done(true);
+  } catch {
+    // clipboard API needs a secure context and a user gesture; the textarea
+    // fallback works even where it is refused.
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch {}
+    ta.remove();
+    done(ok);
+  }
+};
+
+// A small "복사" button pinned to the top-right of a log panel.
+window.attachCopyButton = function attachCopyButton(box, getText) {
+  if (!box || box.querySelector('.copy-log')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'copy-log';
+  btn.textContent = '복사';
+  btn.title = '로그 전체를 클립보드로';
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.copyText(getText(), btn);
+  });
+  box.appendChild(btn);
+};
