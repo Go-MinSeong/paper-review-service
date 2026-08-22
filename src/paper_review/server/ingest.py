@@ -125,9 +125,14 @@ async def _run_ingest(job: IngestJob) -> None:
         else:
             if not job.slug:
                 _detect_slug_post_hoc(job)
-            job.status = "done"
             _restore_preserved_fields(job)
+            # Tag BEFORE reporting done. The UI navigates to the paper the
+            # moment it sees "done" and stops polling, so tagging afterwards was
+            # invisible — and if the app quit during the ~20s the call takes,
+            # the paper stayed untagged for good with nothing said about it.
+            job.log.append("→ 태그 생성 중 …")
             await _auto_tag(job)
+            job.status = "done"
             # Remove the old reading-list folder if this promote produced a new slug
             if job.cleanup_dir:
                 old = Path(job.cleanup_dir)

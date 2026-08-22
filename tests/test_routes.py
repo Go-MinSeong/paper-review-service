@@ -296,3 +296,43 @@ def test_the_printable_report_is_a_top_level_page_with_a_way_back(
     printable = c.get("/paper/2600.66666/report?print=1").text
     assert "window.print()" in printable
     assert 'href="/paper/2600.66666"' in printable, "no way back to the review"
+
+
+def test_registration_tags_the_paper_before_reporting_done(monkeypatch):
+    """The gallery navigates to the paper the moment a job reports done and
+    stops polling, so tagging afterwards was a race the paper could lose — with
+    nothing in the log to say it had."""
+    import asyncio
+
+    from paper_review.server import ingest
+
+    class _FakeStdout:
+        async def readline(self):
+            return b""
+
+    class _FakeProc:
+        returncode = 0
+        stdout = _FakeStdout()
+
+        async def wait(self):
+            return 0
+
+    async def fake_exec(*a, **kw):
+        return _FakeProc()
+
+    seen = {}
+
+    async def fake_auto_tag(job):
+        seen["status_when_tagging"] = job.status
+        job.log.append("✓ auto-tags: a, b")
+
+    monkeypatch.setattr(ingest.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(ingest, "_auto_tag", fake_auto_tag)
+    monkeypatch.setattr(ingest, "_detect_slug_post_hoc", lambda job: None)
+
+    job = ingest.IngestJob(job_id="t", source="2600.00001", is_pdf=False)
+    asyncio.run(ingest._run_ingest(job))
+
+    assert job.status == "done"
+    assert seen["status_when_tagging"] != "done", "tagged after the UI left"
+    assert any("auto-tags" in l for l in job.log)
