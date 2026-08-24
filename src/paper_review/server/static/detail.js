@@ -735,6 +735,18 @@
       section:first-of-type { padding-top: 26px !important; }
     }
   `;
+  // The report is a separate document, so it cannot read the app's theme — it
+  // has to be told. 'auto' resolves here because the report should follow the
+  // app even when the app is following the OS.
+  const DARK_THEMES = new Set(['dark', 'tesla', 'sunset']);
+  function resolvedTheme() {
+    const t = localStorage.getItem('pr-theme') || 'auto';
+    if (t === 'auto') {
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return DARK_THEMES.has(t) ? 'dark' : 'light';
+  }
+
   function applyReportEmbedCss() {
     try {
       const d = reportFrame.contentDocument;
@@ -789,9 +801,10 @@
       document.getElementById("wb").style.display = "none";
       const empty = document.getElementById("summary-empty");
       if (empty) empty.hidden = true;
-      const url = `/paper/${slug}/report?v=${reportMtime}`;
+      const th = resolvedTheme();
+      const url = `/paper/${slug}/report?v=${reportMtime}&theme=${th}`;
       if (reportFrame.src !== location.origin + url) reportFrame.src = url;
-      document.getElementById("report-open").href = `/paper/${slug}/report`;
+      document.getElementById("report-open").href = `/paper/${slug}/report?theme=${th}`;
       document.getElementById("report-dl").href = `/paper/${slug}/report?download=1`;
     } else {
       // No report yet. This used to fall back to the workbench with the source
@@ -2094,7 +2107,7 @@
       // Put the report in the top-level view instead; it prints there, stays
       // inside the app, and the page carries a link back to the review.
       if (document.documentElement.classList.contains('in-app')) {
-        location.href = `/paper/${slug}/report?print=1`;
+        location.href = `/paper/${slug}/report?print=1&theme=${resolvedTheme()}`;
         return;
       }
       try { reportFrame.contentWindow.focus(); reportFrame.contentWindow.print(); }

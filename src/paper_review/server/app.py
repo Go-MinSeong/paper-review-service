@@ -1051,6 +1051,96 @@ def _inline_table_figs(html: str, d: Path) -> str:
     return _re.sub(r"<img[^>]*?/fig/(tbl[\w-]+)[^>]*?>", _swap, html)
 
 
+# Reports carry whatever palette the model wrote the day it built them: some
+# default to dark, some to light, some adapt via prefers-color-scheme and some
+# not at all — and prefers-color-scheme follows macOS, not the app's own theme.
+# So the Summary pane could sit dark inside a light app, differently per paper.
+# These variables cover the name families the generated reports actually use.
+_THEME_VARS = {
+    "light": """
+  --bg:#ffffff; --bg2:#f7f8fa; --bg3:#eef0f3; --border:#e0e3e8;
+  --text:#1a1d23; --muted:#6b717e; --accent:#1a6fd4; --accent2:#6340b0;
+  --green:#1a8f5a; --amber:#b86b00; --red:#c43a3a; --teal:#1a8fa0;
+  --bg-elev:#f7f8fa; --bg-card:#ffffff; --card:#ffffff; --code-bg:#f2f4f7;
+  --fg:#1a1d23; --fg-muted:#6b717e; --fg-strong:#0b0d10;
+  --border-soft:#eef0f3; --accent-soft:rgba(26,111,212,0.10);
+  --notes-bg:rgba(26,111,212,0.06); --notes-border:#1a6fd4; --notes-title:#1a6fd4;
+  --keyword-bg:rgba(184,107,0,0.12); --keyword-border:#b86b00; --keyword-text:#8a5000;
+  --ok:#1a8f5a; --ok-bg:rgba(26,143,90,0.08); --ok-border:#1a8f5a; --ok-text:#136b43;
+  --ok-soft:rgba(26,143,90,0.08); --success:#1a8f5a; --success-bg:rgba(26,143,90,0.08);
+  --warn:#b86b00; --warn-bg:rgba(184,107,0,0.08); --warn-border:#b86b00;
+  --warn-soft:rgba(184,107,0,0.08); --danger:#c43a3a; --info-bg:rgba(26,111,212,0.06);
+  --think:rgba(99,64,176,0.08); --accent3:#1a8fa0;
+  --shadow:0 4px 16px rgba(15,20,30,0.10);
+""",
+    "dark": """
+  --bg:#16181d; --bg2:#1d2026; --bg3:#262a31; --border:#333842;
+  --text:#e7e9ee; --muted:#8b919e; --accent:#5ea0ec; --accent2:#9d7fe0;
+  --green:#4bb583; --amber:#d99a3d; --red:#e06c6c; --teal:#4db3c4;
+  --bg-elev:#1d2026; --bg-card:#262a31; --card:#1d2026; --code-bg:#1d2026;
+  --fg:#e7e9ee; --fg-muted:#8b919e; --fg-strong:#f4f6fa;
+  --border-soft:#262a31; --accent-soft:rgba(94,160,236,0.14);
+  --notes-bg:rgba(94,160,236,0.10); --notes-border:#5ea0ec; --notes-title:#8cbcf2;
+  --keyword-bg:rgba(217,154,61,0.18); --keyword-border:#d99a3d; --keyword-text:#eabd75;
+  --ok:#4bb583; --ok-bg:rgba(75,181,131,0.10); --ok-border:#4bb583; --ok-text:#7fcfa8;
+  --ok-soft:rgba(75,181,131,0.10); --success:#4bb583; --success-bg:rgba(75,181,131,0.10);
+  --warn:#d99a3d; --warn-bg:rgba(217,154,61,0.10); --warn-border:#d99a3d;
+  --warn-soft:rgba(217,154,61,0.10); --danger:#e06c6c; --info-bg:rgba(94,160,236,0.10);
+  --think:rgba(157,127,224,0.12); --accent3:#4db3c4;
+  --shadow:0 4px 16px rgba(0,0,0,0.40);
+""",
+}
+
+
+def _theme_css() -> str:
+    """One palette for every report, switchable by the app instead of the OS."""
+    light, dark = _THEME_VARS["light"], _THEME_VARS["dark"]
+    return (
+        "<style id='pr-theme'>"
+        f":root {{{light}}}"
+        f"@media (prefers-color-scheme: dark) {{ :root {{{dark}}} }}"
+        # An explicit choice from the app wins over the OS in both directions.
+        f"html[data-pr-theme='light'] {{{light}}}"
+        f"html[data-pr-theme='dark'] {{{dark}}}"
+        "html,body{background:var(--bg);color:var(--text,var(--fg));}"
+        "</style>"
+    )
+
+
+def _retarget_color_scheme(html: str) -> str:
+    """Re-aim the report's own dark/light block at the app's theme attribute.
+
+    Those blocks hold more than variables — nav backgrounds, paragraph colours —
+    so overriding variables alone left them following macOS. Rewriting the
+    media query into an attribute selector keeps whatever the report wrote and
+    just changes when it applies.
+    """
+    import re
+
+    out, i = [], 0
+    for m in re.finditer(
+        r"@media\s*\(prefers-color-scheme:\s*(light|dark)\s*\)\s*\{", html
+    ):
+        scheme = m.group(1)
+        depth, j = 1, m.end()
+        while j < len(html) and depth:
+            if html[j] == "{":
+                depth += 1
+            elif html[j] == "}":
+                depth -= 1
+            j += 1
+        if depth:
+            break  # unbalanced — leave the rest alone
+        body = html[m.end() : j - 1]
+        sel = f"html[data-pr-theme='{scheme}']"
+        body = re.sub(r"(^|\})\s*:root\s*\{", lambda mm: mm.group(1) + sel + "{", body)
+        out.append(html[i : m.start()])
+        out.append(f"@media all {{{body}}}")
+        i = j
+    out.append(html[i:])
+    return "".join(out)
+
+
 # Shown only when the report is opened as the top-level page for printing.
 # WKWebView prints the top-level web view and nothing else, so the desktop app
 # navigates here instead of trying (and silently failing) to print the iframe.
@@ -1080,7 +1170,10 @@ _PRINT_BAR = """
 
 @app.get("/paper/{slug}/report")
 def paper_report(
-    slug: str, download: int = 0, print_view: int = Query(0, alias="print")
+    slug: str,
+    download: int = 0,
+    print_view: int = Query(0, alias="print"),
+    theme: str = "",
 ):
     """Serve the generated report.html (shown in the Summary view).
 
@@ -1103,7 +1196,15 @@ def paper_report(
         # the export button did nothing there. A real file always works.
         headers["Content-Disposition"] = f'attachment; filename="{slug}-report.html"'
     raw = p.read_text()
-    text = _inline_table_figs(raw, d)
+    text = _retarget_color_scheme(_inline_table_figs(raw, d))
+    head = _theme_css()
+    if theme in ("light", "dark"):
+        head += f"<script>document.documentElement.dataset.prTheme='{theme}'</script>"
+    text = (
+        text.replace("</head>", head + "</head>", 1)
+        if "</head>" in text
+        else head + text
+    )
     if print_view:
         bar = _PRINT_BAR.replace("__BACK__", f"/paper/{slug}")
         text = (

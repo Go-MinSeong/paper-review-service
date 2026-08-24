@@ -336,3 +336,32 @@ def test_registration_tags_the_paper_before_reporting_done(monkeypatch):
     assert job.status == "done"
     assert seen["status_when_tagging"] != "done", "tagged after the UI left"
     assert any("auto-tags" in l for l in job.log)
+
+
+def test_report_follows_the_app_theme_not_the_os(tmp_path, monkeypatch):
+    """Each report froze whatever palette the model wrote that day, and adapted
+    — if at all — to macOS rather than the app's own theme."""
+    import paper_review.server.app as A
+    from fastapi.testclient import TestClient
+
+    d = tmp_path / "2600.55555"
+    d.mkdir()
+    (d / "workbench.md").write_text("---\nstatus: to_read\n---\n")
+    (d / "report.html").write_text(
+        "<html><head><style>:root{--bg:#0d1117}"
+        "@media (prefers-color-scheme: light){:root{--bg:#fff}"
+        "nav{background:#eee}}</style></head><body>R</body></html>"
+    )
+    monkeypatch.setattr(A, "_paper_dir", lambda slug: d)
+    c = TestClient(A.app)
+
+    for theme in ("light", "dark"):
+        html = c.get(f"/paper/2600.55555/report?theme={theme}").text
+        assert f"prTheme='{theme}'" in html
+        assert f"html[data-pr-theme='{theme}']" in html
+
+    html = c.get("/paper/2600.55555/report?theme=dark").text
+    # the report's own block must survive, re-aimed at the attribute — it holds
+    # more than variables (that nav background) and those followed the OS too
+    assert "@media (prefers-color-scheme: light)" not in html
+    assert "nav{background:#eee}" in html
