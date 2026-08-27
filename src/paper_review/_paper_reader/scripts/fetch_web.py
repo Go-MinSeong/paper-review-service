@@ -230,6 +230,20 @@ def main():
         favor_recall=True,
     )
     if not body_md:
+        # Tell the two failures apart. A page whose served HTML carries almost
+        # no text at all is a client-side app (qwen.ai/blog ships 4 characters
+        # and an empty container); no extractor can help, and "no main content
+        # found" reads like a bug in ours.
+        visible = re.sub(
+            r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I
+        )
+        visible = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", visible)).strip()
+        if len(visible) < 400:
+            sys.exit(
+                f"extraction failed: {args.url} 는 본문을 자바스크립트로 그리는 "
+                f"페이지라 받아온 HTML에 글이 없습니다 (본문 {len(visible)}자). "
+                "브라우저에서 열어 PDF로 저장한 뒤 그 파일을 등록해 주세요."
+            )
         sys.exit(f"extraction failed: no main content found at {args.url}")
 
     md = trafilatura.extract_metadata(html)

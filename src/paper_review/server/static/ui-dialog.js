@@ -167,8 +167,19 @@ window.copyText = async function copyText(text, btn) {
 };
 
 // A small "복사" button pinned to the top-right of a log panel.
+// The button lives in a wrapper AROUND the panel, not inside it: log panels
+// scroll and auto-scroll to the newest line, so a button positioned inside was
+// carried off the top and out of sight — present in the DOM, never once seen.
 window.attachCopyButton = function attachCopyButton(box, getText) {
-  if (!box || box.querySelector('.copy-log')) return;
+  if (!box) return;
+  let wrap = box.parentElement;
+  if (!wrap || !wrap.classList.contains('log-wrap')) {
+    wrap = document.createElement('div');
+    wrap.className = 'log-wrap';
+    box.parentElement.insertBefore(wrap, box);
+    wrap.appendChild(box);
+  }
+  if (wrap.querySelector('.copy-log')) return;
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'copy-log';
@@ -179,5 +190,5 @@ window.attachCopyButton = function attachCopyButton(box, getText) {
     e.stopPropagation();
     window.copyText(getText(), btn);
   });
-  box.appendChild(btn);
+  wrap.appendChild(btn);
 };

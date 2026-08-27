@@ -1327,5 +1327,7 @@
     border: 1px solid var(--border); border-radius: 6px; opacity: .75;
   }
   .copy-log:hover { opacity: 1; }
-  .a-toast-log .copy-log { position: absolute; top: 6px; right: 10px; z-index: 2; }
   #alog-copy { margin-left: auto; }
+  .log-wrap { position: relative; }
+  .a-toast-log { position: static; }
+  .log-wrap .copy-log { position: absolute; top: 6px; right: 10px; z-index: 2; }
