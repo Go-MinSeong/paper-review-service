@@ -79,14 +79,22 @@ def init(
         shutil.rmtree(staging)
     staging.mkdir()
 
-    if kind == "web":
-        click.secho("→ fetch_web.py …", fg="cyan")
-        paper = runner.init_web(
-            source, staging, content_type=content_type, no_images=no_figures
-        )
-    else:
-        click.secho("→ init_paper.py …", fg="cyan")
-        paper = runner.init_paper(source, staging, is_pdf=is_pdf)
+    try:
+        if kind == "web":
+            click.secho("→ fetch_web.py …", fg="cyan")
+            paper = runner.init_web(
+                source, staging, content_type=content_type, no_images=no_figures
+            )
+        else:
+            click.secho("→ init_paper.py …", fg="cyan")
+            paper = runner.init_paper(source, staging, is_pdf=is_pdf)
+    except RuntimeError as e:
+        # The fetchers explain themselves (a JS-rendered page, a dead arXiv
+        # API). Printing a traceback on top of that buries the one line worth
+        # reading — in the app it is all the ingest log ever shows.
+        shutil.rmtree(staging, ignore_errors=True)
+        click.secho(f"✗ {e}", fg="red", err=True)
+        raise SystemExit(1)
     slug = paper["metadata"].get("slug") or runner._find_slug(staging)
 
     from .library import new_paper_dir

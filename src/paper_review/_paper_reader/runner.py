@@ -29,7 +29,14 @@ def _run(script: str, *args: str, check: bool = True) -> subprocess.CompletedPro
     # works whether running from source or a frozen .app (no `python <file>`).
     env = {**os.environ, "PR_RUN_SCRIPT": json.dumps(_self_cmd())}
     cmd = [*_self_cmd(), script, *args]
-    return subprocess.run(cmd, check=check, text=True, capture_output=True, env=env)
+    res = subprocess.run(cmd, check=False, text=True, capture_output=True, env=env)
+    if check and res.returncode:
+        # check=True used to raise CalledProcessError here, which reaches the
+        # user as a traceback ending in "returned non-zero exit status 1" — the
+        # script's own message (why it failed, what to do instead) was captured
+        # and thrown away. Callers format res.stderr; give them the chance.
+        raise RuntimeError((res.stderr or res.stdout or "").strip() or f"{script} 실패")
+    return res
 
 
 def init_paper(
