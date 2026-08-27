@@ -25,6 +25,7 @@ Output: stdout JSON (init_paper.py 와 같은 모양):
 import sys
 import os
 import re
+import time
 import json
 import base64
 import argparse
@@ -43,7 +44,10 @@ from fetch_figures import http_get, downsize_to_data_uri  # noqa: E402
 
 # /blog/, blog. 서브도메인, 또는 엔지니어링 블로그 도메인 → blog 로 추정
 _BLOG_HINTS = re.compile(
-    r"(?:^|\.)blog\.|/blog/|/posts?/|/engineering/|/research/", re.I
+    # \b, not a trailing slash: qwen.ai puts the id in a query string
+    # ("/blog?id=…") and was classified as a general article.
+    r"(?:^|\.)blog\.|/blog\b|/posts?\b|/engineering\b|/research\b",
+    re.I,
 )
 
 
@@ -118,6 +122,105 @@ def build_sections_index(source_text: str, out_path: str) -> int:
             f.write(f"{idx}-{end}: {heading}\n")
             count += 1
     return count
+
+
+def visible_text(html: str) -> str:
+    """Roughly what a reader would see — used to tell an empty shell apart."""
+    stripped = re.sub(
+        r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I
+    )
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", stripped)).strip()
+
+
+def render_js(url: str, timeout: float = 25.0) -> str | None:
+    """Load `url` in a windowless WKWebView and return the rendered HTML.
+
+    Some blogs ship an empty container and draw the article with JavaScript, so
+    what httpx receives holds no text at all (qwen.ai/blog: four characters).
+    WebKit is already here — pywebview pulls in PyObjC — so the page can simply
+    be rendered in-process, with no browser dependency and no round trip
+    through the app.
+
+    Returns None on any failure (no GUI session, timeout, WebKit missing); the
+    caller then reports the page as unreadable, exactly as before.
+    """
+    try:
+        import AppKit  # noqa: F401  (starts the app object the run loop needs)
+        import Foundation
+        import WebKit
+    except Exception:
+        return None
+
+    try:
+        AppKit.NSApplication.sharedApplication()
+        cfg = WebKit.WKWebViewConfiguration.alloc().init()
+        # A throwaway data store: the page gets no cookies or local storage of
+        # ours, and leaves none behind. We are rendering someone else's JS.
+        cfg.setWebsiteDataStore_(WebKit.WKWebsiteDataStore.nonPersistentDataStore())
+        # Tall viewport so lazy-loaded images below the fold still load.
+        view = WebKit.WKWebView.alloc().initWithFrame_configuration_(
+            Foundation.NSMakeRect(0, 0, 1280, 2000), cfg
+        )
+        view.loadRequest_(
+            Foundation.NSURLRequest.requestWithURL_(
+                Foundation.NSURL.URLWithString_(url)
+            )
+        )
+    except Exception:
+        return None
+
+    loop = Foundation.NSRunLoop.currentRunLoop()
+    deadline = time.time() + timeout
+
+    def pump(seconds: float) -> None:
+        loop.runMode_beforeDate_(
+            Foundation.NSDefaultRunLoopMode,
+            Foundation.NSDate.dateWithTimeIntervalSinceNow_(seconds),
+        )
+
+    def js(expr: str, wait: float = 8.0):
+        box = {}
+
+        def done(res, err):
+            # PyObjC requires a void completion handler: returning anything
+            # here raises inside the run loop and kills the process.
+            box["v"] = None if err else res
+
+        view.evaluateJavaScript_completionHandler_(expr, done)
+        end = time.time() + wait
+        while "v" not in box and time.time() < end:
+            pump(0.05)
+        return box.get("v")
+
+    while view.isLoading() and time.time() < deadline:
+        pump(0.1)
+
+    # Client-side rendering continues after load finishes, so wait for the text
+    # to stop growing rather than for a fixed delay — quicker on fast pages and
+    # still correct on slow ones.
+    # Two traps here, both hit in practice on qwen.ai:
+    #  - an empty shell reads as "unchanged" three polls running, so text has to
+    #    appear at all before stability means anything;
+    #  - the app paints its chrome first and routes to the article after, so a
+    #    nav-only page (413 chars) settles and looks done. Hence a floor on how
+    #    early we may accept: the router gets a moment to arrive.
+    MIN_TEXT, MIN_SETTLE = 200, 3.0
+    started, stable, last = time.time(), 0, -1
+    while time.time() < deadline:
+        pump(0.3)
+        size = js("document.body ? document.body.innerText.length : 0", wait=3.0)
+        size = int(size) if isinstance(size, (int, float)) else 0
+        elapsed = time.time() - started
+        if size >= MIN_TEXT:
+            stable = stable + 1 if size == last else 0
+            if stable >= 3 and elapsed >= MIN_SETTLE:
+                break
+        elif elapsed > 8:
+            break  # nothing is coming — a login wall, or not a page we can read
+        last = size
+
+    html = js("document.documentElement.outerHTML")
+    return html if isinstance(html, str) and html.strip() else None
 
 
 def extract_images(
@@ -222,13 +325,26 @@ def main():
     except Exception as e:  # noqa: BLE001
         sys.exit(f"fetch failed: could not download {args.url} ({e})")
 
-    body_md = trafilatura.extract(
-        html,
-        output_format="markdown",
-        include_tables=True,
-        include_comments=False,
-        favor_recall=True,
-    )
+    def _extract(page: str):
+        return trafilatura.extract(
+            page,
+            output_format="markdown",
+            include_tables=True,
+            include_comments=False,
+            favor_recall=True,
+        )
+
+    body_md = _extract(html)
+    rendered = False
+    if not body_md and len(visible_text(html)) < 400:
+        # An empty shell: nothing to extract because nothing arrived. Render it
+        # rather than tell the user their page is unreadable. Only on this
+        # path — a normal page must not pay for a browser it does not need.
+        print("   ! 본문이 비어 있음 — 자바스크립트 렌더 후 재시도", file=sys.stderr)
+        page = render_js(args.url)
+        if page:
+            html, rendered = page, True
+            body_md = _extract(html)
     if not body_md:
         # Tell the two failures apart. A page whose served HTML carries almost
         # no text at all is a client-side app (qwen.ai/blog ships 4 characters
@@ -250,6 +366,20 @@ def main():
     title = (md.title if md else "") or ""
     author = (md.author if md else "") or ""
     date = (md.date if md else "") or ""
+    if rendered:
+        # A single-page app's <title> and og:* describe the app, not the post:
+        # qwen.ai reports "Qwen Studio" and a date three weeks off. The rendered
+        # <h1> is the article's own headline. Falling back to the first markdown
+        # heading is worse than it sounds — that is usually "Introduction".
+        soup_t = BeautifulSoup(html, "lxml")
+        heads = [
+            re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip("# ").strip()
+            for h in soup_t.find_all("h1")
+        ]
+        heads = [h for h in heads if len(h) > 10]
+        if heads:
+            title = max(heads, key=len)
+        date = ""  # a wrong date is worse than none
     sitename = (
         (md.sitename if md else "") or urllib.parse.urlparse(args.url).hostname or ""
     )
