@@ -190,6 +190,19 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
             made_call = True
             if ok:
                 job.succeeded_sections.append(sec_heading)
+                # The paper's own figures belong in the section that references
+                # them; inserting them here means the reviewer never has to go
+                # find them one at a time. Placement is data, not judgement —
+                # see figplace. Runs before the baseline snapshot, so the images
+                # count as Claude's output and not as a user edit.
+                try:
+                    from ..figplace import place as _place_figs
+
+                    n_figs = _place_figs(paper_dir, sec_heading)
+                    if n_figs:
+                        job.log.append(f"   ↳ 그림 {n_figs}장 삽입")
+                except Exception as e:  # never fail a section over a figure
+                    job.log.append(f"   ↳ 그림 삽입 건너뜀: {e}")
             else:
                 if not job.cancel_event.is_set():
                     job.failed_sections.append(sec_heading)
