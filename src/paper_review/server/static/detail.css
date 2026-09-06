@@ -1331,3 +1331,22 @@
   .log-wrap { position: relative; }
   .a-toast-log { position: static; }
   .log-wrap .copy-log { position: absolute; top: 6px; right: 10px; z-index: 2; }
+
+  /* Why the run stopped, and what to do about it (analyze.py _BLOCKERS) */
+  .blocker {
+    margin: 8px 14px; padding: 10px 12px; border-radius: 8px;
+    background: rgba(239, 68, 68, .08); border: 1px solid rgba(239, 68, 68, .35);
+    font-size: 12px; line-height: 1.6; color: var(--text-primary);
+  }
+  .blocker b { display: block; margin-bottom: 4px; }
+  .blocker ol { margin: 0; padding-left: 18px; color: var(--text-secondary); }
+  .blocker code {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    background: var(--bg-hover); padding: 1px 5px; border-radius: 4px;
+  }
+  .blocker .fix {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    padding: 5px 9px; cursor: pointer; color: var(--text-primary);
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+  }

@@ -48,15 +48,22 @@ def test_status_patch_unknown_slug_404():
     assert r.status_code == 404
 
 
-def test_auth_failure_hint():
-    from paper_review.server.analyze import AnalysisJob, _hint_auth_failure
+def test_auth_failure_is_detected_from_the_stream_not_just_stderr():
+    """The CLI reports an expired session through its JSON stream, so stderr was
+    empty and the old stderr-only check said nothing — the user saw
+    "exit 1:" and every remaining section failing the same way."""
+    from paper_review.server.analyze import AnalysisJob, _detect_blocker
 
     j = AnalysisJob(slug="x", job_id="t")
-    _hint_auth_failure("Failed to authenticate: OAuth session expired", j)
+    j.log.append("   ✗ Failed to authenticate: OAuth session expired")
+    _detect_blocker("" + "\n" + "\n".join(j.log), j)  # stderr really is empty
+    assert j.blocker and j.blocker["kind"] == "auth"
+    assert j.blocker["command"] == "claude auth login"
     assert any("claude auth login" in l for l in j.log)
+
     j2 = AnalysisJob(slug="y", job_id="t2")
-    _hint_auth_failure("connection reset by peer", j2)
-    assert not j2.log
+    _detect_blocker("connection reset by peer", j2)
+    assert j2.blocker is None and not j2.log
 
 
 def test_settings_never_returns_the_remote_token():

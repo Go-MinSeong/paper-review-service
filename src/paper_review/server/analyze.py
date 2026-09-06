@@ -41,6 +41,7 @@ class AnalysisJob:
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     last_text_preview: str = ""
     failed_sections: list[str] = field(default_factory=list)
+    blocker: Optional[dict] = None  # a stop-everything cause + how to fix it
     succeeded_sections: list[str] = field(default_factory=list)
 
 
@@ -150,6 +151,11 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
                 paper_dir, body.model, body.timeout_per_section, job, cont=False
             )
             made_call = True
+            if job.blocker:  # nothing downstream can succeed either
+                job.error = job.blocker["title"]
+                job.status = "error"
+                job.finished_at = time.time()
+                return
             wb_text = wb.read_text()  # reload after edit
 
         sections_with_range = _parse_unfinished_sections(paper_dir, wb_text)
@@ -206,6 +212,14 @@ async def _run_analysis(job: AnalysisJob, paper_dir: Path, body: AnalyzeBody) ->
             else:
                 if not job.cancel_event.is_set():
                     job.failed_sections.append(sec_heading)
+                    if job.blocker:
+                        left = job.total - job.current
+                        job.log.append(
+                            f"   ⛔ 중단 — 남은 {left}개 섹션도 같은 이유로 실패합니다"
+                        )
+                        job.error = job.blocker["title"]
+                        job.status = "error"
+                        break
                     job.log.append(f"   ⚠ 실패 — 다음으로 진행")
 
         # Snapshot the Claude baseline for sections filled this run (edit-diff)
@@ -354,7 +368,7 @@ async def _analyze_one_section(
             err_bytes = await proc.stderr.read() if proc.stderr else b""
             err = err_bytes.decode("utf-8", "replace")[-400:]
             job.log.append(f"   ✗ exit {proc.returncode}: {err}")
-            _hint_auth_failure(err, job)
+            _detect_blocker(err + "\n" + "\n".join(job.log[-12:]), job)
             return False
         job.log.append("   ✓ section done")
         return True
@@ -630,7 +644,7 @@ Then reply EXACTLY '✓ report done'."""
         if proc.returncode != 0 and proc.stderr:
             err = (await proc.stderr.read()).decode("utf-8", "replace")[-500:]
             if job:
-                _hint_auth_failure(err, job)
+                _detect_blocker(err + chr(10) + chr(10).join(job.log[-12:]), job)
         elif proc.returncode == 0 and not created:
             err = "claude finished without writing report.html"
         if job and proc.returncode == 0 and created:
@@ -808,7 +822,16 @@ Steps:
         if proc.returncode == 0:
             job.log.append("   ✓ prelude done")
         else:
+            err = (
+                (await proc.stderr.read()).decode("utf-8", "replace")[-400:]
+                if proc.stderr
+                else ""
+            )
             job.log.append(f"   ⚠ prelude exit {proc.returncode}")
+            # The prelude runs first, so an expired login shows up here before
+            # a single section is attempted — catch it now rather than after
+            # seventeen identical failures.
+            _detect_blocker(err + "\n" + "\n".join(job.log[-12:]), job)
     finally:
         if proc.returncode is None:
             proc.terminate()
@@ -818,14 +841,67 @@ Steps:
                 proc.kill()
 
 
-def _hint_auth_failure(err_text: str, job: AnalysisJob) -> None:
-    """Turn a cryptic claude-CLI auth error into an actionable hint."""
-    if re.search(r"authenticat|oauth|logged in|login", err_text, re.IGNORECASE):
-        job.log.append(
-            "   ℹ Claude Code 로그인이 만료된 것 같습니다. 터미널에서 "
-            "`claude auth login`으로 재로그인한 뒤 다시 Analyze 하세요 "
-            "(서버 재시작 불필요)."
-        )
+# Failures that no amount of retrying fixes, and what to do about each. The
+# analyze loop stops on these instead of marching through the remaining
+# sections — an expired login fails all seventeen of them identically.
+_BLOCKERS = [
+    (
+        r"authenticat|oauth|not logged in|invalid api key|401",
+        {
+            "kind": "auth",
+            "title": "Claude Code 로그인이 만료되었습니다",
+            "steps": [
+                "터미널에서 `claude auth login` 실행 후 브라우저에서 로그인",
+                "`claude auth status`로 로그인 상태 확인",
+                "앱으로 돌아와 Analyze 다시 실행 (서버 재시작 불필요)",
+            ],
+            "command": "claude auth login",
+        },
+    ),
+    (
+        r"rate.?limit|usage limit|429|quota",
+        {
+            "kind": "rate_limit",
+            "title": "사용량 한도에 걸렸습니다",
+            "steps": [
+                "한도가 풀린 뒤 Analyze를 다시 실행하세요",
+                "급하면 모델을 Haiku로 낮춰 재시도할 수 있습니다",
+            ],
+            "command": "",
+        },
+    ),
+    (
+        r"command not found|No such file or directory.*claude|ENOENT",
+        {
+            "kind": "cli_missing",
+            "title": "claude 명령을 찾을 수 없습니다",
+            "steps": [
+                "Claude Code CLI가 설치돼 있는지 확인: `which claude`",
+                "설치돼 있는데도 안 되면 앱을 재시작하세요 (PATH를 다시 읽습니다)",
+            ],
+            "command": "which claude",
+        },
+    ),
+]
+
+
+def _detect_blocker(text: str, job: AnalysisJob) -> None:
+    """Record why the run cannot continue, and how the user fixes it.
+
+    The text to match on is not only stderr: the CLI reports an expired session
+    through its JSON stream, so stderr was empty and the old stderr-only check
+    never fired — the user saw "exit 1:" with nothing after it and every
+    remaining section failing the same way.
+    """
+    if job.blocker:
+        return
+    for pattern, blocker in _BLOCKERS:
+        if re.search(pattern, text, re.IGNORECASE):
+            job.blocker = blocker
+            job.log.append(f"   ℹ {blocker['title']}")
+            for i, step in enumerate(blocker["steps"], 1):
+                job.log.append(f"      {i}. {step}")
+            return
 
 
 def _consume_stream_line(line: bytes, job: AnalysisJob) -> None:
@@ -948,6 +1024,7 @@ def _serialize(job: AnalysisJob) -> dict:
         "started_at": job.started_at,
         "finished_at": job.finished_at,
         "error": job.error,
+        "blocker": job.blocker,
         "failed_sections": list(job.failed_sections),
         "succeeded_sections": list(job.succeeded_sections),
     }

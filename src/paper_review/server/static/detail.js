@@ -1191,6 +1191,37 @@
   }
   document.getElementById("btn-figures").addEventListener("click", openFigures);
   // Fullscreen — native API, hides the browser chrome while reviewing.
+  // A failure the user has to act on — an expired login, a usage limit. The
+  // remedy belongs where they are looking, not buried in a scrolling log.
+  function renderBlocker(el, b) {
+    if (!el) return;
+    if (!b) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    el.innerHTML = '';
+    const title = document.createElement('b');
+    title.textContent = '⛔ ' + b.title;
+    el.appendChild(title);
+    const ol = document.createElement('ol');
+    (b.steps || []).forEach(step => {
+      const li = document.createElement('li');
+      // steps carry `command` spans as `backticks`
+      step.split(/`([^`]+)`/).forEach((part, i) => {
+        if (i % 2) { const c = document.createElement('code'); c.textContent = part; li.appendChild(c); }
+        else li.appendChild(document.createTextNode(part));
+      });
+      ol.appendChild(li);
+    });
+    el.appendChild(ol);
+    if (b.command) {
+      const btn = document.createElement('button');
+      btn.className = 'fix';
+      btn.textContent = b.command + '  ⧉';
+      btn.title = '클립보드로 복사';
+      btn.addEventListener('click', () => window.copyText(b.command, btn));
+      el.appendChild(btn);
+    }
+  }
+
   function fullscreenUnavailable(err) {
     UIDialog.alert(
       '이 창에서는 전체화면을 쓸 수 없습니다.\n앱을 최신 버전으로 업데이트하거나, ' +
@@ -1894,6 +1925,7 @@
     try {
       const s = await (await fetch(`/paper/${slug}/analyze/status`)).json();
       statusEl.textContent = `${s.status} · ${s.current || 0}/${s.total || 0}`;
+      renderBlocker(document.getElementById('alog-blocker'), s.blocker);
       const failed = s.failed_sections || [];
       failedEl.textContent = failed.length
         ? `실패 섹션 (${failed.length}): ${failed.join(', ')}` : '';
@@ -1963,6 +1995,7 @@
     // The report is one long step, so a fraction would sit at 1/1 the whole time.
     aFrac.textContent = s.phase === 'report' ? '' : `${s.current}/${s.total}`;
     aSub.textContent = s.current_heading || '';
+    renderBlocker(document.getElementById('a-toast-blocker'), s.blocker);
     aLog.innerHTML = '';
     (s.log_tail || []).slice(-12).forEach(line => {
       const el = document.createElement('span');
