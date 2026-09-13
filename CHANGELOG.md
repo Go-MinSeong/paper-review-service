@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.25.2
+
+### Fixed
+- **figure가 없는 문서에서 "Figure 삽입"이 조용히 아무것도 안 하던 문제.**
+  `openFigures()`가 figure 0개일 때 말없이 `return`했다. figure 자동 추출은
+  arXiv 논문(ar5iv·e-print)만 지원해서 PDF 파일로 등록한 문서(예: "On the Design
+  of Qwen3.8-Next Architecture")는 `figures.json` 자체가 없고, 버튼이 고장 난
+  것처럼 보였다. 이제 이유를 안내한다. (2.25.1의 클릭 가림 문제와는 별개 원인)
+
 ## 2.25.1
 
 ### Fixed

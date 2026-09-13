@@ -1153,7 +1153,17 @@
   }
 
   function openFigures() {
-    if (!figures.length) return;
+    if (!figures.length) {
+      // This used to return silently, so "Figure 삽입" looked broken. Figures
+      // are only extracted for arXiv papers (ar5iv / e-print); an uploaded PDF
+      // or web page without them gets nothing to show — say so.
+      UIDialog.alert(
+        '이 문서에서 추출된 figure가 없습니다.\n\n' +
+        'figure 자동 추출은 arXiv 논문(ar5iv·e-print)만 지원합니다. ' +
+        'PDF 파일로 등록한 문서는 아직 figure를 추출하지 못합니다.',
+        { title: 'Figure 없음' });
+      return;
+    }
     const grid = document.getElementById("figs-grid");
     if (!grid.dataset.rendered) {
       grid.innerHTML = figures.map((f, i) => {
