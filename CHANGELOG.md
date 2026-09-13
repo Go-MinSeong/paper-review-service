@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.25.1
+
+### Fixed
+- **편집 화면에서 "Figure 삽입"을 눌러도 아무 반응이 없던 문제.** 원문(PDF) pane의
+  hover 버튼 묶음(−/100%/+/⤾/⛶)은 `position:absolute; right:14px`인데 원문 pane에
+  기준점(`position: relative`)이 없어서, 레이아웃 전체의 오른쪽 끝 — 리뷰 pane
+  편집 툴바의 "Figure 삽입" 자리 — 에 붙어 있었다. 원문 pane이 hover 상태가 되면
+  그 투명한 확대/축소 버튼이 클릭을 먹었다(실제 앱 창에서 버튼 위 최상단 요소가
+  `pdf-zoom-out`으로 측정됨). 원문 pane에 기준점을 줘서 버튼이 제자리에 붙는다.
+
 ## 2.25.0
 
 ### Fixed

@@ -283,7 +283,10 @@
   .gutter:hover::before, .layout.dragging .gutter::before { opacity: 0; }
   .pane { overflow: auto; }
   /* The PDF iframe scrolls itself — the pane must not add a second scrollbar. */
-  .pane.pdf { padding: 0; overflow: hidden; }
+  /* position: relative anchors the hover controls (−/+/⛶) to this pane. Without
+     it they pinned to #layout's right edge — over the review pane's edit toolbar,
+     where the invisible zoom buttons swallowed clicks on "Figure 삽입". */
+  .pane.pdf { position: relative; padding: 0; overflow: hidden; }
   /* display:block removes the inline baseline descender gap (~4px) that
      otherwise pushed the iframe's line box past the pane and produced a
      redundant 4px scrollbar right next to the iframe's own one. */
