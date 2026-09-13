@@ -336,6 +336,451 @@ def fetch_from_ar5iv(arxiv_id, max_width=800, jpeg_quality=80):
     return figures
 
 
+# ---------- Strategy 3: the PDF itself ----------
+# ar5iv and the e-print tarball only exist for arXiv papers, so a paper
+# registered from a PDF file had no figures at all. Captions are the anchor:
+# find "Figure 3:" / "Table 2", work out which graphics or rules belong to it,
+# and render that region. Vector charts come out too, which extracting the
+# embedded images cannot do — most figures in a LaTeX PDF are drawn, not pasted.
+LABEL = re.compile(r"(?m)^[ \t]*(Figure|Fig\.|Table|TABLE|FIGURE)[ \t]*(\d+)\b")
+# A caption line reads "Figure 3: …", "Figure 3. …", "Table 3 | …" or
+# "Figure 3 Overview of …". A sentence in the body reads "Table 1 is …" or
+# "Figure 3, and …" — those are rejected.
+AFTER_OK = re.compile(r"^\s*[:.|—–-]|^\s+[A-Z(]")
+AFTER_SENTENCE = re.compile(
+    r"^\s*(,|and\b|or\b|is\b|are\b|was\b|shows?\b|presents?\b|compares?\b|reports?\b|"
+    r"illustrates?\b|summari[sz]es?\b|lists?\b|gives?\b|depicts?\b|in\b|of\b|for\b|with\b|to\b|also\b)"
+)
+GRAPHIC = {2, 3, 4, 5}
+
+
+def charboxes(tp, a, b):
+    out = []
+    for i in range(a, b):
+        try:
+            l, bt, r, t = tp.get_charbox(i)
+        except Exception:
+            continue
+        if r > l and t > bt:
+            out.append((i, l, bt, r, t))
+    return out
+
+
+def first_line_box(tp, start, n):
+    """Chars on the caption's own baseline, contiguous in x."""
+    cb = charboxes(tp, start, min(n, start + 400))
+    if not cb:
+        return None
+    _, l0, b0, r0, t0 = cb[0]
+    xs0, ys0, xs1, ys1 = [l0], [b0], [r0], [t0]
+    last_r = r0
+    for _, l, bt, r, t in cb[1:]:
+        if abs(bt - b0) > 3.0:
+            break  # next line
+        if l - last_r > 40:
+            break  # jumped to another column on the same baseline
+        xs0.append(l)
+        ys0.append(bt)
+        xs1.append(r)
+        ys1.append(t)
+        last_r = r
+    return [min(xs0), min(ys0), max(xs1), max(ys1)]
+
+
+def caption_paragraph(tp, start, n, line):
+    """Grow the first line downward over following lines of the same caption."""
+    box = list(line)
+    lh = max(line[3] - line[1], 6)
+    cb = charboxes(tp, start, min(n, start + 1500))
+    lines = {}
+    for _, l, bt, r, t in cb:
+        key = round(bt / 2)
+        lines.setdefault(key, [l, bt, r, t])
+        e = lines[key]
+        e[0] = min(e[0], l)
+        e[1] = min(e[1], bt)
+        e[2] = max(e[2], r)
+        e[3] = max(e[3], t)
+    rows = sorted(lines.values(), key=lambda e: -e[1])
+    cur_bottom = box[1]
+    for e in rows:
+        if e[3] >= cur_bottom + 1:
+            continue  # at or above the current bottom
+        gap = cur_bottom - e[3]
+        if gap > lh * 0.9:
+            break
+        if e[2] < box[0] + 10 or e[0] > box[2] - 10:
+            continue  # other column
+        if e[0] < box[0] - 15 or e[2] > box[2] + 60:
+            continue
+        box[1] = min(box[1], e[1])
+        cur_bottom = e[1]
+    return box
+
+
+def _walk(page, form, transforms, out, depth=0):
+    objs = (
+        page.get_objects(max_depth=1)
+        if form is None
+        else page.get_objects(form=form, max_depth=1)
+    )
+    for o in objs:
+        if o.type == 5:
+            if depth < 12:
+                _walk(page, o, [o.get_matrix()] + transforms, out, depth + 1)
+            continue
+        if o.type not in (2, 3, 4):
+            continue
+        try:
+            rect = o.get_bounds()
+        except Exception:
+            continue
+        # bounds of an object inside a form are in form space: carry them out
+        # through every enclosing form's matrix, innermost first
+        for m in transforms:
+            rect = m.on_rect(*rect)
+        out.append(tuple(rect))
+
+
+def leaf_graphics(page, W, H):
+    raw = []
+    _walk(page, None, [], raw)
+    keep = []
+    for l, b, r, t in raw:
+        w, h = r - l, t - b
+        if (w < 2 and h < 2) or w * h > 0.85 * W * H:
+            continue
+        if b > H * 0.93 or t < H * 0.06:
+            continue  # wholly in the running header / footer band (rules, logos)
+        keep.append((l, b, r, t))
+    return keep
+
+
+def page_text(tp, n):
+    """One character per char index. get_text_range() drops or merges generated
+    characters (ligatures, soft hyphens), so its offsets drift from the indices
+    get_charbox() expects — on some pages by over a hundred characters."""
+    out = []
+    for j in range(n):
+        s = tp.get_text_range(j, 1)
+        out.append(s[0] if s else " ")
+    return "".join(out)
+
+
+def extract(pdf_path):
+    import pypdfium2 as pdfium
+
+    doc = pdfium.PdfDocument(pdf_path)
+    cands = {}  # (kind, num) -> list of candidate records
+    for pno in range(len(doc)):
+        page = doc[pno]
+        W, H = page.get_size()
+        tp = page.get_textpage()
+        n = tp.count_chars()
+        text = page_text(tp, n)
+        graphics = leaf_graphics(page, W, H)
+        caption_boxes = []
+        for m0 in LABEL.finditer(text):
+            a0 = text[m0.end() : m0.end() + 40]
+            if AFTER_SENTENCE.match(a0) or not AFTER_OK.match(a0):
+                continue
+            l0 = first_line_box(tp, m0.start(), n)
+            if l0:
+                caption_boxes.append(caption_paragraph(tp, m0.start(), n, l0))
+
+        for m in LABEL.finditer(text):
+            after = text[m.end() : m.end() + 40]
+            if AFTER_SENTENCE.match(after) or not AFTER_OK.match(after):
+                continue
+            kind = "tbl" if m.group(1).lower().startswith("tab") else "fig"
+            num = int(m.group(2))
+            line = first_line_box(tp, m.start(), n)
+            if not line:
+                continue
+            para = caption_paragraph(tp, m.start(), n, line)
+            cx0, cy0, cx1, cy1 = para
+            lw = line[2] - line[0]
+            if lw < 0.6 * W and line[2] < W * 0.6:
+                col = (0, W / 2 + 8)
+            elif lw < 0.6 * W and line[0] > W * 0.4:
+                col = (W / 2 - 8, W)
+            else:
+                col = (0, W)
+            near = [
+                g
+                for g in graphics
+                if (0 <= g[1] - cy1 <= 60) or (0 <= cy0 - g[3] <= 45)
+            ]
+            if (
+                col != (0, W)
+                and near
+                and (max(g[2] for g in near) - min(g[0] for g in near)) > 0.6 * W
+            ):
+                col = (0, W)  # a short caption over a full-width figure or table
+
+            def in_col(g):
+                ov = min(g[2], col[1]) - max(g[0], col[0])
+                return ov > 0.5 * max(g[2] - g[0], 1)
+
+            def grow(seed, pool, gap):
+                if not seed:
+                    return None
+                box = [
+                    min(g[0] for g in seed),
+                    min(g[1] for g in seed),
+                    max(g[2] for g in seed),
+                    max(g[3] for g in seed),
+                ]
+                changed = True
+                while changed:
+                    changed = False
+                    for g in pool:
+                        vgap = max(g[1] - box[3], box[1] - g[3], 0)
+                        hov = min(g[2], box[2]) - max(g[0], box[0])
+                        if vgap <= gap and hov > -20:
+                            nb = [
+                                min(box[0], g[0]),
+                                min(box[1], g[1]),
+                                max(box[2], g[2]),
+                                max(box[3], g[3]),
+                            ]
+                            if nb != box:
+                                box = nb
+                                changed = True
+                return box
+
+            def above():
+                pool = [g for g in graphics if in_col(g) and g[1] >= cy1 - 4]
+                seed = [g for g in pool if g[1] - cy1 <= 60]
+                b = grow(seed, pool, 20)
+                if b:
+                    b[1] = max(b[1], cy1 + 1)
+                return b
+
+            def rules_in_col():
+                return [
+                    g
+                    for g in graphics
+                    if in_col(g) and (g[3] - g[1]) < 2.5 and (g[2] - g[0]) > 50
+                ]
+
+            def stop_at_neighbour(direction):
+                """Where the next float begins — two tables in a column would
+                otherwise be captured as one."""
+                if direction == "below":
+                    tops = [c[3] for c in caption_boxes if c[3] < cy0 - 2]
+                    return max(tops) if tops else 0
+                bots = [c[1] for c in caption_boxes if c[1] > cy1 + 2]
+                return min(bots) if bots else H
+
+            def table_span(direction):
+                """Tables are framed by rules of about the same width (booktabs:
+                top, mid, bottom). Their rows are text, so growing by graphics
+                gaps never crosses from one rule to the next."""
+                rules = rules_in_col()
+                limit = stop_at_neighbour(direction)
+                if direction == "below":
+                    near = [r for r in rules if 0 <= cy0 - r[3] <= 110 and r[3] > limit]
+                    if not near:
+                        return None
+                    top = max(near, key=lambda r: r[3])
+                    tw = top[2] - top[0]
+                    group = [
+                        r
+                        for r in rules
+                        if r[3] <= top[3] + 0.5
+                        and r[3] > limit
+                        and abs((r[2] - r[0]) - tw) <= 0.35 * tw
+                        and top[3] - r[3] <= 0.6 * H
+                    ]
+                    if len(group) < 2:
+                        return None
+                    lo = min(group, key=lambda r: r[1])
+                    box = [
+                        min(r[0] for r in group),
+                        lo[1],
+                        max(r[2] for r in group),
+                        min(top[3], cy0 - 1),
+                    ]
+                else:
+                    near = [r for r in rules if 0 <= r[1] - cy1 <= 110 and r[1] < limit]
+                    if not near:
+                        return None
+                    bot = min(near, key=lambda r: r[1])
+                    bw = bot[2] - bot[0]
+                    group = [
+                        r
+                        for r in rules
+                        if r[1] >= bot[1] - 0.5
+                        and r[1] < limit
+                        and abs((r[2] - r[0]) - bw) <= 0.35 * bw
+                        and r[1] - bot[1] <= 0.6 * H
+                    ]
+                    if len(group) < 2:
+                        return None
+                    hi = max(group, key=lambda r: r[3])
+                    box = [
+                        min(r[0] for r in group),
+                        max(bot[1], cy1 + 1),
+                        max(r[2] for r in group),
+                        hi[3],
+                    ]
+                return box if box[3] - box[1] >= 25 else None
+
+            def text_block(direction):
+                """A table drawn without rules: take the run of text lines next to
+                the caption, stopping at the first gap wider than a blank line."""
+                rows = {}
+                for i in range(n):
+                    try:
+                        l, b, r, t = tp.get_charbox(i)
+                    except Exception:
+                        continue
+                    if r <= l or t <= b or not in_col((l, b, r, t)):
+                        continue
+                    key = round(b / 2)
+                    e = rows.setdefault(key, [l, b, r, t])
+                    e[0] = min(e[0], l)
+                    e[1] = min(e[1], b)
+                    e[2] = max(e[2], r)
+                    e[3] = max(e[3], t)
+                lines = sorted(rows.values(), key=lambda e: -e[1])
+                lh = max(cy1 - cy0, 8)
+                limit = stop_at_neighbour(direction)
+                box = None
+                if direction == "below":
+                    seq = [e for e in lines if e[3] <= cy0 + 1 and e[3] > limit]
+                    edge = cy0
+                else:
+                    seq = [e for e in lines if e[1] >= cy1 - 1 and e[1] < limit]
+                    seq.reverse()
+                    edge = cy1
+                for e in seq:
+                    gap = (edge - e[3]) if direction == "below" else (e[1] - edge)
+                    if gap > lh * 2.2:
+                        break
+                    box = (
+                        [
+                            min(box[0], e[0]),
+                            min(box[1], e[1]),
+                            max(box[2], e[2]),
+                            max(box[3], e[3]),
+                        ]
+                        if box
+                        else list(e)
+                    )
+                    edge = e[1] if direction == "below" else e[3]
+                return box if box and (box[3] - box[1]) >= 25 else None
+
+            def nearest_rule_side():
+                rules = rules_in_col()
+                below = [cy0 - r[3] for r in rules if 0 <= cy0 - r[3] <= 110]
+                above = [r[1] - cy1 for r in rules if 0 <= r[1] - cy1 <= 110]
+                if below and above:
+                    return "below" if min(below) <= min(above) else "above"
+                if below:
+                    return "below"
+                return "above" if above else "below"
+
+            if kind == "fig":
+                box, where = above(), "above"
+                if box is None:
+                    box, where = table_span("below"), "flip"
+            else:
+                first = nearest_rule_side()
+                other = "above" if first == "below" else "below"
+                box, where = table_span(first), first
+                if box is None:
+                    box, where = table_span(other), other
+                if box is None:
+                    box, where = text_block(first) or text_block(other), "text"
+                if box is None:
+                    box, where = above(), "graphics"
+            if box is not None and kind == "tbl":
+                # a short caption over a wider table: follow the table, not the caption
+                col = (min(col[0], box[0] - 2), max(col[1], box[2] + 2))
+            status = "ok" if box else "miss"
+            if box is None:
+                cands.setdefault((kind, num), []).append(
+                    {"page": pno + 1, "status": "miss"}
+                )
+                continue
+            x0, y0, x1, y1 = box
+            x0, x1 = max(col[0], x0 - 5), min(col[1], x1 + 5)
+            y0, y1 = max(0, y0 - 5), min(H, y1 + 5)
+            if (x1 - x0) < 40 or (y1 - y0) < 25:
+                cands.setdefault((kind, num), []).append(
+                    {"page": pno + 1, "status": "tiny"}
+                )
+                continue
+            rec = {
+                "page": pno + 1,
+                "kind": kind,
+                "num": num,
+                "status": status,
+                "where": where,
+                "box": [round(v) for v in (x0, y0, x1, y1)],
+                "caption": re.sub(
+                    r"\s+", " ", text[m.start() : m.start() + 400]
+                ).strip()[:400],
+                "crop": (x0, y0, W - x1, H - y1),
+            }
+            cands.setdefault((kind, num), []).append(rec)
+    found = []
+    for key in sorted(cands, key=lambda k: (k[0], k[1])):
+        good = [c for c in cands[key] if c.get("status") == "ok"]
+        if not good:
+            continue
+        found.append(good[0])
+    return found
+
+
+def fetch_from_pdf(pdf_path, max_width=800, jpeg_quality=80):
+    """Render each captioned figure/table region of a local PDF."""
+    try:
+        import pypdfium2  # noqa: F401
+    except ImportError:
+        sys.stderr.write("[warn] pypdfium2 missing — cannot read figures from PDF\n")
+        return []
+    try:
+        regions = extract(pdf_path)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[warn] pdf figure extraction failed: {e}\n")
+        return []
+    import pypdfium2 as pdfium
+
+    doc = pdfium.PdfDocument(pdf_path)
+    figures = []
+    for r in regions:
+        page = doc[r["page"] - 1]
+        try:
+            img = page.render(scale=2, crop=r["crop"]).to_pil()
+        except Exception:
+            continue
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        data_uri, width, _ = downsize_to_data_uri(
+            buf.getvalue(), max_width=max_width, jpeg_quality=jpeg_quality
+        )
+        kind = "table" if r["kind"] == "tbl" else "image"
+        label = ("Table " if kind == "table" else "Figure ") + str(r["num"])
+        figures.append(
+            {
+                "id": f"{r['kind']}{r['num']}",
+                "kind": kind,
+                "label": label,
+                "caption_en": r["caption"],
+                "caption_ko": "",
+                "data_uri": data_uri,
+                "width": width,
+                "ref_in_section": None,
+                "source": "pdf",
+                "page": r["page"],
+            }
+        )
+    return figures
+
+
 # ---------- Strategy 2: arXiv source tarball ----------
 
 # Allow overriding rasterization DPI for PDF figures
@@ -587,9 +1032,13 @@ def main():
     ap.add_argument(
         "--out-name", help="override output filename (default: <slug>_figures.json)"
     )
+    ap.add_argument(
+        "--pdf", help="local PDF to read figures from (used when arXiv has none)"
+    )
     args = ap.parse_args()
 
     arxiv_id = args.arxiv_id.strip()
+    pdf_only = arxiv_id in ("", "-", "none")
     # Normalize to bare ID
     m = re.search(r"(\d{4}\.\d{4,5})", arxiv_id)
     if m:
@@ -597,23 +1046,36 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    # Try ar5iv first
-    sys.stderr.write(f"[info] trying ar5iv for {arxiv_id}...\n")
-    figures = fetch_from_ar5iv(
-        arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
-    )
-    source_used = "ar5iv"
-    if not figures:
-        sys.stderr.write(f"[info] ar5iv yielded 0 figures, trying source tarball...\n")
-        figures = fetch_from_tarball(
+    figures, source_used = [], "pdf"
+    if not pdf_only:
+        sys.stderr.write(f"[info] trying ar5iv for {arxiv_id}...\n")
+        figures = fetch_from_ar5iv(
             arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
         )
-        source_used = "tarball"
+        source_used = "ar5iv"
+        if not figures:
+            sys.stderr.write(
+                "[info] ar5iv yielded 0 figures, trying source tarball...\n"
+            )
+            figures = fetch_from_tarball(
+                arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
+            )
+            source_used = "tarball"
+    if not figures and args.pdf and os.path.isfile(args.pdf):
+        sys.stderr.write(
+            f"[info] reading figures out of {os.path.basename(args.pdf)}...\n"
+        )
+        figures = fetch_from_pdf(
+            args.pdf, max_width=args.max_width, jpeg_quality=args.jpeg_quality
+        )
+        source_used = "pdf"
 
     # Guess section refs
     if figures:
         # Try to auto-discover sources if not given
-        slug = arxiv_id.replace("/", "_")
+        slug = (args.out_name or "").replace("_figures.json", "") or arxiv_id.replace(
+            "/", "_"
+        )
         src_text = args.source_text or os.path.join(args.out_dir, f"{slug}_source.txt")
         secs = args.sections_index or os.path.join(args.out_dir, f"{slug}_sections.txt")
         guess_section_refs(figures, src_text, secs)

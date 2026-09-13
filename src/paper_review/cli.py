@@ -119,16 +119,24 @@ def init(
     paper_json = final_dir / f"{slug}_paper.json"
 
     arxiv_id = paper["metadata"].get("arxiv_id")
-    if not no_figures and arxiv_id:
+    # Figures used to be an arXiv-only step, so every paper registered from a
+    # PDF arrived with none. The PDF is right here — read it when arXiv has
+    # nothing, which also covers arXiv papers without an ar5iv page.
+    local_pdf = next(
+        (
+            p
+            for p in (final_dir / "original.pdf", final_dir / f"{slug}.pdf")
+            if p.exists()
+        ),
+        None,
+    )
+    if not no_figures and (arxiv_id or local_pdf):
         click.secho("→ fetch_figures.py …", fg="cyan")
-        figs_path = runner.fetch_figures(arxiv_id, final_dir, slug)
+        figs_path = runner.fetch_figures(arxiv_id or "", final_dir, slug, pdf=local_pdf)
         if figs_path:
             click.secho(f"   figures.json: {figs_path.name}", dim=True)
         else:
-            click.secho(
-                "   (no figures extracted — paper may be non-arXiv or ar5iv missing)",
-                fg="yellow",
-            )
+            click.secho("   (no figures extracted)", fg="yellow")
 
     click.secho("→ writing workbench.md skeleton …", fg="cyan")
     (final_dir / "workbench.md").write_text(render_initial(final_dir, slug))

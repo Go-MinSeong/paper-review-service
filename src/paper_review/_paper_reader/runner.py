@@ -83,10 +83,14 @@ def fetch_figures(
     *,
     max_width: int = 800,
     jpeg_quality: int = 80,
+    pdf: Path | None = None,
 ) -> Path | None:
-    """Run fetch_figures.py. Returns path to figures.json if produced."""
+    """Run fetch_figures.py. Returns path to figures.json if produced.
+
+    `pdf` is read when arXiv has nothing to give — a paper registered from a
+    file, or an arXiv paper whose ar5iv page and tarball both come up empty."""
     args = [
-        arxiv_id,
+        arxiv_id or "-",
         "--out-dir",
         str(out_dir),
         "--max-width",
@@ -97,7 +101,11 @@ def fetch_figures(
         str(out_dir / f"{slug}_source.txt"),
         "--sections-index",
         str(out_dir / f"{slug}_sections.txt"),
+        "--out-name",
+        f"{slug}_figures.json",
     ]
+    if pdf is not None:
+        args += ["--pdf", str(pdf)]
     res = _run("fetch_figures.py", *args, check=False)
     figs_path = out_dir / f"{slug}_figures.json"
     return figs_path if figs_path.exists() else None
