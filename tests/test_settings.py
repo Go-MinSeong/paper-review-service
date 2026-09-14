@@ -120,7 +120,7 @@ def test_bundle_excludes_the_same_characters_git_does():
     spec = (root / "packaging" / "paper-review.spec").read_text()
     m = re.search(r"LOCAL_ONLY_CHARACTERS = \(([^)]*)\)", spec, re.S)
     assert m, "spec must declare the exclusion list"
-    in_spec = {s.strip().strip('\"\'') for s in m.group(1).split(",") if s.strip()}
+    in_spec = {s.strip().strip("\"'") for s in m.group(1).split(",") if s.strip()}
 
     ignored = set(
         re.findall(
@@ -137,7 +137,9 @@ def test_local_illustration_groups_merge_over_the_shipped_ones(tmp_path, monkeyp
     from paper_review.server import settings as S
 
     shipped = tmp_path / "groups.json"
-    shipped.write_text(json.dumps({"groups": {"vision": ["badger"]}, "tag_groups": {"VLM": "vision"}}))
+    shipped.write_text(
+        json.dumps({"groups": {"vision": ["badger"]}, "tag_groups": {"VLM": "vision"}})
+    )
     local = tmp_path / "groups.local.json"
     local.write_text(json.dumps({"groups": {"vision": ["mine"], "extra": ["other"]}}))
     monkeypatch.setattr(S, "GROUPS_FILE", shipped)
@@ -180,8 +182,14 @@ def test_desktop_window_allows_pinch_zoom(monkeypatch):
         type(
             "M",
             (),
-            {"create_window": staticmethod(fake_create_window), "start": staticmethod(lambda *a, **k: None)},
+            {
+                "create_window": staticmethod(fake_create_window),
+                "start": staticmethod(lambda *a, **k: None),
+                "settings": {},
+            },
         ),
     )
     A.run_app(port=1234)
     assert seen.get("zoomable") is True
+    # the Summary's HTML export is a download; pywebview drops downloads unless allowed
+    assert sys.modules["webview"].settings.get("ALLOW_DOWNLOADS") is True
