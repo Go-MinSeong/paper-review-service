@@ -22,6 +22,8 @@ from typing import Literal, Optional
 from fastapi import HTTPException
 from pydantic import BaseModel
 
+from paper_review import svglint
+
 Status = Literal["idle", "running", "done", "error", "cancelled"]
 
 
@@ -585,6 +587,15 @@ Content rules:
   data sizes, hyperparameters). Write math as plain HTML (italic vars,
   <sub>/<sup>) — NO external math libraries. Draw the core mechanism as an
   inline SVG inside diagram-wrap using the CSS variable colors.
+- DIAGRAM GEOMETRY (the SVG is checked automatically once written): one main
+  path, at most 12 boxes, side branches leave the nearest main-path box. Size
+  every box to its longest line — per character ≈0.56em Latin, ≈0.64em
+  digits/capitals, ≈0.9em Hangul at the font-size used — plus 12px padding a
+  side; text never crosses a box edge or the viewBox. Labels never overlap:
+  stacked lines sit at least 1.2× their font-size apart. Every arrow ends on a
+  box, a line, or the label it points at. Route connectors around unrelated
+  boxes, and put an edge label beside its line, not on it. Enlarge the viewBox
+  rather than cramming; use only translate() transforms.
 - 04 실험: each key result as "무엇을 보여주는 실험 → 결과 → 해석"; use
   result-bar or table (this paper's row = highlight-row) + stat-box for
   headline numbers; success callout for the key takeaway.
@@ -655,55 +666,140 @@ Then reply EXACTLY '✓ report done'."""
     # A regeneration starts with a report.html already there, so "the file
     # exists" proves nothing — the run only counts if the file actually moved.
     before = report.stat().st_mtime if report.exists() else 0
+    stop, code, err, session_id = await _stream_claude(cmd, paper_dir, job, timeout)
+    if stop:
+        return {"ok": False, "error": stop}
+    created = report.exists() and report.stat().st_mtime > before
+    if code != 0 and err:
+        err = err[-500:]
+        if job:
+            _detect_blocker(err + chr(10) + chr(10).join(job.log[-12:]), job)
+    elif code == 0 and not created:
+        err = "claude finished without writing report.html"
+    if job and code == 0 and created:
+        job.log.append("   ✓ report done")
+    if code == 0 and created:
+        _archive_requests(
+            paper_dir, applied_requests
+        )  # applied — don't apply them again
+        await _repair_diagrams(paper_dir, session_id, model, job)
+    return {
+        "ok": code == 0 and created,
+        "code": code,
+        "created": created,
+        "error": err or None,
+    }
+
+
+_REPAIR_PROMPT = """The diagram check found geometry problems in the inline SVG
+diagrams of report.html ("diagram N" is the N-th <svg> in the file; coordinates
+are SVG user units):
+
+{diags}
+
+Fix ONLY these, with the Edit tool: resize the box to fit its text, move labels
+apart or shorten them without losing meaning, end the arrow on what it points
+at, or route the line around the box. If the diagram runs out of room, enlarge
+its viewBox. Change nothing else in report.html and do not touch report.md.
+Then reply EXACTLY '✓ fixed'."""
+
+
+async def _repair_diagrams(
+    paper_dir: Path,
+    session_id: str,
+    model: Optional[str],
+    job: Optional[AnalysisJob],
+    rounds: int = 2,
+) -> None:
+    """archify's validate → repair loop, for the hand-drawn report SVGs: resume
+    the report session with the diagnostics, keep an edit only if it lowers the
+    count, and stop at the first round that doesn't."""
+    log = job.log.append if job else (lambda _m: None)
+    report = paper_dir / "report.html"
+    found = svglint.lint_report(report.read_text(encoding="utf-8"))
+    if not found:
+        return
+    log(f"   ◇ 다이어그램 점검: {len(found)}건 — 수정 요청")
+    for _ in range(rounds if session_id else 0):
+        previous = report.read_text(encoding="utf-8")
+        cmd = [
+            "claude",
+            "-p",
+            _REPAIR_PROMPT.format(diags="\n".join(f"- {d}" for d in found)),
+            "--resume",
+            session_id,
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--max-turns",
+            "15",
+            "--permission-mode",
+            "acceptEdits",
+            "--disallowedTools",
+            "Write",
+            "WebSearch",
+        ]
+        if model:
+            cmd += ["--model", model]
+        stop, code, _err, _sid = await _stream_claude(cmd, paper_dir, job, 300)
+        now = svglint.lint_report(report.read_text(encoding="utf-8"))
+        if stop or code != 0 or len(now) >= len(found):
+            report.write_text(previous, encoding="utf-8")
+            log(f"   ◇ 다이어그램 수정 효과 없음 — 이전 버전 유지")
+            break
+        log(f"   ◇ 다이어그램 수정: {len(found)} → {len(now)}건")
+        found = now
+        if not found:
+            return
+    for d in found[:5]:
+        log(f"   ◇ 남은 문제: {d}")
+
+
+async def _stream_claude(
+    cmd: list[str], cwd: Path, job: Optional[AnalysisJob], timeout: int
+) -> tuple[Optional[str], Optional[int], str, str]:
+    """Run claude, feeding its stream into the job log.
+    Returns (stop, returncode, stderr, session_id); stop is "cancelled" or
+    "timeout" when the run was killed."""
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         limit=16 * 1024 * 1024,
-        cwd=str(paper_dir),
+        cwd=str(cwd),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     start = time.time()
+    session_id = ""
     try:
         assert proc.stdout is not None
         while True:
             if job and job.cancel_event.is_set():
                 job.log.append("   ⏹ killing claude…")
                 proc.terminate()
-                return {"ok": False, "error": "cancelled"}
+                return "cancelled", None, "", session_id
             if time.time() - start > timeout:
                 if job:
                     job.log.append(f"   ⏱ timeout ({timeout}s) — killing")
                 proc.terminate()
-                return {"ok": False, "error": "timeout"}
+                return "timeout", None, "", session_id
             try:
                 line = await asyncio.wait_for(proc.stdout.readline(), timeout=1.0)
             except asyncio.TimeoutError:
                 continue
             if not line:
                 break
+            if not session_id and b'"session_id"' in line:
+                try:
+                    session_id = json.loads(line).get("session_id") or ""
+                except ValueError:
+                    pass
             if job:
                 _consume_stream_line(line, job)
         await proc.wait()
-        created = report.exists() and report.stat().st_mtime > before
         err = ""
         if proc.returncode != 0 and proc.stderr:
-            err = (await proc.stderr.read()).decode("utf-8", "replace")[-500:]
-            if job:
-                _detect_blocker(err + chr(10) + chr(10).join(job.log[-12:]), job)
-        elif proc.returncode == 0 and not created:
-            err = "claude finished without writing report.html"
-        if job and proc.returncode == 0 and created:
-            job.log.append("   ✓ report done")
-        if proc.returncode == 0 and created:
-            _archive_requests(
-                paper_dir, applied_requests
-            )  # applied — don't apply them again
-        return {
-            "ok": proc.returncode == 0 and created,
-            "code": proc.returncode,
-            "created": created,
-            "error": err or None,
-        }
+            err = (await proc.stderr.read()).decode("utf-8", "replace")
+        return None, proc.returncode, err, session_id
     finally:
         if proc.returncode is None:
             proc.terminate()
