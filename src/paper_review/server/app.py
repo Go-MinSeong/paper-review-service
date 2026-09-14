@@ -1092,6 +1092,79 @@ _THEME_VARS = {
 }
 
 
+# Reports invent their own colour variables, so no palette override can name
+# them all: the intonation report's light block redefined --bg but left --fg-dim
+# and --fg-mute at their dark values — pale text on white, unreadable on screen
+# and in the exported PDF. This checks what actually got rendered instead: any
+# text below WCAG AA against the background it sits on is pushed toward black or
+# white until it passes. Colours that already read keep their hue and weight.
+_CONTRAST_GUARD = """<script id='pr-contrast'>
+(function () {
+  function parse(c) {
+    var m = c && c.match(/rgba?\\(([^)]+)\\)/);
+    if (!m) return null;
+    var p = m[1].split(',').map(parseFloat);
+    return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+  }
+  function lum(c) {
+    function f(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+  }
+  function ratio(a, b) {
+    var x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  }
+  function backgroundOf(el) {
+    for (var e = el; e; e = e.parentElement) {
+      var c = parse(getComputedStyle(e).backgroundColor);
+      if (c && c.a > 0.5) return c;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  }
+  function mix(c, t, k) {
+    return { r: c.r + (t.r - c.r) * k, g: c.g + (t.g - c.g) * k, b: c.b + (t.b - c.b) * k };
+  }
+  function fix() {
+    var seen = new Set();
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      var node = walker.currentNode;
+      if (!node.textContent.trim()) continue;
+      var el = node.parentElement;
+      if (!el || seen.has(el)) continue;
+      seen.add(el);
+      var cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var fg = parse(cs.color);
+      if (!fg) continue;
+      var bg = backgroundOf(el);
+      var size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight, 10) >= 700;
+      var need = (size >= 24 || (size >= 18.66 && bold)) ? 3 : 4.5;
+      if (ratio(fg, bg) >= need) continue;
+      // move toward whichever end the background is far from, keeping hue
+      var target = lum(bg) > 0.4 ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
+      var out = fg;
+      for (var k = 0.1; k <= 1.0001; k += 0.1) {
+        out = mix(fg, target, k);
+        if (ratio(out, bg) >= need) break;
+      }
+      el.style.setProperty('color', 'rgb(' + Math.round(out.r) + ',' + Math.round(out.g) + ',' + Math.round(out.b) + ')', 'important');
+      el.setAttribute('data-pr-fixed', '');
+    }
+    // counted from the marks, not this pass: the guard runs again on load and
+    // a second pass finds nothing left to fix
+    document.documentElement.dataset.prContrastFixed = String(document.querySelectorAll('[data-pr-fixed]').length);
+  }
+  var run = function () { try { fix(); } catch (e) {} };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  addEventListener('load', run);
+  addEventListener('beforeprint', run);
+  // collapsed <details> render their text only when opened
+  document.addEventListener('toggle', run, true);
+})();
+</script>"""
+
+
 def _theme_css() -> str:
     """One palette for every report, switchable by the app instead of the OS."""
     light, dark = _THEME_VARS["light"], _THEME_VARS["dark"]
@@ -1103,6 +1176,9 @@ def _theme_css() -> str:
         f"html[data-pr-theme='light'] {{{light}}}"
         f"html[data-pr-theme='dark'] {{{dark}}}"
         "html,body{background:var(--bg);color:var(--text,var(--fg));}"
+        # Browsers drop backgrounds when printing unless told not to: light text
+        # tuned for a dark card then lands on white paper.
+        "@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}"
         "</style>"
     )
 
@@ -1197,7 +1273,9 @@ def paper_report(
         headers["Content-Disposition"] = f'attachment; filename="{slug}-report.html"'
     raw = p.read_text()
     text = _retarget_color_scheme(_inline_table_figs(raw, d))
-    head = _theme_css()
+    if print_view:
+        theme = "light"  # a PDF is read on white paper, whatever the app theme is
+    head = _theme_css() + _CONTRAST_GUARD
     if theme in ("light", "dark"):
         head += f"<script>document.documentElement.dataset.prTheme='{theme}'</script>"
     text = (

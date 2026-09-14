@@ -372,3 +372,33 @@ def test_report_follows_the_app_theme_not_the_os(tmp_path, monkeypatch):
     # more than variables (that nav background) and those followed the OS too
     assert "@media (prefers-color-scheme: light)" not in html
     assert "nav{background:#eee}" in html
+
+
+def test_every_report_carries_the_contrast_guard_and_prints_on_white(
+    tmp_path, monkeypatch
+):
+    """Reports name their colour variables freely, so a palette override missed
+    the intonation report's --fg-dim: pale text on white, worse in the PDF where
+    the dark card backgrounds were dropped. The guard checks rendered contrast
+    instead, and a printout is always light with its backgrounds kept."""
+    import paper_review.server.app as A
+    from fastapi.testclient import TestClient
+
+    d = tmp_path / "2600.44444"
+    d.mkdir()
+    (d / "workbench.md").write_text("---\nstatus: to_read\n---\n")
+    (d / "report.html").write_text(
+        "<html><head><style>:root{--bg:#0e1116;--fg-dim:#a3adbb}"
+        "@media (prefers-color-scheme: light){:root{--bg:#f7f8fa}}</style></head>"
+        "<body><p style='color:var(--fg-dim)'>흐린 글자</p></body></html>"
+    )
+    monkeypatch.setattr(A, "_paper_dir", lambda slug: d)
+    c = TestClient(A.app)
+
+    for q in ("?theme=light", "?theme=dark", ""):
+        html = c.get(f"/paper/2600.44444/report{q}").text
+        assert "id='pr-contrast'" in html, q
+        assert "print-color-adjust:exact" in html, q
+
+    printed = c.get("/paper/2600.44444/report?print=1&theme=dark").text
+    assert "prTheme='light'" in printed and "prTheme='dark'" not in printed

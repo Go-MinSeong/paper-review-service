@@ -559,6 +559,11 @@ Materials (read in this order):
    vocabulary EXACTLY (hero, card-grid, stats-row/stat-box, timeline,
    result-bar, table + highlight-row, callout / warn / success,
    details/summary, diagram-wrap SVG, paper-fig, limit-list, sticky nav).
+   COLOURS: keep the template's light default and its dark block. If you add
+   or rename a colour variable, define it in BOTH blocks — a light block that
+   redefines the background but not the text colours leaves pale text on white.
+   Every text colour must reach 4.5:1 contrast on its own background in both
+   themes; never set text colour to a tint of the background.
 2. workbench.md — the finished review. This is the PRIMARY source: it contains
    the reviewer's own notes (내 정리), Q&A, Reader's Notes. WEAVE those
    insights into the matching sections — the report must reflect the review
