@@ -518,14 +518,26 @@ def _requests_hint(paper_dir: Path) -> str:
     )
 
 
-def _archive_requests(paper_dir: Path) -> None:
-    """Applied requests must not be applied again on the next rebuild."""
+def _archive_requests(paper_dir: Path, applied: str) -> None:
+    """Move the requests this rebuild applied into .history — and only those.
+
+    `applied` is the file as the rebuild read it. A request sent from the chat
+    while the rebuild was running was never shown to it, so it stays in the file
+    for the next regeneration instead of being archived unapplied."""
     req = paper_dir / "report-requests.md"
-    if not req.exists():
+    if not applied or not req.exists():
         return
     hist = paper_dir / ".history"
     hist.mkdir(exist_ok=True)
-    req.rename(hist / f"report-requests-{int(time.time())}.md")
+    (hist / f"report-requests-{int(time.time())}.md").write_text(
+        applied, encoding="utf-8"
+    )
+    now = req.read_text(encoding="utf-8")
+    rest = now[len(applied) :] if now.startswith(applied) else now
+    if rest.strip():
+        req.write_text(rest.lstrip("\n"), encoding="utf-8")
+    else:
+        req.unlink()
 
 
 async def generate_report(
@@ -537,6 +549,8 @@ async def generate_report(
     """On-demand: build the structured single-file report (report.html) from the
     finished review — the '최종 정리' step of the team review guide."""
     slug = paper_dir.name
+    req_file = paper_dir / "report-requests.md"
+    applied_requests = req_file.read_text(encoding="utf-8") if req_file.exists() else ""
     prompt = f"""Create the FINAL structured review report for this paper as a single
 self-contained HTML file at report.html (in the current directory).
 
@@ -676,7 +690,9 @@ Then reply EXACTLY '✓ report done'."""
         if job and proc.returncode == 0 and created:
             job.log.append("   ✓ report done")
         if proc.returncode == 0 and created:
-            _archive_requests(paper_dir)  # applied — don't apply them again
+            _archive_requests(
+                paper_dir, applied_requests
+            )  # applied — don't apply them again
         return {
             "ok": proc.returncode == 0 and created,
             "code": proc.returncode,
