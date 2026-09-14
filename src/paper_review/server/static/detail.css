@@ -1360,3 +1360,18 @@
     color: var(--text-secondary); background: var(--bg-hover);
     border: 1px solid var(--border-subtle);
   }
+
+  /* Summary export menu (detail.js openExportMenu) */
+  .export-menu {
+    position: fixed; z-index: 200; min-width: 250px; padding: 6px;
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: 10px; box-shadow: var(--shadow-pop);
+  }
+  .export-menu button {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    width: 100%; padding: 8px 10px; border: 0; border-radius: 7px;
+    background: transparent; color: var(--text-primary); cursor: pointer; text-align: left;
+  }
+  .export-menu button:hover { background: var(--bg-hover); }
+  .export-menu b { font-size: 13px; font-weight: 600; }
+  .export-menu span { font-size: 11.5px; color: var(--text-muted); }

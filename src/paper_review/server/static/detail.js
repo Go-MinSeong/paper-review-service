@@ -825,7 +825,7 @@
       const url = `/paper/${slug}/report?v=${reportMtime}&theme=${th}`;
       if (reportFrame.src !== location.origin + url) reportFrame.src = url;
       document.getElementById("report-open").href = `/paper/${slug}/report?theme=${th}`;
-      document.getElementById("report-dl").href = `/paper/${slug}/report?download=1`;
+      document.getElementById("report-dl").href = `/paper/${slug}/report/export.html`;
     } else {
       // No report yet. This used to fall back to the workbench with the source
       // excerpt and translation hidden — the pre-2.4 idea of a summary — so a
@@ -2161,24 +2161,62 @@
   // (detail) view and collapse the nav so the print stylesheet captures the
   // entire workbench; restore the prior view afterwards.
   const btnPdf = document.getElementById('btn-pdf');
+
+  // The Summary exports two ways. PDF opens every collapsible first (a printout
+  // cannot be clicked open); HTML is one file with its figures inside, so it
+  // still works mailed or archived with the server off.
+  function exportSummaryPdf() {
+    if (document.documentElement.classList.contains('in-app')) {
+      location.href = `/paper/${slug}/report?print=1&theme=${resolvedTheme()}`;
+      return;
+    }
+    try {
+      reportFrame.contentWindow.__prOpenAllDetails && reportFrame.contentWindow.__prOpenAllDetails();
+      reportFrame.contentWindow.focus();
+      reportFrame.contentWindow.print();
+    } catch (e) { window.open(`/paper/${slug}/report?print=1`, '_blank'); }
+  }
+  function exportSummaryHtml() {
+    const a = document.createElement('a');
+    a.href = `/paper/${slug}/report/export.html`;
+    a.download = `${slug}-summary.html`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+  function openExportMenu() {
+    const existing = document.getElementById('export-menu');
+    if (existing) { existing.remove(); return; }
+    const r = btnPdf.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.id = 'export-menu';
+    menu.className = 'export-menu';
+    menu.style.top = `${r.bottom + 6}px`;
+    menu.style.right = `${Math.max(8, innerWidth - r.right)}px`;
+    menu.innerHTML = `
+      <button type="button" data-export="pdf"><b>PDF로 내보내기</b><span>접힌 내용을 모두 펼쳐서 인쇄</span></button>
+      <button type="button" data-export="html"><b>HTML로 내보내기</b><span>그림을 포함한 단일 파일 · 접기 동작 유지</span></button>`;
+    menu.addEventListener('click', e => {
+      const b = e.target.closest('[data-export]');
+      if (!b) return;
+      menu.remove();
+      if (b.dataset.export === 'pdf') exportSummaryPdf(); else exportSummaryHtml();
+    });
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', function off(ev) {
+      if (!menu.contains(ev.target) && ev.target !== btnPdf && !btnPdf.contains(ev.target)) {
+        menu.remove(); document.removeEventListener('click', off);
+      }
+    }), 0);
+  }
+
   if (btnPdf) btnPdf.addEventListener('click', () => {
     if (editing) { UIDialog.alert('편집 중에는 PDF로 내보낼 수 없습니다. 저장 후 다시 시도하세요.'); return; }
     const view = document.getElementById('wb').dataset.view;
     // Export WHAT'S ON SCREEN: in summary mode with a report, print the report
     // iframe; otherwise print the (detail) workbench.
     if (view === 'summary' && reportExists && !reportPane.hidden) {
-      // In the desktop app this silently did nothing, twice over: pywebview's
-      // print bridge prints the TOP-LEVEL web view (never an iframe), and the
-      // window.open fallback was dropped on the floor — pywebview only routes
-      // real link clicks to the browser, so a JS-opened window goes nowhere.
-      // Put the report in the top-level view instead; it prints there, stays
-      // inside the app, and the page carries a link back to the review.
-      if (document.documentElement.classList.contains('in-app')) {
-        location.href = `/paper/${slug}/report?print=1&theme=${resolvedTheme()}`;
-        return;
-      }
-      try { reportFrame.contentWindow.focus(); reportFrame.contentWindow.print(); }
-      catch (e) { window.open(`/paper/${slug}/report`, '_blank'); }
+      openExportMenu();
       return;
     }
     const prevView = view;

@@ -425,6 +425,9 @@ def run_app(port: int | None = None) -> None:
         # same document supports fine in a browser.
         zoomable=True,
     )
+    # Exports (the Summary as HTML) are downloads. pywebview ignores them unless
+    # this is on — the button would appear to do nothing in the app.
+    webview.settings["ALLOW_DOWNLOADS"] = True
     webview.start(_boot, (window, port))
 
 

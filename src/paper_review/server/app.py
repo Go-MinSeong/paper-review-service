@@ -1165,6 +1165,29 @@ _CONTRAST_GUARD = """<script id='pr-contrast'>
 </script>"""
 
 
+# A Summary folds its depth into <details> blocks ("깊게 —", "내 정리 —"). On paper
+# they cannot be clicked open, so a printout silently lost that content. Open
+# every block right before printing and put each back as it was afterwards.
+_PRINT_EXPAND = """<script id='pr-print-expand'>
+(function () {
+  var was = null;
+  function openAll() {
+    var all = document.querySelectorAll('details');
+    if (was === null) was = Array.prototype.map.call(all, function (d) { return d.open; });
+    all.forEach(function (d) { d.open = true; });
+  }
+  function restore() {
+    if (was === null) return;
+    document.querySelectorAll('details').forEach(function (d, i) { d.open = !!was[i]; });
+    was = null;
+  }
+  addEventListener('beforeprint', openAll);
+  addEventListener('afterprint', restore);
+  window.__prOpenAllDetails = openAll;
+})();
+</script>"""
+
+
 def _theme_css() -> str:
     """One palette for every report, switchable by the app instead of the OS."""
     light, dark = _THEME_VARS["light"], _THEME_VARS["dark"]
@@ -1239,7 +1262,7 @@ _PRINT_BAR = """
 <script>
   // The print dialog is what turns this into a PDF; open it once the layout
   // and images have settled, and leave the button for a second pass.
-  addEventListener('load', () => setTimeout(() => window.print(), 500));
+  addEventListener('load', () => { window.__prOpenAllDetails && window.__prOpenAllDetails(); setTimeout(() => window.print(), 500); });
 </script>
 """
 
@@ -1275,7 +1298,7 @@ def paper_report(
     text = _retarget_color_scheme(_inline_table_figs(raw, d))
     if print_view:
         theme = "light"  # a PDF is read on white paper, whatever the app theme is
-    head = _theme_css() + _CONTRAST_GUARD
+    head = _theme_css() + _CONTRAST_GUARD + _PRINT_EXPAND
     if theme in ("light", "dark"):
         head += f"<script>document.documentElement.dataset.prTheme='{theme}'</script>"
     text = (
@@ -1293,6 +1316,65 @@ def paper_report(
     if text != raw:
         return HTMLResponse(text, headers=headers)
     return FileResponse(p, media_type="text/html", headers=headers)
+
+
+def _inline_fig_images(html: str, d: Path) -> str:
+    """Put each /paper/<slug>/fig/<id> image into the file as a data URI.
+
+    A downloaded report pointed its figures at this server, so opened anywhere
+    else — mailed, archived, the server off — every image was broken."""
+    import re as _re
+
+    if "/fig/" not in html:
+        return html
+    figs = list(d.glob("*_figures.json"))
+    if not figs:
+        return html
+    data = json.loads(figs[0].read_text())
+    items = data if isinstance(data, list) else data.get("figures", [])
+    uris = {
+        f.get("id"): f.get("data_uri")
+        for f in items
+        if isinstance(f, dict) and f.get("data_uri")
+    }
+    return _re.sub(
+        r'(src=["\'])/paper/[^/"\']+/fig/([\w-]+)(["\'])',
+        lambda m: (
+            m.group(1) + uris[m.group(2)] + m.group(3)
+            if m.group(2) in uris
+            else m.group(0)
+        ),
+        html,
+    )
+
+
+@app.get("/paper/{slug}/report/export.html")
+def paper_report_export(slug: str):
+    """The Summary as one self-contained file: figures inlined, collapsibles
+    kept interactive, readable in either OS theme, and opening everything when
+    printed. Served as a download — the desktop app only offers a save dialog
+    for content it cannot display, and HTML it would simply open in the window."""
+    from fastapi.responses import Response
+    from urllib.parse import quote
+
+    d = _paper_dir(slug)
+    p = d / "report.html"
+    if not p.exists():
+        raise HTTPException(404, "report not generated yet")
+    html = _inline_fig_images(_inline_table_figs(p.read_text(), d), d)
+    html = _retarget_color_scheme(html)
+    head = _theme_css() + _CONTRAST_GUARD + _PRINT_EXPAND
+    html = (
+        html.replace("</head>", head + "</head>", 1)
+        if "</head>" in html
+        else head + html
+    )
+    name = f"{slug}-summary.html"
+    return Response(
+        html.encode("utf-8"),
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
 
 
 @app.get("/paper/{slug}/report/requests")
