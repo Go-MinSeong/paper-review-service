@@ -1217,6 +1217,14 @@ def paper_report(
     return FileResponse(p, media_type="text/html", headers=headers)
 
 
+@app.get("/paper/{slug}/report/requests")
+def paper_report_requests(slug: str) -> dict:
+    """How many Summary-chat requests the next Regenerate Report will apply."""
+    from .chat import pending_requests
+
+    return {"count": pending_requests(_paper_dir(slug))}
+
+
 class PublishBody(BaseModel):
     # "detail" = full review draft (<slug>.md), "summary" = structured-report
     # summary draft (<slug>-summary.md, tagged `summary`). Both go to drafts/.

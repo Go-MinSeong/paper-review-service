@@ -27,6 +27,10 @@ class ChatBody(BaseModel):
     prompt: str
     max_turns: int = 30
     fresh: bool = False  # if True, omit --continue (start a new session)
+    # "workbench" edits the review, as before. "report" discusses the Summary
+    # without touching it: the turns are kept in report-requests.md and applied
+    # when the user presses Regenerate Report.
+    target: str = "workbench"
     model: str | None = None  # "sonnet" | "opus" | "haiku" or full id
 
 
@@ -50,6 +54,68 @@ def _review_skill(paper_dir: Path) -> str:
     except OSError:
         pass
     return _SKILL_BY_TYPE.get(ctype, "paper-review")
+
+
+_SESSIONS = ".chat-sessions.json"
+REQUESTS = "report-requests.md"
+
+
+def _load_sessions(paper_dir: Path) -> dict:
+    try:
+        return json.loads((paper_dir / _SESSIONS).read_text())
+    except Exception:
+        return {}
+
+
+def _save_session(paper_dir: Path, target: str, session_id: str) -> None:
+    """Remember the session per target. --continue resumes whatever ran last in
+    the folder, so a Summary discussion and the review chat would bleed into one
+    session — "기재해줘" could then land in the wrong document."""
+    if not session_id:
+        return
+    data = _load_sessions(paper_dir)
+    if data.get(target) == session_id:
+        return
+    data[target] = session_id
+    try:
+        (paper_dir / _SESSIONS).write_text(json.dumps(data))
+    except OSError:
+        pass
+
+
+def _log_request(paper_dir: Path, prompt: str, reply: str) -> None:
+    """Append one Summary-chat turn to the log regeneration reads."""
+    import time as _time
+
+    stamp = _time.strftime("%Y-%m-%d %H:%M")
+    entry = (
+        f"## {stamp}\n\n**요청**: {prompt.strip()}\n\n**Claude**: {reply.strip()}\n\n"
+    )
+    with open(paper_dir / REQUESTS, "a", encoding="utf-8") as fh:
+        fh.write(entry)
+
+
+def pending_requests(paper_dir: Path) -> int:
+    """Turns logged since the last rebuild (each starts with a '## ' heading)."""
+    try:
+        text = (paper_dir / REQUESTS).read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    return sum(1 for line in text.splitlines() if line.startswith("## "))
+
+
+_REPORT_CTX = (
+    "You are discussing the Summary report of this paper with the reviewer, inside "
+    "{paper_dir}. The report is report.html (styled) and report.md; the review it "
+    "was built from is workbench.md. Read them as needed to answer precisely. "
+    "DO NOT edit or write any file — nothing changes until the reviewer presses "
+    "Regenerate Report, which rebuilds the report and applies the requests from "
+    "this conversation. So when the reviewer asks for a change, restate it as a "
+    "concrete instruction the rebuild can follow (which section, what to add, "
+    "remove or rewrite) and say it will apply on regeneration. Point out if a "
+    "request conflicts with the review or the paper. Keep replies short — this is "
+    "a chat panel."
+)
 
 
 async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Request):
@@ -113,6 +179,9 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
             "Keep chat responses short and action-oriented — the "
             "user sees them in a chat panel, not a full terminal."
         )
+        report = body.target == "report"
+        if report:
+            system_ctx = _REPORT_CTX.format(paper_dir=paper_dir)
         cmd = [
             "claude",
             "-p",
@@ -130,8 +199,15 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
         ]
         if body.model:
             cmd += ["--model", body.model]
+        if report:
+            # discussion only: the rebuild is what changes the report
+            cmd += ["--disallowedTools", "Edit", "Write", "NotebookEdit"]
+        known = _load_sessions(paper_dir).get("report" if report else "workbench")
         if not body.fresh:
-            cmd.insert(2, "--continue")
+            if known:
+                cmd[2:2] = ["--resume", known]
+            elif not report:
+                cmd.insert(2, "--continue")  # the review chat predates session ids
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -155,6 +231,10 @@ async def stream_chat(slug: str, paper_dir: Path, body: ChatBody, request: Reque
                 except json.JSONDecodeError:
                     yield _sse({"type": "raw", "line": line.decode("utf-8", "replace")})
                     continue
+                if obj.get("type") in ("system", "result") and obj.get("session_id"):
+                    _save_session(paper_dir, body.target, obj["session_id"])
+                if report and obj.get("type") == "result" and not obj.get("is_error"):
+                    _log_request(paper_dir, body.prompt, obj.get("result") or "")
                 yield _sse_pass(obj)
 
             await proc.wait()

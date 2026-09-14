@@ -778,13 +778,33 @@
   }
   // The report controls live in the TOPBAR (no in-pane bars/banners): the
   // button reads 리포트 생성 / 리포트 재생성 and only shows in summary mode.
+  // The Summary chat discusses the report without editing it; what was asked
+  // is applied by the next Regenerate Report. The button carries the count so
+  // pending requests don't sit forgotten.
+  let pendingRequests = 0;
+  function chatTarget() {
+    return document.getElementById("wb").dataset.view === "summary" ? "report" : "workbench";
+  }
+  async function loadPendingRequests() {
+    try {
+      const r = await fetch(`/paper/${slug}/report/requests`, { cache: "no-store" });
+      pendingRequests = (await r.json()).count || 0;
+    } catch { pendingRequests = 0; }
+    refreshReportBtn();
+  }
+  function refreshChatTarget() {
+    const el = document.getElementById("chat-target");
+    if (el) el.hidden = chatTarget() !== "report";
+  }
+
   function refreshReportBtn() {
     const summary = document.getElementById("wb").dataset.view === "summary";
     btnReport.hidden = !summary;
     if (reportGenBusy) { btnReport.textContent = "Generating…"; btnReport.disabled = true; return; }
     btnReport.disabled = false;
-    btnReport.textContent = !reportExists ? "Generate Report"
-      : reportStale ? "Regenerate · outdated" : "Regenerate Report";
+    btnReport.textContent = (!reportExists ? "Generate Report"
+      : reportStale ? "Regenerate · outdated" : "Regenerate Report")
+      + (pendingRequests ? ` · 요청 ${pendingRequests}건` : "");
     btnReport.classList.toggle("attn", !!(reportExists && reportStale));
     btnReport.title = reportStale
       ? "리뷰가 리포트 생성 이후 수정되었습니다 — 다시 생성하면 반영됩니다"
@@ -883,7 +903,9 @@
   }
   btnReport.addEventListener("click", async () => {
     if (reportExists) {
-      const ok = await UIDialog.confirm("리포트를 다시 생성할까요? (수 분 소요)",
+      const ok = await UIDialog.confirm(
+        "리포트를 다시 생성할까요? (수 분 소요)" +
+        (pendingRequests ? `\n\nSummary 채팅에서 나온 요청 ${pendingRequests}건을 반영합니다.` : ""),
         { okLabel: "재생성", cancelLabel: "취소" });
       if (!ok) return;
     }
@@ -967,6 +989,8 @@
       b.classList.toggle("active", b.dataset.view === mode);
     });
     localStorage.setItem(VIEW_KEY, mode);
+    refreshChatTarget();
+    if (mode === "summary") loadPendingRequests();
     if (mode === "summary") {
       await checkReport();
       showReportPane();
@@ -2316,7 +2340,7 @@
       const res = await fetch(`/paper/${slug}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, model: modelPicker.value }),
+        body: JSON.stringify({ prompt, model: modelPicker.value, target: chatTarget() }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       await parseSSE(res.body);
@@ -2328,6 +2352,7 @@
       chatSend.disabled = false;
       document.querySelectorAll('.slash-chip').forEach(b => b.disabled = false);
       chatMeta.textContent = '·';
+      if (chatTarget() === 'report') loadPendingRequests();
     }
   }
 

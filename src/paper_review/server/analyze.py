@@ -502,6 +502,32 @@ def _figure_index_hint(paper_dir: Path) -> str:
     return "\n\n".join(out) or "(no extracted figures)"
 
 
+def _requests_hint(paper_dir: Path) -> str:
+    """Materials line for changes the reviewer asked for in the Summary chat.
+
+    That chat is discussion only — it never edits the report — so the requests
+    reach the report here, when the user regenerates."""
+    req = paper_dir / "report-requests.md"
+    if not req.exists() or not req.read_text(encoding="utf-8").strip():
+        return ""
+    return (
+        "\n2b. report-requests.md — changes the reviewer asked for while discussing "
+        "the previous report. APPLY EVERY REQUEST. Where a request conflicts with "
+        "the template's defaults, the request wins; where it conflicts with the "
+        "review or the paper, follow the review and say so in a callout."
+    )
+
+
+def _archive_requests(paper_dir: Path) -> None:
+    """Applied requests must not be applied again on the next rebuild."""
+    req = paper_dir / "report-requests.md"
+    if not req.exists():
+        return
+    hist = paper_dir / ".history"
+    hist.mkdir(exist_ok=True)
+    req.rename(hist / f"report-requests-{int(time.time())}.md")
+
+
 async def generate_report(
     paper_dir: Path,
     model: Optional[str],
@@ -522,7 +548,7 @@ Materials (read in this order):
 2. workbench.md — the finished review. This is the PRIMARY source: it contains
    the reviewer's own notes (내 정리), Q&A, Reader's Notes. WEAVE those
    insights into the matching sections — the report must reflect the review
-   conversation, not just re-summarize the paper.
+   conversation, not just re-summarize the paper.{_requests_hint(paper_dir)}
 3. {slug}_source.txt — the paper itself, for numbers/details the workbench
    lacks (hyperparameters, exact metrics, dataset sizes).
 
@@ -649,6 +675,8 @@ Then reply EXACTLY '✓ report done'."""
             err = "claude finished without writing report.html"
         if job and proc.returncode == 0 and created:
             job.log.append("   ✓ report done")
+        if proc.returncode == 0 and created:
+            _archive_requests(paper_dir)  # applied — don't apply them again
         return {
             "ok": proc.returncode == 0 and created,
             "code": proc.returncode,

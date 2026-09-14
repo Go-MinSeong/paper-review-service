@@ -1353,3 +1353,10 @@
     padding: 5px 9px; cursor: pointer; color: var(--text-primary);
     background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
   }
+
+  /* Summary discussion: says what this conversation will and won't change */
+  .chat-head .chat-target {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    color: var(--text-secondary); background: var(--bg-hover);
+    border: 1px solid var(--border-subtle);
+  }
