@@ -1,3 +1,5 @@
+
+
 <div align="center">
 
 # 📄 paper-review
@@ -83,6 +85,7 @@ bash install-skills.sh                # link the review skills into ~/.claude/sk
 Optional extras:
 
 ```bash
+uv pip install -e '.[dev]'            # or .venv/bin/pip install -e '.[dev]' — PyInstaller for build.sh
 bash packaging/build.sh               # build your own .app (icon included)
 bash packaging/install-app.sh --open  # …and put it in /Applications, then launch
 bash install-menubar.sh               # optional menubar item that starts the server at login
