@@ -222,14 +222,22 @@ def _text(el, dx, dy, inh, rules, out):
         s = " ".join(s.split())
         if not s:
             continue
-        w = sum(_em(c, ls["mono"]) for c in s) * ls["fs"] * (1 if ls["mono"] else SLACK)
+        wide = sum(_em(c, ls["mono"]) for c in s) * ls["fs"]
+        w = wide if ls["mono"] else wide * SLACK
         a = ls["anchor"]
-        x0 = lx - w / 2 if a == "middle" else lx - w if a == "end" else lx
+        top, bot = ly - 0.75 * ls["fs"], ly + 0.25 * ls["fs"]
+
+        def left(width):
+            return lx - width / 2 if a == "middle" else lx - width if a == "end" else lx
+
         out.append(
             dict(
                 s=s,
                 anchor=(lx, ly),
-                box=(x0, ly - 0.75 * ls["fs"], x0 + w, ly + 0.25 * ls["fs"]),
+                box=(left(w), top, left(w) + w, bot),
+                # unshrunk: a label bumping into a neighbouring box shows at a
+                # couple of px, so that check can't afford the safety margin
+                wide=(left(wide), top, left(wide) + wide, bot),
             )
         )
 
@@ -299,6 +307,17 @@ def lint_svg(svg_text: str) -> list[str]:
             if over > TOL:
                 out.append(
                     f"TEXT_CLIPPED: {t['s']!r} runs ~{over:.0f}px outside the viewBox"
+                )
+        wb = t["wide"]
+        for n in nodes:
+            if n in home:
+                continue
+            w = min(wb[2], n[2]) - max(wb[0], n[0])
+            h = min(wb[3], n[3]) - max(wb[1], n[1])
+            if w > 3 and h > 0.4 * (wb[3] - wb[1]):
+                out.append(
+                    f"TEXT_OVER_BOX: {t['s']!r} runs into the box at "
+                    f"({n[0]:.0f},{n[1]:.0f})"
                 )
 
     for i, a in enumerate(texts):

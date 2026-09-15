@@ -52,6 +52,25 @@ def test_labels_drawn_on_top_of_each_other_are_flagged():
     assert any(d.startswith("TEXT_OVERLAP") for d in lint_svg(_svg(body)))
 
 
+def test_a_label_wedged_into_a_neighbouring_box_is_flagged():
+    """qwen3.8: an edge label "Layer 2" sat half inside the block box it ran
+    past — a few px of intrusion, which is why this check measures the
+    unshrunk width."""
+    body = (
+        '<rect x="20" y="94" width="250" height="64"/>'
+        '<rect x="300" y="94" width="320" height="64"/>'
+        '<text x="283" y="112" font-size="11" text-anchor="middle">Layer 2 prefetch</text>'
+    )
+    assert any(
+        d.startswith("TEXT_OVER_BOX") for d in lint_svg(_svg(body, "0 0 900 470"))
+    )
+
+    beside = body.replace('x="283"', 'x="285"').replace(
+        "Layer 2 prefetch", "·"
+    )  # a small label in the gap is fine
+    assert lint_svg(_svg(beside, "0 0 900 470")) == []
+
+
 def test_text_cut_off_by_the_viewbox_is_flagged():
     body = '<text x="300" y="100" font-size="11">전역 키 하나로 서명 → 컨텍스트에 묶여 있지 않음</text>'
     assert any(d.startswith("TEXT_CLIPPED") for d in lint_svg(_svg(body)))
