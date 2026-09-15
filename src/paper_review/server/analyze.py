@@ -545,7 +545,9 @@ def _archive_requests(paper_dir: Path, applied: str) -> None:
 async def generate_report(
     paper_dir: Path,
     model: Optional[str],
-    timeout: int = 900,
+    # a plain report measured 641s; one with Summary-chat requests adding
+    # diagrams was killed at 900s while still writing its sections
+    timeout: int = 1800,
     job: Optional[AnalysisJob] = None,
 ) -> dict:
     """On-demand: build the structured single-file report (report.html) from the
@@ -620,7 +622,9 @@ Content rules:
 - Title the page "{slug} — 리뷰 리포트". No external JS; fonts/CSS from the
   template only.
 
-Write the COMPLETE file with the Write tool to report.html.
+Write report.html with the Write tool. If it is too long for one Write, write
+it in parts (skeleton first, then Edit each section in) — but do not reply
+until every section is filled: an unfinished file is discarded.
 
 THEN write a second file report.md: the same report as VELOG-COMPATIBLE
 markdown (it gets published as a standalone summary post later):
@@ -663,32 +667,64 @@ Then reply EXACTLY '✓ report done'."""
         cmd += ["--model", model]
 
     report = paper_dir / "report.html"
+    # Claude writes in place, so a run that dies mid-way (timeout, or a skeleton
+    # whose sections were never edited in) used to replace the last good report
+    # with a broken one. Keep the old bytes until the new file proves complete.
+    kept = {
+        p.name: p.read_bytes() for p in (report, paper_dir / "report.md") if p.exists()
+    }
     # A regeneration starts with a report.html already there, so "the file
     # exists" proves nothing — the run only counts if the file actually moved.
     before = report.stat().st_mtime if report.exists() else 0
     stop, code, err, session_id = await _stream_claude(cmd, paper_dir, job, timeout)
+    created = not stop and report.exists() and report.stat().st_mtime > before
+    complete = created and _report_complete(report.read_text(encoding="utf-8"))
     if stop:
-        return {"ok": False, "error": stop}
-    created = report.exists() and report.stat().st_mtime > before
-    if code != 0 and err:
+        err = stop
+    elif code != 0 and err:
         err = err[-500:]
         if job:
             _detect_blocker(err + chr(10) + chr(10).join(job.log[-12:]), job)
     elif code == 0 and not created:
         err = "claude finished without writing report.html"
-    if job and code == 0 and created:
+    elif code == 0 and not complete:
+        err = "report.html was left unfinished (sections missing)"
+    ok = not stop and code == 0 and complete
+    if not ok:
+        if _roll_back_report(paper_dir, kept) and job:
+            job.log.append("   ↩ 미완성 리포트는 .history로 옮기고 이전 리포트를 유지")
+        return {"ok": False, "code": code, "created": created, "error": err or None}
+    if job:
         job.log.append("   ✓ report done")
-    if code == 0 and created:
-        _archive_requests(
-            paper_dir, applied_requests
-        )  # applied — don't apply them again
-        await _repair_diagrams(paper_dir, session_id, model, job)
-    return {
-        "ok": code == 0 and created,
-        "code": code,
-        "created": created,
-        "error": err or None,
-    }
+    _archive_requests(paper_dir, applied_requests)  # applied — don't apply them again
+    await _repair_diagrams(paper_dir, session_id, model, job)
+    return {"ok": True, "code": code, "created": created, "error": None}
+
+
+def _report_complete(html: str) -> bool:
+    """Every sticky-nav anchor has its section. A report written as a skeleton
+    first and filled by later edits has the nav long before the sections."""
+    return all(
+        re.search(rf"""id=["']{re.escape(t)}["']""", html)
+        for t in re.findall(r'href="#([^"]+)"', html)
+    )
+
+
+def _roll_back_report(paper_dir: Path, kept: dict) -> bool:
+    """Move what a failed run left behind into .history and put back the files
+    that were there before. Returns whether anything had changed."""
+    hist = paper_dir / ".history"
+    stamp = int(time.time())
+    changed = False
+    for name in ("report.html", "report.md"):
+        p = paper_dir / name
+        if p.exists() and p.read_bytes() != kept.get(name):
+            hist.mkdir(exist_ok=True)
+            p.rename(hist / f"failed-{stamp}-{name}")
+            changed = True
+        if name in kept and not p.exists():
+            p.write_bytes(kept[name])
+    return changed
 
 
 _REPAIR_PROMPT = """The diagram check found geometry problems in the inline SVG
