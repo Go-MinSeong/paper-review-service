@@ -178,10 +178,14 @@ def _load(url: str, timeout: float = 25.0):
     deadline = time.time() + timeout
 
     def pump(seconds: float) -> None:
-        loop.runMode_beforeDate_(
-            Foundation.NSDefaultRunLoopMode,
-            Foundation.NSDate.dateWithTimeIntervalSinceNow_(seconds),
-        )
+        # runMode returns as soon as one event is handled, so a single call
+        # waits anywhere from 0 to `seconds` — keep going until they've passed.
+        end = time.time() + seconds
+        while (left := end - time.time()) > 0:
+            loop.runMode_beforeDate_(
+                Foundation.NSDefaultRunLoopMode,
+                Foundation.NSDate.dateWithTimeIntervalSinceNow_(left),
+            )
 
     def js(expr: str, wait: float = 8.0):
         box = {}
@@ -236,15 +240,17 @@ def render_js(url: str, timeout: float = 25.0) -> str | None:
     return html if isinstance(html, str) and html.strip() else None
 
 
-def snapshot_figures(url: str, indexes: list, timeout: float = 40.0) -> dict:
-    """PNG bytes of the page's n-th <figure> elements, keyed by n.
+def snapshot_figures(url: str, wanted: list, timeout: float = 40.0) -> dict:
+    """PNG bytes of drawn <figure>s, keyed by their position in `wanted`.
 
     Some posts draw their figures in the page itself — inline SVG, CSS bars,
-    interactive widgets — so there is no image file to download (archerhume:
-    five figures, zero <img>). The SVG alone isn't enough either: its colours
-    and layout come from the site's stylesheets. Rendering the page and
-    capturing each figure as the reader sees it covers all of these; an
-    interactive figure is captured in its initial state.
+    animated widgets — so there is no image file to download (archerhume: five
+    figures, zero <img>). The SVG alone isn't enough either: its colours and
+    layout come from the site's stylesheets. So the page is rendered and each
+    figure captured as a reader sees it.
+
+    `wanted` holds (document index, caption) pairs; the caption finds the
+    figure again if the live page numbers its figures differently.
     """
     page = _load(url, timeout)
     if not page:
@@ -254,31 +260,56 @@ def snapshot_figures(url: str, indexes: list, timeout: float = 40.0) -> dict:
         import AppKit
         import Foundation
         import WebKit
+
+        # Offscreen but in a window: a view with no window is treated as a
+        # hidden page, so requestAnimationFrame never fires and an animated
+        # figure stays blank (and fade-ins stop half way).
+        win = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            Foundation.NSMakeRect(-20000, -20000, 1280, 2000),
+            AppKit.NSWindowStyleMaskBorderless,
+            AppKit.NSBackingStoreBuffered,
+            False,
+        )
+        win.setContentView_(view)
+        win.orderFrontRegardless()
+        view._setWindowOcclusionDetectionEnabled_(False)
     except Exception:
         return {}
-    out = {}
-    for i in indexes:
-        rect_js = (
-            f"(() => {{ const f = document.querySelectorAll('figure')[{int(i)}];"
-            " if (!f) return null; f.scrollIntoView({block: 'start'});"
+
+    # Sticky site headers would sit on top of every capture; captions are
+    # stored as text, so they'd appear twice.
+    js(
+        "(() => { for (const e of document.querySelectorAll('body *')) {"
+        " const p = getComputedStyle(e).position;"
+        " if ((p === 'fixed' || p === 'sticky') && !e.closest('figure'))"
+        " e.style.visibility = 'hidden'; }"
+        " document.querySelectorAll('figure figcaption')"
+        ".forEach(c => c.style.display = 'none'); })()"
+    )
+
+    def rect(index: int, caption: str):
+        key = json.dumps(re.sub(r"\s+", " ", caption)[:40])
+        r = js(
+            "(() => { const all = [...document.querySelectorAll('figure')];"
+            f" const key = {key};"
+            " const byCap = key && all.find(f => (f.querySelector('figcaption')"
+            "  ?.textContent || '').replace(/\\s+/g, ' ').trim().startsWith(key));"
+            f" const f = byCap || all[{int(index)}]; if (!f) return null;"
+            # the site may scroll smoothly; measure where it IS, not mid-way
+            " scrollTo({top: f.getBoundingClientRect().top + scrollY,"
+            " behavior: 'instant'});"
             " const b = f.getBoundingClientRect();"
             " return [b.left, b.top, b.width, b.height]; })()"
         )
-        r = js(rect_js)
-        if not r or r[2] < 60 or r[3] < 60:
-            continue
-        if r[1] + r[3] > view.frame().size.height:  # taller than the viewport
-            view.setFrameSize_(Foundation.NSMakeSize(1280, r[1] + r[3] + 40))
-            pump(0.3)
-            r = js(rect_js) or r
-        pump(0.5)  # scrolled-to content may still be painting or lazy-loading
+        return [float(v) for v in r] if r else None
+
+    def snap(r):
         cfg = WebKit.WKSnapshotConfiguration.alloc().init()
         cfg.setRect_(Foundation.NSMakeRect(*r))
-        cfg.setSnapshotWidth_(r[2] * 2)  # 2x: these are text-heavy diagrams
         box = {}
 
         def done(img, err):
-            box["v"] = None if err else img  # must return None (see js above)
+            box["v"] = None if err else img  # must return None (see _load)
 
         view.takeSnapshotWithConfiguration_completionHandler_(cfg, done)
         end = time.time() + 10
@@ -286,13 +317,40 @@ def snapshot_figures(url: str, indexes: list, timeout: float = 40.0) -> dict:
             pump(0.05)
         img = box.get("v")
         if img is None:
-            continue
+            return None
         rep = AppKit.NSBitmapImageRep.imageRepWithData_(img.TIFFRepresentation())
         png = rep.representationUsingType_properties_(
             AppKit.NSBitmapImageFileTypePNG, {}
         )
-        if png:
-            out[i] = bytes(png)
+        return bytes(png) if png else None
+
+    out = {}
+    for n, (index, caption) in enumerate(wanted):
+        r = rect(index, caption)
+        if not r or r[2] < 60 or r[3] < 60:
+            continue
+        if r[1] + r[3] > view.frame().size.height:  # taller than the viewport
+            size = Foundation.NSMakeSize(1280, r[1] + r[3] + 40)
+            win.setContentSize_(size)
+            view.setFrameSize_(size)
+            r = rect(index, caption) or r
+        # An animated figure builds itself over time (archerhume's Figure 1
+        # takes ~18s, then holds its final frame). Capture once the picture
+        # has stopped changing; a static one settles within a few seconds.
+        # ponytail: a figure that loops forever gets whatever frame is up at 30s
+        last, same, end = None, 0, time.time() + 30
+        while time.time() < end:
+            pump(1.5)
+            png = snap(r)
+            if png is None:
+                break
+            same = same + 1 if png == last else 0
+            last = png
+            if same >= 2:
+                break
+        if last:
+            out[n] = last
+    win.orderOut_(None)
     return out
 
 
@@ -306,12 +364,19 @@ def extract_images(
     root = soup.find("article") or soup.find("main") or soup.body or soup
     seen_srcs = set()
     n = 0
+    all_figures = soup.find_all("figure")
     for tag in root.find_all(["figure", "img"]):
         if n >= max_images:
             break
         if tag.name == "figure":
             img = tag.find("img")
             if not img:
+                if _is_drawn(tag):
+                    n += 1
+                    figures.append(
+                        _figure_entry(n, _caption(tag), "", None, _heading(tag))
+                        | {"_drawn": all_figures.index(tag)}
+                    )
                 continue
             cap_tag = tag.find("figcaption")
             caption = (
@@ -358,20 +423,69 @@ def extract_images(
         )
         n += 1
         figures.append(
-            {
-                "id": f"fig{n}",
-                "kind": "image",
-                "label": f"Figure {n}",
-                "caption_en": caption,
-                "caption_ko": "",
-                "data_uri": data_uri,
-                "width": w or max_width,
-                "ref_in_section": None,
-                "section_heading": section_heading,
-                "source": "web",
-            }
+            _figure_entry(n, caption, data_uri, w or max_width, section_heading)
         )
+
+    drawn = [f for f in figures if "_drawn" in f]
+    if drawn:
+        shots = snapshot_figures(
+            page_url, [(f["_drawn"], f["caption_en"]) for f in drawn]
+        )
+        for k, f in enumerate(drawn):
+            if k in shots:
+                # PNG: these are diagrams full of small text, which JPEG smears
+                f["data_uri"], w, _ = downsize_to_data_uri(
+                    shots[k], max_width=max_width * 2, force_jpeg=False
+                )
+                f["width"] = w or max_width
+        missed = [f for f in drawn if not f["data_uri"]]
+        if missed:
+            warnings.append(
+                f"{len(missed)} drawn figure(s) could not be captured "
+                "(no GUI session, or the page would not render)"
+            )
+        figures = [f for f in figures if f["data_uri"]]
+        for i, f in enumerate(figures, 1):  # keep ids contiguous after drops
+            f.pop("_drawn", None)
+            f["id"], f["label"] = f"fig{i}", f"Figure {i}"
     return figures, warnings
+
+
+def _is_drawn(fig) -> bool:
+    """A <figure> the page draws itself (SVG, CSS, canvas) rather than one
+    wrapping an image file — or a code block / pull quote, which some site
+    generators also wrap in <figure>."""
+    if fig.find_parent("figure") or fig.find(["img", "picture", "video", "iframe"]):
+        return False
+    if fig.find(["pre", "blockquote"]):
+        return False
+    return bool(fig.find(["svg", "canvas"]) or fig.find("figcaption"))
+
+
+def _caption(fig) -> str:
+    cap = fig.find("figcaption")
+    return re.sub(r"\s+", " ", cap.get_text(" ", strip=True)).strip() if cap else ""
+
+
+def _heading(tag) -> str:
+    h = tag.find_previous(["h1", "h2", "h3", "h4"])
+    return re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip() if h else ""
+
+
+def _figure_entry(n, caption, data_uri, width, heading) -> dict:
+    return {
+        "id": f"fig{n}",
+        "kind": "image",
+        "label": f"Figure {n}",
+        "caption_en": caption,
+        "caption_ko": "",
+        "data_uri": data_uri,
+        "width": width,
+        "ref_in_section": None,
+        # 직전 heading → 뷰어가 그림을 해당 섹션 자리에 인라인 배치하는 데 사용
+        "section_heading": heading,
+        "source": "web",
+    }
 
 
 def main():
