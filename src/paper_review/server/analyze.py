@@ -1027,6 +1027,20 @@ Steps:
 # sections — an expired login fails all seventeen of them identically.
 _BLOCKERS = [
     (
+        # A newer model picked in the app while the CLI on PATH predates it
+        r"does not support this model",
+        {
+            "kind": "cli_outdated",
+            "title": "Claude Code CLI가 선택한 모델보다 오래되었습니다",
+            "steps": [
+                "터미널에서 `claude update` 실행",
+                "`claude --version`으로 새 버전 확인",
+                "급하면 모델 선택에서 이전 모델(Opus 5 등)로 바꿔 다시 실행",
+            ],
+            "command": "claude update",
+        },
+    ),
+    (
         r"authenticat|oauth|not logged in|invalid api key|401",
         {
             "kind": "auth",

@@ -66,6 +66,21 @@ def test_auth_failure_is_detected_from_the_stream_not_just_stderr():
     assert j2.blocker is None and not j2.log
 
 
+def test_a_cli_older_than_the_picked_model_says_to_update():
+    """Picking Opus 5.5 with Claude Code 2.1.243 on PATH fails every section
+    with a 400 that names neither the CLI nor the fix in the app."""
+    from paper_review.server.analyze import AnalysisJob, _detect_blocker
+
+    j = AnalysisJob(slug="x", job_id="t")
+    j.log.append(
+        "   ✗ API Error: 400 Claude Code 2.1.243 does not support this model; "
+        "version 2.1.280 or newer is required."
+    )
+    _detect_blocker("\n".join(j.log), j)
+    assert j.blocker and j.blocker["kind"] == "cli_outdated"
+    assert j.blocker["command"] == "claude update"
+
+
 def test_settings_never_returns_the_remote_token():
     s = client.get("/settings").json()
     assert "remote_token" not in s
