@@ -132,8 +132,9 @@ def visible_text(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", stripped)).strip()
 
 
-def render_js(url: str, timeout: float = 25.0) -> str | None:
-    """Load `url` in a windowless WKWebView and return the rendered HTML.
+def _load(url: str, timeout: float = 25.0):
+    """Load `url` in a windowless WKWebView and wait for it to finish drawing.
+    Returns (view, js, pump), or None on any failure.
 
     Some blogs ship an empty container and draw the article with JavaScript, so
     what httpx receives holds no text at all (qwen.ai/blog: four characters).
@@ -160,6 +161,10 @@ def render_js(url: str, timeout: float = 25.0) -> str | None:
         # Tall viewport so lazy-loaded images below the fold still load.
         view = WebKit.WKWebView.alloc().initWithFrame_configuration_(
             Foundation.NSMakeRect(0, 0, 1280, 2000), cfg
+        )
+        # Light, whatever the Mac is set to: figures are shown on a white card.
+        view.setAppearance_(
+            AppKit.NSAppearance.appearanceNamed_(AppKit.NSAppearanceNameAqua)
         )
         view.loadRequest_(
             Foundation.NSURLRequest.requestWithURL_(
@@ -219,8 +224,76 @@ def render_js(url: str, timeout: float = 25.0) -> str | None:
             break  # nothing is coming — a login wall, or not a page we can read
         last = size
 
-    html = js("document.documentElement.outerHTML")
+    return view, js, pump
+
+
+def render_js(url: str, timeout: float = 25.0) -> str | None:
+    """The rendered HTML of a page that draws itself with JavaScript."""
+    page = _load(url, timeout)
+    if not page:
+        return None
+    html = page[1]("document.documentElement.outerHTML")
     return html if isinstance(html, str) and html.strip() else None
+
+
+def snapshot_figures(url: str, indexes: list, timeout: float = 40.0) -> dict:
+    """PNG bytes of the page's n-th <figure> elements, keyed by n.
+
+    Some posts draw their figures in the page itself — inline SVG, CSS bars,
+    interactive widgets — so there is no image file to download (archerhume:
+    five figures, zero <img>). The SVG alone isn't enough either: its colours
+    and layout come from the site's stylesheets. Rendering the page and
+    capturing each figure as the reader sees it covers all of these; an
+    interactive figure is captured in its initial state.
+    """
+    page = _load(url, timeout)
+    if not page:
+        return {}
+    view, js, pump = page
+    try:
+        import AppKit
+        import Foundation
+        import WebKit
+    except Exception:
+        return {}
+    out = {}
+    for i in indexes:
+        rect_js = (
+            f"(() => {{ const f = document.querySelectorAll('figure')[{int(i)}];"
+            " if (!f) return null; f.scrollIntoView({block: 'start'});"
+            " const b = f.getBoundingClientRect();"
+            " return [b.left, b.top, b.width, b.height]; })()"
+        )
+        r = js(rect_js)
+        if not r or r[2] < 60 or r[3] < 60:
+            continue
+        if r[1] + r[3] > view.frame().size.height:  # taller than the viewport
+            view.setFrameSize_(Foundation.NSMakeSize(1280, r[1] + r[3] + 40))
+            pump(0.3)
+            r = js(rect_js) or r
+        pump(0.5)  # scrolled-to content may still be painting or lazy-loading
+        cfg = WebKit.WKSnapshotConfiguration.alloc().init()
+        cfg.setRect_(Foundation.NSMakeRect(*r))
+        cfg.setSnapshotWidth_(r[2] * 2)  # 2x: these are text-heavy diagrams
+        box = {}
+
+        def done(img, err):
+            box["v"] = None if err else img  # must return None (see js above)
+
+        view.takeSnapshotWithConfiguration_completionHandler_(cfg, done)
+        end = time.time() + 10
+        while "v" not in box and time.time() < end:
+            pump(0.05)
+        img = box.get("v")
+        if img is None:
+            continue
+        rep = AppKit.NSBitmapImageRep.imageRepWithData_(img.TIFFRepresentation())
+        png = rep.representationUsingType_properties_(
+            AppKit.NSBitmapImageFileTypePNG, {}
+        )
+        if png:
+            out[i] = bytes(png)
+    return out
 
 
 def extract_images(
