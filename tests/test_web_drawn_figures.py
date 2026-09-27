@@ -22,7 +22,7 @@ def _png():
     from PIL import Image
 
     buf = io.BytesIO()
-    Image.new("RGB", (40, 30), "white").save(buf, "PNG")
+    Image.new("RGBA", (40, 30), "white").save(buf, "PNG")  # as WebKit hands them back
     return buf.getvalue()
 
 
