@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from html import escape as _escape
 from pathlib import Path
@@ -411,8 +412,55 @@ def workbench_put(slug: str, body: WorkbenchPut):
                 },
             )
     _keep_history(wb)
-    wb.write_text(body.text)
-    return {"ok": True, "mtime": wb.stat().st_mtime, "size": len(body.text)}
+    text = _lift_inline_images(slug, wb.parent, body.text)
+    wb.write_text(text)
+    return {"ok": True, "mtime": wb.stat().st_mtime, "size": len(text)}
+
+
+_INLINE_IMG = re.compile(r"data:image/[\w.+-]+;base64,[A-Za-z0-9+/=]+")
+
+
+def _lift_inline_images(slug: str, d: Path, text: str) -> str:
+    """Move pasted images out of the workbench into figures.json.
+
+    The editor embeds a pasted screenshot as base64, so ten of them turned a
+    100KB review into 14.5MB — every render, list refresh and Claude read then
+    paid for it. Stored as `paste<n>` figures they get the same /fig/<id> path
+    as the paper's own figures, which export, publish and the mobile view
+    already resolve. The same image pasted twice is stored once."""
+    if "data:image/" not in text:
+        return text
+    path = next(iter(d.glob("*_figures.json")), d / f"{slug}_figures.json")
+    data = json.loads(path.read_text()) if path.exists() else []
+    items = data if isinstance(data, list) else data.setdefault("figures", [])
+    ids = {f.get("id") for f in items}
+    by_uri = {f["data_uri"]: f["id"] for f in items if f.get("source") == "paste"}
+
+    def lift(m: "re.Match") -> str:
+        uri = m.group(0)
+        if uri not in by_uri:
+            n = 1
+            while f"paste{n}" in ids:
+                n += 1
+            fid = f"paste{n}"
+            ids.add(fid)
+            by_uri[uri] = fid
+            items.append(
+                {
+                    "id": fid,
+                    "label": f"Pasted {n}",
+                    "kind": "image",
+                    "source": "paste",
+                    "caption_en": "",
+                    "caption_ko": "",
+                    "data_uri": uri,
+                }
+            )
+        return f"/paper/{slug}/fig/{by_uri[uri]}"
+
+    out = _INLINE_IMG.sub(lift, text)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    return out
 
 
 @app.get("/paper/{slug}/pdf")

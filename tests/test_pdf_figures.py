@@ -93,3 +93,40 @@ def test_a_figure_inside_a_form_is_found_in_page_coordinates():
     got = ff.leaf_graphics(page, 600.0, 800.0)
 
     assert got == [(100.0, 300.0, 500.0, 500.0)], got
+
+
+def test_the_pdf_fills_figures_the_arxiv_html_dropped(tmp_path, monkeypatch):
+    """WeVisOne-VL's arXiv HTML carried Figures 2-4 of 13; the PDF, consulted
+    only when the HTML had nothing, never got the chance to supply the rest."""
+    import json
+    import sys
+
+    ff = _load()
+    pdf = tmp_path / "p.pdf"
+    pdf.write_bytes(b"%PDF")
+    html = lambda i: {"id": f"fig{i}", "label": f"Figure {i}", "source": "ar5iv"}
+    from_pdf = lambda i: {"id": f"fig{i}", "label": f"Figure {i}", "source": "pdf"}
+    monkeypatch.setattr(ff, "fetch_from_ar5iv", lambda *a, **k: [html(2), html(3)])
+    monkeypatch.setattr(
+        ff, "fetch_from_pdf", lambda *a, **k: [from_pdf(i) for i in (1, 2, 5, 13)]
+    )
+    monkeypatch.setattr(ff, "guess_section_refs", lambda *a, **k: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "x",
+            "2610.31329",
+            "--out-dir",
+            str(tmp_path),
+            "--pdf",
+            str(pdf),
+            "--out-name",
+            "p_figures.json",
+        ],
+    )
+    ff.main()
+
+    figs = json.loads((tmp_path / "p_figures.json").read_text())
+    assert [f["id"] for f in figs] == ["fig1", "fig2", "fig3", "fig5", "fig13"]
+    assert figs[1]["source"] == "ar5iv", "the HTML copy wins where both have it"

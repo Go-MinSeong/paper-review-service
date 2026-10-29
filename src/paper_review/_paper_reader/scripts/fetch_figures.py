@@ -735,6 +735,12 @@ def extract(pdf_path):
     return found
 
 
+def _figure_order(fig):
+    """Figures before tables, each by number — the order the paper uses."""
+    m = re.match(r"([a-z]+)(\d+)", fig.get("id", ""))
+    return (m.group(1) != "fig", int(m.group(2))) if m else (True, 10**6)
+
+
 def fetch_from_pdf(pdf_path, max_width=800, jpeg_quality=80):
     """Render each captioned figure/table region of a local PDF."""
     try:
@@ -1061,14 +1067,28 @@ def main():
                 arxiv_id, max_width=args.max_width, jpeg_quality=args.jpeg_quality
             )
             source_used = "tarball"
-    if not figures and args.pdf and os.path.isfile(args.pdf):
+    if args.pdf and os.path.isfile(args.pdf):
+        # Even when arXiv's HTML has figures it may not have all of them: its
+        # LaTeX conversion drops what custom macros wrap (WeVisOne-VL: 3 of 13),
+        # and those gaps used to stay empty because the PDF was only a fallback.
+        # The HTML copy wins where both have a figure; the PDF fills the rest.
         sys.stderr.write(
             f"[info] reading figures out of {os.path.basename(args.pdf)}...\n"
         )
-        figures = fetch_from_pdf(
-            args.pdf, max_width=args.max_width, jpeg_quality=args.jpeg_quality
-        )
-        source_used = "pdf"
+        have = {f["id"] for f in figures}
+        extra = [
+            f
+            for f in fetch_from_pdf(
+                args.pdf, max_width=args.max_width, jpeg_quality=args.jpeg_quality
+            )
+            if f["id"] not in have
+        ]
+        if extra and figures:
+            sys.stderr.write(f"[info] PDF added {len(extra)} missing from the HTML\n")
+            source_used += "+pdf"
+        elif extra:
+            source_used = "pdf"
+        figures = sorted(figures + extra, key=_figure_order)
 
     # Guess section refs
     if figures:
