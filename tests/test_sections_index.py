@@ -165,3 +165,48 @@ def test_appendix_numbering_that_restarts_is_not_a_section(tmp_path):
     assert "4.3.4 STAL" in got and "6 Conclusion" in got
     for junk in ("DECODED REASONING", "Cross-session", "Nonce"):
         assert junk not in got, junk
+
+
+def test_a_contents_page_does_not_hide_the_real_headings(tmp_path):
+    """LoopVL opens with a Contents page. "1 Introduction 3" (title + page
+    number) was taken for the heading, so the real "1 Introduction" below read
+    as numbering going backwards and every body heading was dropped — the
+    review covered the Contents page and lumped the paper into one section."""
+    ip = _load()
+    prose = (
+        "Enough prose to clear the minimum body length, so that what gets "
+        "dropped here is dropped for its heading and not for its size."
+    )
+    text = "\n".join(
+        [
+            "Contents",
+            "1 Introduction 3",
+            "2.1 Architecture. . . . . . . . . . . . 4",
+            "3 Pre-Training 7",
+            "",
+            "1 Introduction",
+            prose,
+            "",
+            "2.1 Architecture",
+            prose,
+            "",
+            "3 Pre-Training",
+            prose,
+            "",
+            "3.4 Stage 2",  # ends in a digit but is a real title, not a TOC line
+            prose,
+        ]
+    )
+    out = tmp_path / "s.txt"
+    ip.write_sections_index(text, out)
+    headings = [
+        l.split(": ", 1)[1]
+        for l in out.read_text().splitlines()
+        if l and not l.startswith("#")
+    ]
+    assert headings == [
+        "1 Introduction",
+        "2.1 Architecture",
+        "3 Pre-Training",
+        "3.4 Stage 2",
+    ]

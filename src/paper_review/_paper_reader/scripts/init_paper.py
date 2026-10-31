@@ -187,6 +187,29 @@ def cut_at_references(hits, lines, total):
     return [(i, lab) for i, lab in hits if i < cut], cut
 
 
+_TOC_TAIL = re.compile(r"(?:\s*\.){2,}\s*\d*\s*$|\s+\d{1,3}\s*$")
+
+
+def drop_toc_entries(hits):
+    """Drop table-of-contents lines whose heading recurs in the body.
+
+    LoopVL prints a Contents page: "1 Introduction 3" (title + page number)
+    came first, so the real "1 Introduction" further down looked like the
+    numbering restarting and drop_out_of_order threw away every body heading —
+    six sections covering only the Contents page, with the whole paper lumped
+    into the last one. A line counts as a TOC entry only if stripping its page
+    number or dot leaders leaves a heading that appears again later.
+    """
+    labels = [l.strip() for _, l in hits]
+    kept = []
+    for k, (i, label) in enumerate(hits):
+        bare = _TOC_TAIL.sub("", label.strip())
+        if bare != label.strip() and bare in labels[k + 1 :]:
+            continue
+        kept.append((i, label))
+    return kept
+
+
 def drop_repeats(hits):
     """Drop labels that occur more than once.
 
@@ -257,7 +280,7 @@ def sections(text):
     hits, total = find_section_boundaries(text)
     lines = text.split("\n")
     hits, total = cut_at_references(hits, lines, total)
-    hits = drop_stray_allcaps(drop_out_of_order(drop_repeats(hits)))
+    hits = drop_stray_allcaps(drop_out_of_order(drop_repeats(drop_toc_entries(hits))))
     return drop_bodyless(hits, lines, total), total
 
 
