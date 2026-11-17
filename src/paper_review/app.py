@@ -387,14 +387,6 @@ def _boot(window, port: int) -> None:
             return
         say(splash.STEP_READY)
         window.load_url(f"http://127.0.0.1:{port}/")
-        # Menubar presence too — the Dock icon disappears behind other windows,
-        # and the status item is how you get back without hunting for it.
-        try:
-            from . import statusitem
-
-            statusitem.install(port, window)
-        except Exception:
-            pass
         _unify_titlebar(window)
     except Exception as e:  # never leave the splash spinning forever
         try:

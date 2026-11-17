@@ -46,7 +46,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 | 📈 **Dashboards** | Monthly **Intake** and **Export** views — throughput, median days from intake to export, status funnel, rating distribution, top tags. |
 | 🎨 **Themes** | Light/dark plus Stripe · Figma · Tesla · Sunset · Sage, applied across the gallery, review page and source viewer. |
 | 🔔 **Tells you about updates** | A chip in the sidebar when a newer release is out — it links to the release and never installs anything behind your back. Releases themselves are built by CI from the tag, so the version you download is the version in the tag. |
-| 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen, a menubar item while it runs, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
+| 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
 
 <div align="center">
 <img src="docs/assets/report.png" alt="Structured review report" width="49%">
@@ -147,7 +147,6 @@ Everything else — registering, analyzing, tagging, reviewing, reporting, publi
 | `src/paper_review/server/{ingest,analyze,chat,save,tags}.py` | background jobs + endpoints |
 | `src/paper_review/publish/` | workbench → draft (parser + transform) |
 | `src/paper_review/_paper_reader/` | vendored ingest engine (text, figures, viewer) |
-| `src/paper_review/statusitem.py` | menubar item of the desktop app |
 | `remote/` | optional Vercel app for mobile continuation |
 | `skills/` | the review skills (source of truth) |
 

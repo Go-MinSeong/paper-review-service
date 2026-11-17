@@ -61,7 +61,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  macOS 데스크톱 앱 (pywebview)  ── 실행 중일 때만 메뉴바 아이콘 │
+│  macOS 데스크톱 앱 (pywebview)  ── 메뉴바 아이콘 없음 │
 │     └─ FastAPI 서버를 앱 프로세스 안에서 실행                 │
 └───────────────┬─────────────────────────────────────────────┘
                 │ http://localhost:7300  (+ LAN: 0.0.0.0)
@@ -75,7 +75,7 @@
         ┌───────▼──────────────────────────────▼──────────────┐
         │  Python 패키지  paper_review/                          │
         │   cli.py · server/(app,ingest,analyze,chat,tags,save) │
-        │   publish/(parser,transform) · workbench.py · statusitem │
+        │   publish/(parser,transform) · workbench.py │
         │   _paper_reader/  ← 흡수한 paper-reader-v8 엔진        │
         └───────┬──────────────────────────────────────────────┘
                 │ spawn `claude -p` (headless)

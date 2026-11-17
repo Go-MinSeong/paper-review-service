@@ -28,9 +28,6 @@ datas = [
     (os.path.join(SRC, "server", "templates"), "paper_review/server/templates"),
     (os.path.join(SRC, "server", "illustration_groups.json"), "paper_review/server"),
     (os.path.join(ROOT, "skills"), "skills"),
-    # menubar template icon for the app's status item; without it the item
-    # falls back to a "◫" text title
-    (os.path.join(ROOT, "assets"), "assets"),
 ]
 # Characters you may not redistribute stay out of the shipped app. They live in
 # the same folder as the original artwork and are gitignored (see .gitignore),
@@ -113,9 +110,8 @@ app = BUNDLE(  # noqa: F821
         "CFBundleVersion": VERSION,
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
-        # False = a real Dock app, not a menubar-only accessory. The menubar
-        # entry point still exists, but a status item hides behind the notch or
-        # a Hidden Bar — the Dock is the entry point that is always there.
+        # False = a real Dock app. It has no menubar item: the Dock is the
+        # entry point that is always there.
         "LSUIElement": False,
         # The window loads the local server over plain http
         "NSAppTransportSecurity": {
