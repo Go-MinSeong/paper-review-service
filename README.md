@@ -46,7 +46,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 | 📈 **Dashboards** | Monthly **Intake** and **Export** views — throughput, median days from intake to export, status funnel, rating distribution, top tags. |
 | 🎨 **Themes** | Light/dark plus Stripe · Figma · Tesla · Sunset · Sage, applied across the gallery, review page and source viewer. |
 | 🔔 **Tells you about updates** | A chip in the sidebar when a newer release is out — it links to the release and never installs anything behind your back. Releases themselves are built by CI from the tag, so the version you download is the version in the tag. |
-| 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen — plus an optional menubar item, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
+| 🖥️ **Runs like an app** | A real macOS app — own icon, Dock entry, launch screen, a menubar item while it runs, the pretty local URL `http://paper-review.local/`, per-pane fullscreen, and PDF export of whatever is on screen. |
 
 <div align="center">
 <img src="docs/assets/report.png" alt="Structured review report" width="49%">
@@ -60,7 +60,7 @@ arXiv / PDF / any URL ──► ingest ──► analyze ──► review with C
 
 ## 🚀 Install
 
-> **Requirements** — macOS for the menubar app and launcher (the server itself runs anywhere Python does), Python 3.10+, and the [**Claude Code CLI**](https://claude.com/claude-code) signed in (`claude auth login`). Ingest, browsing and publish work without it; analysis and chat need it.
+> **Requirements** — macOS for the desktop app (the server itself runs anywhere Python does), Python 3.10+, and the [**Claude Code CLI**](https://claude.com/claude-code) signed in (`claude auth login`). Ingest, browsing and publish work without it; analysis and chat need it.
 
 ### Option A — download the app (no terminal)
 
@@ -85,7 +85,6 @@ Optional extras:
 ```bash
 bash packaging/build.sh               # build your own .app (icon included)
 bash packaging/install-app.sh --open  # …and put it in /Applications, then launch
-bash install-menubar.sh               # optional menubar item that starts the server at login
 ```
 
 Not a terminal person? Download the ZIP of this repo and double-click **`setup.command`** — it installs `uv`, sets up the environment, links the skills and builds the launcher.
@@ -128,7 +127,6 @@ arXiv / PDF / URL │                                                      │
 
 ```bash
 paper-review serve                     # web UI (default port 7300)
-paper-review menubar                   # macOS menubar app
 paper-review init <arxiv-id|pdf|url>   # ingest
 paper-review list                      # papers + status
 paper-review export-draft <slug>       # workbench → publish draft
@@ -149,7 +147,7 @@ Everything else — registering, analyzing, tagging, reviewing, reporting, publi
 | `src/paper_review/server/{ingest,analyze,chat,save,tags}.py` | background jobs + endpoints |
 | `src/paper_review/publish/` | workbench → draft (parser + transform) |
 | `src/paper_review/_paper_reader/` | vendored ingest engine (text, figures, viewer) |
-| `src/paper_review/menubar.py` | macOS menubar app (rumps) |
+| `src/paper_review/statusitem.py` | menubar item of the desktop app |
 | `remote/` | optional Vercel app for mobile continuation |
 | `skills/` | the review skills (source of truth) |
 
@@ -179,7 +177,7 @@ Review output is Korean by default (technical terms stay in English) because tha
 <details>
 <summary><b>Can I run it on Linux or Windows?</b></summary>
 
-`paper-review serve` and the whole web UI work anywhere Python runs. The menubar app, the launcher and the `paper-review.local` pretty URL are macOS-only.
+`paper-review serve` and the whole web UI work anywhere Python runs. The desktop app and the `paper-review.local` pretty URL are macOS-only.
 </details>
 
 <details>

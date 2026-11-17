@@ -61,8 +61,8 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  macOS 메뉴바 앱 (rumps)  ── LaunchAgent로 상시 유지          │
-│     └─ FastAPI 서버를 서브프로세스로 관리 (start/stop/restart) │
+│  macOS 데스크톱 앱 (pywebview)  ── 실행 중일 때만 메뉴바 아이콘 │
+│     └─ FastAPI 서버를 앱 프로세스 안에서 실행                 │
 └───────────────┬─────────────────────────────────────────────┘
                 │ http://localhost:7300  (+ LAN: 0.0.0.0)
         ┌───────▼────────┐        ┌──────────────────────────┐
@@ -75,7 +75,7 @@
         ┌───────▼──────────────────────────────▼──────────────┐
         │  Python 패키지  paper_review/                          │
         │   cli.py · server/(app,ingest,analyze,chat,tags,save) │
-        │   publish/(parser,transform) · workbench.py · menubar │
+        │   publish/(parser,transform) · workbench.py · statusitem │
         │   _paper_reader/  ← 흡수한 paper-reader-v8 엔진        │
         └───────┬──────────────────────────────────────────────┘
                 │ spawn `claude -p` (headless)
@@ -99,7 +99,7 @@
 
 ### 3-2. 기술 스택
 
-- **백엔드**: Python, FastAPI, uvicorn, asyncio(서브프로세스), rumps(메뉴바)
+- **백엔드**: Python, FastAPI, uvicorn, asyncio(서브프로세스), pywebview(데스크톱 앱)
 - **프런트**: 바닐라 JS (빌드 스텝 없음), marked(마크다운), KaTeX(수식), Toast UI Editor(WYSIWYG)
 - **LLM**: Claude Code 헤드리스 (`claude -p`, stream-json) — 분석/채팅/자동 태그
 - **저장**: 파일시스템이 곧 DB. `workbench.md`가 단일 진실 소스(single source of truth)

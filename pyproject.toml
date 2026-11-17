@@ -17,7 +17,6 @@ dependencies = [
     "pypdf>=4.0",
     "pypdfium2>=4.0",
     "python-multipart>=0.0.9",
-    "rumps>=0.4; sys_platform == 'darwin'",
     "pywebview>=5.0; sys_platform == 'darwin'",
 ]
 

@@ -262,22 +262,6 @@ def serve(host: str, port: int) -> None:
 
 
 @main.command()
-@click.option("--port", default=DEFAULT_PORT, type=int)
-@click.option(
-    "--auto-open/--no-auto-open",
-    default=False,
-    help="Open the gallery in browser when the server starts.",
-)
-def menubar(port: int, auto_open: bool) -> None:
-    """Run the macOS menubar app (server + click-to-open gallery)."""
-    if sys.platform != "darwin":
-        raise click.ClickException("menubar mode is macOS-only.")
-    from .menubar import PaperReviewMenubarApp
-
-    PaperReviewMenubarApp(port=port, auto_open=auto_open).run()
-
-
-@main.command()
 def app() -> None:
     """Launch the desktop app (native window over the local server)."""
     from .app import run_app

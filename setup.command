@@ -3,13 +3,13 @@
 #
 # For non-developers: download this repo (GitHub → Code → Download ZIP), unzip,
 # then double-click this file in Finder. It installs everything and builds the
-# launcher app. (Gatekeeper may block the first double-click — right-click the
+# desktop app. (Gatekeeper may block the first double-click — right-click the
 # file → Open → Open.)
 #
 # Equivalent to running, in order:
 #   uv venv && uv pip install -e .
 #   bash install-skills.sh
-#   bash install-launcher.sh --apps
+#   bash packaging/build.sh && bash packaging/install-app.sh
 #
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -52,10 +52,11 @@ say "Linking Claude Code skills"
 bash install-skills.sh
 ok "skills linked"
 
-# 4) Double-click launcher app --------------------------------------------------
-say "Building the launcher app"
-bash install-launcher.sh --apps
-ok "launcher app ready (see the line above for its location)"
+# 4) Desktop app ---------------------------------------------------------------
+say "Building the desktop app"
+bash packaging/build.sh
+bash packaging/install-app.sh
+ok "paper-review.app installed in /Applications"
 
 # 5) Claude Code CLI check (needed for review/chat) -----------------------------
 say "Checking for the Claude Code CLI"
@@ -68,5 +69,4 @@ fi
 
 echo ""
 ok "Setup complete."
-echo "Next: double-click paper-review.app (in this folder or ~/Applications)."
-echo "A ◫ icon appears in the menubar → Open Gallery → paste a link to review."
+echo "Next: open paper-review from /Applications and paste a link to review."

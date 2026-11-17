@@ -1,9 +1,9 @@
 """Menubar status item for the desktop app.
 
-The standalone `paper-review menubar` (rumps) runs its own NSApplication, so it
-can't be reused here — the .app already has one, driven by pywebview. This adds
-an NSStatusItem to that existing app instead, so opening the app puts an icon in
-the menubar as well as the Dock.
+The .app already runs an NSApplication, driven by pywebview, so this adds an
+NSStatusItem to it: opening the app puts an icon in the menubar as well as the
+Dock. (A separate login-time menubar agent used to run its own server too; it
+duplicated the app and kept a second, often stale, copy of the server alive.)
 
 Everything AppKit touches has to happen on the main thread; `install()` may be
 called from the boot thread and hops over by itself.
@@ -11,7 +11,9 @@ called from the boot thread and hops over by itself.
 
 from __future__ import annotations
 
+import sys
 import webbrowser
+from pathlib import Path
 
 # Strong refs: an NSStatusItem released by Python vanishes from the menubar.
 _alive: list = []
@@ -31,9 +33,24 @@ def _log(msg: str) -> None:
         pass
 
 
-def _icon():
-    from .menubar import _icon_path
+def _icon_path() -> Path | None:
+    """Menubar template icon. The frozen .app carries assets/ inside _MEIPASS,
+    a source checkout has it in the repo; _assets/ is where it used to live."""
+    from . import SERVICE_ROOT
 
+    roots = []
+    if getattr(sys, "frozen", False):
+        roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
+    roots += [Path(__file__).resolve().parents[2], SERVICE_ROOT]
+    for root in roots:
+        for rel in ("assets/menubar-icon.png", "_assets/menubar-icon.png"):
+            p = root / rel
+            if p.exists():
+                return p
+    return None
+
+
+def _icon():
     p = _icon_path()
     _log(f"icon path={p}")
     if p is None:

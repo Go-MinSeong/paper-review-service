@@ -28,8 +28,8 @@ datas = [
     (os.path.join(SRC, "server", "templates"), "paper_review/server/templates"),
     (os.path.join(SRC, "server", "illustration_groups.json"), "paper_review/server"),
     (os.path.join(ROOT, "skills"), "skills"),
-    # menubar template icon — `paper-review menubar` runs from the frozen
-    # binary too, and without this it fell back to a "◫" text title
+    # menubar template icon for the app's status item; without it the item
+    # falls back to a "◫" text title
     (os.path.join(ROOT, "assets"), "assets"),
 ]
 # Characters you may not redistribute stay out of the shipped app. They live in
@@ -60,7 +60,7 @@ if os.path.isdir(_vs):
 hiddenimports = []
 binaries = []
 for pkg in (
-    "trafilatura", "lxml", "pypdfium2", "bs4", "webview", "rumps", "PIL",
+    "trafilatura", "lxml", "pypdfium2", "bs4", "webview", "PIL",
     "pypdf", "httpx", "httpcore", "h11", "certifi", "charset_normalizer",
     "courlan", "justext", "htmldate", "dateparser",
 ):
