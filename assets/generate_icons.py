@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate the Paper Review app and menu bar icons with Pillow.
+"""Generate the Paper Review app icon with Pillow.
 
     .venv/bin/python assets/generate_icons.py
-    → app_icon.png (1024x1024), menubar-icon.png (18x18), @2x (36x36)
+    → app_icon.png (1024x1024)
 
 packaging/build.sh converts app_icon.png to .icns.
 """
@@ -61,57 +61,9 @@ def _draw_app_icon() -> None:
     image.save(HERE / "app_icon.png")
 
 
-def _draw_menubar_icon(px: int) -> Image.Image:
-    scale = px / 18
-    image = Image.new("RGBA", (px, px), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    x0, y0 = round(2.5 * scale), round(1.5 * scale)
-    x1, y1 = px - x0, px - y0
-    draw.rounded_rectangle(
-        (x0, y0, x1, y1), radius=max(1, round(3 * scale)), fill=(0, 0, 0, 255)
-    )
-    # Knock out two text lines and a check so macOS can tint the template glyph.
-    line_w = max(1, round(1.5 * scale))
-    draw.rounded_rectangle(
-        (
-            round(5 * scale),
-            round(5 * scale),
-            round(13 * scale),
-            round(5 * scale) + line_w,
-        ),
-        radius=1,
-        fill=(0, 0, 0, 0),
-    )
-    draw.rounded_rectangle(
-        (
-            round(5 * scale),
-            round(8 * scale),
-            round(10 * scale),
-            round(8 * scale) + line_w,
-        ),
-        radius=1,
-        fill=(0, 0, 0, 0),
-    )
-    draw.line(
-        (
-            round(5 * scale),
-            round(12 * scale),
-            round(7 * scale),
-            round(14 * scale),
-            round(12 * scale),
-            round(11 * scale),
-        ),
-        fill=(0, 0, 0, 0),
-        width=max(1, round(1.5 * scale)),
-    )
-    return image
-
-
 def main() -> None:
     _draw_app_icon()
-    for px, name in ((18, "menubar-icon.png"), (36, "menubar-icon@2x.png")):
-        _draw_menubar_icon(px).save(HERE / name)
-    print("생성: app_icon.png, menubar-icon.png, menubar-icon@2x.png")
+    print("생성: app_icon.png")
 
 
 if __name__ == "__main__":
